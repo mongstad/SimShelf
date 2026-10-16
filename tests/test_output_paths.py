@@ -83,6 +83,7 @@ def test_output_review_authorization_and_capture_root_constraints(project):
 def test_mismatch_aligned_capture_partial_failure_and_backup(project, tmp_path):
     store, sim, root, source = project
     source.write_text('''import sys
+from pathlib import Path
 SIMSHELF_VERSION = "1.0"
 target = Path(sys.argv[1])
 target.parent.mkdir(parents=True, exist_ok=True)

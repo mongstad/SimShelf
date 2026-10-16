@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { ArgumentEditor } from "./ArgumentEditor";
 import { argumentError, formatCommand } from "./arguments";
 import { api } from "./api";
+import { InterpreterPicker } from "./InterpreterPicker";
 import { OutputPaths } from "./OutputPaths";
 import type { Simulation, OutputMapping, OutputReview } from "./types";
 
@@ -213,22 +214,14 @@ export function LaunchSimulation({
         >
           Update registered entry
         </button>
-        <label>
-          Python interpreter
-          <input
-            required
-            placeholder="/path/to/environment/bin/python"
-            value={interpreter}
-            onChange={(e) => {
-              setInterpreter(e.target.value);
-              edited();
-            }}
-          />
-          <small>
-            Choose the existing environment used by your simulation. Validation
-            runs only its Python version check; no packages are installed.
-          </small>
-        </label>
+        <InterpreterPicker
+          simulationId={simulation.id}
+          value={interpreter}
+          change={(next) => {
+            setInterpreter(next);
+            edited();
+          }}
+        />
         <div className="form-grid">
           <label>
             Working directory

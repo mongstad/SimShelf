@@ -24,6 +24,7 @@ from .source import blob_path
 from .store import Store
 from .portal import PortalJobs, execution_settings
 from .output_paths import output_review
+from .interpreters import discovery, probe_interpreter, check_dependencies
 
 
 class SimulationInput(BaseModel):
@@ -38,6 +39,12 @@ class SimulationUpdate(BaseModel):
     config: dict | None = None
     name: str | None = None
     description: str | None = None
+
+
+class InterpreterInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    interpreter: str
+    confirmed: bool = False
 
 
 class OutputInput(BaseModel):
@@ -145,6 +152,24 @@ def create_app(workspace=None) -> FastAPI:
     @app.get("/api/simulations/{ident}/versions")
     def versions(ident: str):
         return store.versions(ident)
+
+    @app.get("/api/simulations/{ident}/interpreters")
+    def list_interpreters(ident: str):
+        return discovery(store.simulation(ident))
+
+    @app.post("/api/simulations/{ident}/interpreter/check")
+    def check_interpreter(ident: str, body: InterpreterInput):
+        store.simulation(ident)
+        if not body.confirmed:
+            raise ValueError("Confirm that you trust this executable before checking it")
+        return probe_interpreter(body.interpreter)
+
+    @app.post("/api/simulations/{ident}/dependencies/check")
+    def dependency_check(ident: str, body: InterpreterInput):
+        simulation = store.simulation(ident)
+        if not body.confirmed:
+            raise ValueError("Confirm that you trust this executable before checking dependencies")
+        return check_dependencies(simulation, body.interpreter)
 
     @app.post("/api/simulations/{ident}/execution/outputs")
     def inspect_outputs(ident: str, body: OutputInput):

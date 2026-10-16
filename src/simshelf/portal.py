@@ -15,6 +15,7 @@ from .common import contained
 from .config import validate_config
 from .store import Store
 from .output_paths import output_review
+from .interpreters import probe_interpreter
 
 
 def execution_settings(simulation: dict, data: dict, *, probe=False) -> dict:
@@ -58,15 +59,10 @@ def execution_settings(simulation: dict, data: dict, *, probe=False) -> dict:
               "cwd": str(directory), "output_path": str(contained(root, output))}
     if probe:
         try:
-            check = subprocess.run([str(python), "-I", "-S", "-c",
-                                    "import sys,json; print(json.dumps({'version':sys.version.split()[0], 'prefix':sys.prefix}))"],
-                                   shell=False, capture_output=True, text=True, timeout=3)
-            info = json.loads(check.stdout) if check.returncode == 0 else None
-            if not isinstance(info, dict) or not isinstance(info.get("version"), str):
-                raise ValueError("Interpreter did not report a Python version")
-        except (OSError, subprocess.SubprocessError, ValueError) as exc:
+            info = probe_interpreter(str(python), timeout=3)
+        except (OSError, ValueError) as exc:
             raise ValueError(f"Could not validate Python interpreter: {exc}. Choose a working Python environment.") from exc
-        result["validation"] = {**info, "message": "Python responds. Script dependencies are checked only when the run starts."}
+        result["validation"] = {**info, "message": "Python responds. Dependency metadata checks are advisory; imports are checked only when the script starts."}
     return result
 
 
