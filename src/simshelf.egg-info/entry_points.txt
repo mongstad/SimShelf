@@ -1,0 +1,2 @@
+[console_scripts]
+simshelf = simshelf.cli:main

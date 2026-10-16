@@ -1,0 +1,34 @@
+[simulation]
+name = "Scalar field (example)"
+description = "A small damped wave simulation. Real runs, generated locally."
+entrypoint = "simulate.py"
+version_file = "simulate.py"
+
+[source]
+include = ["*.py", "*.toml"]
+exclude = ["outputs/**"]
+
+[capture]
+output_dir = "outputs"
+max_file_mb = 25
+max_run_mb = 200
+
+[[capture.rules]]
+pattern = "**/*.png"
+action = "copy"
+
+[[capture.rules]]
+pattern = "**/*.csv"
+action = "copy"
+
+[[capture.rules]]
+pattern = "**/*.json"
+action = "copy"
+
+[[capture.rules]]
+pattern = "**/*.bin"
+action = "reference"
+
+[[capture.rules]]
+pattern = "**/*"
+action = "ignore"
