@@ -23,6 +23,7 @@ from .common import clean_name
 from .source import blob_path
 from .store import Store
 from .portal import PortalJobs, execution_settings
+from .output_paths import output_review
 
 
 class SimulationInput(BaseModel):
@@ -39,15 +40,20 @@ class SimulationUpdate(BaseModel):
     description: str | None = None
 
 
-class ExecutionInput(BaseModel):
+class OutputInput(BaseModel):
     model_config = {"extra": "forbid"}
-    interpreter: str
     cwd: str = "."
     arguments: list[str] = Field(default_factory=list)
     output_dir: str
+    output_mappings: list[dict] = Field(default_factory=list)
+
+
+class ExecutionInput(OutputInput):
+    interpreter: str
 
 
 class LaunchInput(ExecutionInput):
+    acknowledge_outputs: bool = False
     name: str | None = Field(None, min_length=1, max_length=160)
 
 
@@ -140,6 +146,10 @@ def create_app(workspace=None) -> FastAPI:
     def versions(ident: str):
         return store.versions(ident)
 
+    @app.post("/api/simulations/{ident}/execution/outputs")
+    def inspect_outputs(ident: str, body: OutputInput):
+        return output_review(store.simulation(ident), body.cwd, body.arguments, body.output_dir, body.output_mappings)
+
     @app.post("/api/simulations/{ident}/execution/validate")
     def validate_execution(ident: str, body: ExecutionInput):
         return execution_settings(store.simulation(ident), body.model_dump(), probe=True)
@@ -151,7 +161,7 @@ def create_app(workspace=None) -> FastAPI:
 
     @app.post("/api/simulations/{ident}/launch", status_code=201)
     def launch(ident: str, body: LaunchInput):
-        return jobs.start(ident, body.model_dump(exclude={"name"}), body.name)
+        return jobs.start(ident, body.model_dump(exclude={"name", "acknowledge_outputs"}), body.name, body.acknowledge_outputs)
 
     @app.post("/api/runs/{ident}/stop", status_code=202)
     def stop_run(ident: str):

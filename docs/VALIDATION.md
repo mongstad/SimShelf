@@ -84,3 +84,9 @@ checks.
 See [issue #11 argument editor](validation/issue-11-argument-editor.md) for paired
 rows, paste tokenization, exact argv round trips, browser checks and packaged
 assets. Earlier reports above retain their original review-time wording.
+
+## Later output destination validation
+
+See [issue #14 output destinations](validation/issue-14-output-paths.md) for
+explicit mappings, mismatch acknowledgement, capture-inspection wording,
+retention counts, browser checks and installed-package verification.

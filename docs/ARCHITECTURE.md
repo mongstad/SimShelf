@@ -48,6 +48,27 @@ never changes source bytes or the registered version file. Settings changes affe
 future launches only; each run keeps its exact command/cwd/capture configuration.
 Backups include settings, but machine-local paths must be checked after restore.
 
+Optional execution `output_mappings` declare at most 32 file/directory targets.
+Each records either an argv index plus its exact token (whole token or text after
+`=`), or a fixed path. Changed tokens require explicit remapping. The same-origin
+`execution/outputs` POST inspects only declared path metadata/ancestry and capture
+configuration; it does not probe Python, run source, scan extra roots, or mutate
+argv. Common flag names are suggestions requiring explicit file/directory
+confirmation, not inferred output semantics. Relative declarations resolve from
+cwd without tilde/environment expansion, preserving symlink/parent traversal.
+Targets outside capture or through skipped symlinks require a per-launch
+acknowledgement; both server and supervisor recheck before recording. A missing
+mapping leaves actual output coverage unknown and does not block ordinary runs.
+
+Settings preserve mappings in existing simulation JSON. Each portal run freezes
+its launch-time path review and acknowledgement in `launch`, alongside the
+existing immutable capture root/configuration. This is an expectation, not proof
+of output creation or retention. Capture storage, rules, limits, overlap ownership
+and backup membership remain unchanged. UI counts derive from existing automatic
+capture counts; old records without counts remain explicitly unknown. No extra
+capture roots or post-run external-reference registration are introduced: these
+would need separate ownership, provenance and backup rules.
+
 Synchronous API handlers run in FastAPI's thread pool. A server-owned supervisor
 process calls the same `record_command` path as the CLI; it reserves capture roots
 through the existing transactional start event. That supervisor is the recorded

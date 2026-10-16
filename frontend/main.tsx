@@ -1,3 +1,4 @@
+import { CaptureSummary } from "./CaptureSummary";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { api, connect, downloadBackup, uploadFile } from "./api";
@@ -1131,7 +1132,7 @@ function RunDetails({
                 </dd>
                 <dt>Exit code</dt>
                 <dd>{run.exit_code ?? "—"}</dd>
-                <dt>Output capture</dt>
+                <dt>Capture inspection</dt>
                 <dd>
                   <span
                     className={
@@ -1199,6 +1200,7 @@ function RunDetails({
               <p className="preserve-lines">{run.notes}</p>
             </section>
           )}
+          <CaptureSummary run={run} />
           {run.capture_errors?.length > 0 && (
             <section className="surface">
               <h3>Capture details</h3>
@@ -1455,12 +1457,7 @@ function RunDetails({
               No files were captured for this run.
             </div>
           )}
-          {run.capture_counts && (
-            <p className="muted small">
-              {run.capture_counts.ignored || 0} ignored by rules ·{" "}
-              {run.capture_counts.unchanged || 0} unchanged files excluded
-            </p>
-          )}
+          <CaptureSummary run={run} />
         </section>
       )}
       {tab === "source" && (

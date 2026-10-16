@@ -23,6 +23,8 @@ def main():
         threading.Thread(target=watch, daemon=True).start()
         store = Store(request["workspace"])
         plan = execution_settings(store.simulation(request["simulation"]), request["settings"])
+        if plan["output_review"]["requires_acknowledgement"] and not request.get("acknowledge_outputs", False):
+            raise ValueError("Output coverage changed; review output paths before launching")
         def started(run_id):
             try:
                 print(json.dumps({"run_id": run_id}), flush=True)
@@ -30,7 +32,7 @@ def main():
                 cancel.set()
         record_command(store, request["simulation"], plan["command"], name=request["name"],
                        cwd=plan["cwd"], output_dir=plan["settings"]["output_dir"],
-                       cancel=cancel, on_started=started, quiet=True, launch={"kind": "portal"})
+                       cancel=cancel, on_started=started, quiet=True, launch={"kind": "portal", "output_review": plan["output_review"], "outputs_acknowledged": request.get("acknowledge_outputs", False)})
     except Exception as exc:
         try:
             print(json.dumps({"error": str(exc)}), flush=True)
