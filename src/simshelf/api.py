@@ -24,6 +24,7 @@ from .source import blob_path
 from .store import Store
 from .portal import PortalJobs, execution_settings
 from .output_paths import output_review
+from .parameters import discover_parameters
 from .interpreters import discovery, probe_interpreter, check_dependencies
 
 
@@ -152,6 +153,10 @@ def create_app(workspace=None) -> FastAPI:
     @app.get("/api/simulations/{ident}/versions")
     def versions(ident: str):
         return store.versions(ident)
+
+    @app.get("/api/simulations/{ident}/parameters")
+    def parameter_discovery(ident: str):
+        return discover_parameters(store.simulation(ident))
 
     @app.get("/api/simulations/{ident}/interpreters")
     def list_interpreters(ident: str):

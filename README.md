@@ -114,6 +114,17 @@ The existing **File capture** rules control copies/references/ignored files. Run
 with overlapping capture folders are rejected; distinct folders allow concurrent
 runs. SimShelf does not redirect arbitrary script writes or rewrite source.
 
+### Discover available parameters
+
+**Start simulation → Discovered parameters** reads supported static argparse
+options or an optional project schema without executing code. Defaults are shown
+for reference; select only the overrides you want, enter values and choose
+**Add selected overrides to arguments**. Review Exact argv before launching.
+Existing saved/manual arguments are preserved; unsupported/repeated/positional
+options stay in the manual editor. Rescan warns about changed declarations without
+rewriting arguments. See [parameter discovery](docs/PARAMETER_DISCOVERY.md) for
+supported cases, schema examples, limitations and handling stale definitions.
+
 ### Choose and check a Python environment
 
 **Rescan interpreters** refreshes a bounded list: saved selection, project `.venv`

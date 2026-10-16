@@ -1848,3 +1848,8 @@ details label {
   padding: 8px 0;
   border-bottom: 1px solid var(--line);
 }
+
+.discovered-parameters { min-width: 0; border-top: 1px solid var(--border); padding-top: 16px; }
+.parameter-card { padding: 12px; margin: 10px 0; border: 1px solid var(--border); border-radius: 8px; overflow-wrap: anywhere; }
+.parameter-card p { margin: 6px 0; }
+.parameter-card input:not([type="checkbox"]) { width: 100%; min-width: 0; }

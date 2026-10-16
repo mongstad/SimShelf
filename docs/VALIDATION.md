@@ -102,3 +102,9 @@ browser/package checks, limitations and real NumPy/CuPy owner-verification steps
 See [issue #18 application versioning](validation/issue-18-application-version.md)
 for the authoritative version, accepted-main increment checks, source/wheel
 consistency and existing portal-label validation. Earlier evidence is unchanged.
+
+## Later parameter discovery validation
+
+See [issue #16 parameter discovery](validation/issue-16-parameters.md) for static
+and explicit-schema discovery, opt-in argv overrides, source/installed browser
+checks and scientific-default limitations. Earlier reports are preserved.

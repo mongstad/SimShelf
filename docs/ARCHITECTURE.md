@@ -113,6 +113,17 @@ not stored as a second command representation. Paste import tokenizes quotes and
 escapes locally, without expansion or shell execution, and requires a reviewed
 replacement. Pending paste and argument edits invalidate launch validation.
 
+Parameter discovery is a read-only GET over bounded registered entry bytes or an
+explicit `simshelf-arguments.json` file. It parses AST/JSON, never imports modules
+or runs help commands. Declarations have a content fingerprint for in-dialog
+rescan warnings; neither declarations nor drafts are persisted. The optional
+schema takes precedence, with explicit failures rather than silent fallback.
+Unsupported/conflicting definitions require manual argv editing. Selected overrides
+are explicitly appended to the existing argv editor; defaults add no tokens.
+Pending overrides block save/launch, and applied argv invalidates validation.
+No source, scientific version, journal, capture or completed-record changes occur.
+See [parameter discovery](PARAMETER_DISCOVERY.md) for limits and supported syntax.
+
 The browser sends argument arrays, never shell code. Execution is exactly
 `[selected_python, registered_absolute_script, *arguments]` with `shell=False`.
 There is no browser-supplied Python `-c`, shell, scheduler or remote-command mode.
