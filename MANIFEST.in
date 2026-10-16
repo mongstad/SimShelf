@@ -1,5 +1,6 @@
 include README.md pyproject.toml package.json pnpm-lock.yaml pnpm-workspace.yaml
-include tsconfig.json .npmrc start.sh requirements-dev.lock
+include tsconfig.json start.sh requirements-dev.lock
+include LICENSE THIRD_PARTY_NOTICES.md
 recursive-include frontend *.tsx *.ts *.css *.mjs
 recursive-include docs *.md
 recursive-include examples *.py *.toml

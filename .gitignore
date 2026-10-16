@@ -28,6 +28,11 @@ pip-wheel-metadata/
 # Local SimShelf data — never commit research records
 .simshelf/
 .demo-workspace/
+.qa-workspace/
+.simshelf-*/
+examples/scalar_field/outputs/
+backups/
+simshelf-backup*.zip
 *.sqlite
 *.sqlite3
 *.sqlite3-shm
@@ -40,6 +45,8 @@ pip-wheel-metadata/
 test-output/
 test-outputs/
 .local-evidence/
+evidence/
+docs/screenshots/
 .tmp/
 .cache/
 *.log
@@ -51,6 +58,10 @@ test-outputs/
 !.env.sample
 *.pem
 *.key
+
+.aws/
+.codex/
+.agents/
 
 # Node dependencies and caches
 node_modules/
