@@ -116,14 +116,15 @@ runs. SimShelf does not redirect arbitrary script writes or rewrite source.
 
 ### Discover available parameters
 
-**Start simulation → Discovered parameters** reads supported static argparse
-options or an optional project schema without executing code. Defaults are shown
-for reference; select only the overrides you want, enter values and choose
-**Add selected overrides to arguments**. Review Exact argv before launching.
-Existing saved/manual arguments are preserved; unsupported/repeated/positional
-options stay in the manual editor. Rescan warns about changed declarations without
-rewriting arguments. See [parameter discovery](docs/PARAMETER_DISCOVERY.md) for
-supported cases, schema examples, limitations and handling stale definitions.
+**Start simulation → Simulation parameters** combines discovered options and saved
+arguments in one editor. Supported parameters show a name/value pair, concise
+help and a default hint. Enable optional parameters to pass them; disabled defaults
+contribute no arguments. Boolean flags need no value. Required options and known
+conflicts are checked before saving/launching. Saved aliases, equals/separate forms
+and order remain intact; unknown, repeated or positional arguments use manual rows
+in the same editor. Rescan preserves edits and warns about changed declarations.
+See [simulation parameters](docs/PARAMETER_DISCOVERY.md) for schema examples,
+manual fallback and validation limits.
 
 ### Choose and check a Python environment
 

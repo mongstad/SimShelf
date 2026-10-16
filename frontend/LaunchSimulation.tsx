@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { DiscoveredParameters } from "./DiscoveredParameters";
 import { ArgumentEditor } from "./ArgumentEditor";
 import { argumentError, formatCommand } from "./arguments";
 import { api } from "./api";
@@ -30,7 +29,7 @@ export function LaunchSimulation({
   const [cwd, setCwd] = useState(initial?.cwd || ".");
   const [args, setArgs] = useState<string[]>(initial?.arguments || []);
   const [pastePending, setPastePending] = useState(false);
-  const [parameterPending, setParameterPending] = useState(false);
+  const [parameterError, setParameterError] = useState("");
   const argsError = argumentError(args);
   const preview = [
     interpreter || "(select Python)",
@@ -92,7 +91,7 @@ export function LaunchSimulation({
     setNotice("");
   }
   async function validate(save: boolean) {
-    if (pastePending || parameterPending || argsError) return;
+    if (pastePending || !!parameterError || argsError) return;
     setBusy(true);
     setError("");
     setNotice("");
@@ -132,7 +131,7 @@ export function LaunchSimulation({
       !plan ||
       busy ||
       pastePending ||
-      parameterPending ||
+      !!parameterError ||
       argsError ||
       !outputReview ||
       (outputReview.requires_acknowledgement && !acknowledge)
@@ -268,24 +267,15 @@ export function LaunchSimulation({
             capture.
           </small>
         </label>
-        <DiscoveredParameters
-          simulationId={simulation.id}
-          entry={simulation.entrypoint || ""}
-          args={args}
-          blocked={pastePending || entry !== simulation.entrypoint}
-          pending={(value) => {
-            setParameterPending(value);
-            if (value) edited();
-          }}
-          apply={(next) => {
-            setArgs(next);
-            setArgumentRevision(argumentRevision + 1);
-            edited();
-          }}
-        />
         <ArgumentEditor
           key={argumentRevision}
           initial={args}
+          simulationId={simulation.id}
+          entry={simulation.entrypoint || ""}
+          validation={(error) => {
+            setParameterError(error);
+            if (error) edited();
+          }}
           change={(next) => {
             setArgs(next);
             edited();
@@ -344,7 +334,7 @@ export function LaunchSimulation({
           <button
             type="button"
             disabled={
-              pastePending || parameterPending || !!argsError || !outputReview
+              pastePending || !!parameterError || !!argsError || !outputReview
             }
             onClick={() => validate(false)}
           >
@@ -353,7 +343,7 @@ export function LaunchSimulation({
           <button
             type="button"
             disabled={
-              pastePending || parameterPending || !!argsError || !outputReview
+              pastePending || !!parameterError || !!argsError || !outputReview
             }
             onClick={() => validate(true)}
           >
@@ -400,7 +390,7 @@ export function LaunchSimulation({
             busy ||
             !plan ||
             pastePending ||
-            parameterPending ||
+            !!parameterError ||
             !!argsError ||
             !outputReview ||
             (outputReview.requires_acknowledgement && !acknowledge)

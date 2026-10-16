@@ -107,3 +107,70 @@ preserved with manual-review guidance. Broader unrelated suites were not rerun.
    discovery metadata must not rewrite it. Check desktop/narrow presentation.
 6. Expect application version `0.1.0.2`. Review `docs/PARAMETER_DISCOVERY.md` limits.
    No release or next issue is authorized by this handoff.
+
+## Owner UX revision — unified editor (2026-10-17)
+
+This revision supersedes the separate Discovered parameters/Add overrides UX
+above; that report remains historical evidence. Application version stays
+`0.1.0.2` on the same issue branch and PR #22.
+
+The original argument editor is now the single **Simulation parameters** editor.
+Supported discovered options merge with saved rows, or appear unchecked when
+absent. Names appear left, values right with concise help/default/type/required
+hints. Flags have enablement without artificial values. No second list or pending
+Apply stage. Existing manual add/paste/pair/split/move/remove controls remain for
+unknown, repeated, positional and ambiguous constructs.
+
+The row model preserves saved alias, order and equals-vs-separate representation;
+normalization is display-only. Disabled options emit nothing and retain edited
+values within the dialog. Supported required values, missing values, simple
+numeric/choice errors, conflicting scalar values and values on flags prevent save/launch.
+Required positionals and ambiguous forms are identified for manual review, not
+guessed. Source/schema rescan preserves enabled argv and disabled edited values,
+including definitions removed, made unsupported and restored. New options are
+inserted before a positional `--` delimiter. Backend discovery and historical run
+storage are unchanged.
+
+Validation for the revision:
+
+- **39 Python tests passed**: parameter, portal and application-version tests;
+  one existing Starlette/httpx deprecation warning.
+- **22 frontend tests passed**, including ten unified-row cases plus existing
+  argument/interpreter/output tests. Covered initial disabled defaults, exact
+  aliases/equals/separate tokens, booleans followed by positionals, manual repeated
+  flags, ambiguous clusters/abbreviations, required/type/choice/conflict validation,
+  delimiter placement, identical/repeated booleans, disabled edited values and removed/unsupported/restored
+  declarations. TypeScript and final frontend build passed.
+- Source and installed-wheel Chromium checks passed: exactly one editor, no second
+  parameter list, missing required/value validation, disabled defaults, supported
+  name/value splitting without token changes, booleans without value inputs,
+  disabled edited value preserved through rescan, no duplicate saved options,
+  exact save/reopen and successful harmless simulation launch. Installed checks
+  also exercised explicit project-schema rescanning. Desktop/narrow layouts were
+  inspected; no dialog horizontal overflow or page errors.
+- Final wheel/sdist verification and fresh installed runtime checks passed, including
+  version `0.1.0.2`, required source/asset inclusion, no Git/Node on server PATH and
+  offline application construction after dependency installation. Bundled JS/CSS
+  rebuilt; third-party notices unchanged. No runtime dependency changes.
+
+During revision, the first external typecheck found a stale copy of the removed
+component in the disposable build directory; removing that copy resolved it.
+An added unsupported-declaration regression initially failed (20 passed, 1 failed),
+exposing loss of a disabled edited value. The reconciliation fix then passed all
+21 frontend tests. These failures were not hidden or attributed to user data.
+
+No GPU/real scientific workloads, other platforms/browsers or physical input tests.
+Unrelated exhaustive suites were not rerun. Required positional/custom parser
+semantics remain manual; client validation is advisory and does not replace the
+script parser or guarantee runtime defaults. Disabled values are dialog-local,
+not persisted. Temporary evidence is under `/tmp/simshelf22-*`.
+
+Owner verification: open Start simulation and confirm one Simulation parameters
+editor. Check an absent optional row is disabled and contributes no argv; enable
+and enter a value, then disable it again. Fill a required option and toggle a flag.
+Paste saved forms such as `--dt -0.25 --name="a b"` alongside script-appropriate
+manual repeated flags/positionals; inspect Exact argv, save/reopen and confirm no
+duplicate rows or token changes. Rescan changed disposable declarations/schema,
+including a removed/unsupported option with a disabled edited value. Finally run
+a harmless script and compare parsed results and the recorded command. Review
+compact desktop/narrow use; completed records must remain unchanged.

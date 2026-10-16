@@ -1849,7 +1849,14 @@ details label {
   border-bottom: 1px solid var(--line);
 }
 
-.discovered-parameters { min-width: 0; border-top: 1px solid var(--border); padding-top: 16px; }
-.parameter-card { padding: 12px; margin: 10px 0; border: 1px solid var(--border); border-radius: 8px; overflow-wrap: anywhere; }
-.parameter-card p { margin: 6px 0; }
-.parameter-card input:not([type="checkbox"]) { width: 100%; min-width: 0; }
+.parameter-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.parameter-heading h3 { margin: 0; }
+.parameter-row { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.parameter-row .argument-fields { align-items: center; }
+.parameter-row .check-label { margin: 0; flex-wrap: wrap; gap: 6px; }
+.parameter-row input:not([type="checkbox"]) { width: 100%; min-width: 0; }
+.parameter-hint { display: block; margin-top: 4px; overflow-wrap: anywhere; }
+.parameter-notes { margin: 8px 0; font-size: 12px; }
+
+.parameter-row .argument-fields > div { min-width: 0; }
+.parameter-row strong { overflow-wrap: anywhere; }

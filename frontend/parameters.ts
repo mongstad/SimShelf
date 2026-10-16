@@ -1,4 +1,3 @@
-import { argumentError } from "./arguments";
 export type Parameter = {
   flags: string[];
   name: string;
@@ -19,45 +18,26 @@ export type Discovery = {
   source: string;
   fingerprint: string | null;
 };
-export function present(args: string[], p: Parameter) {
-  return args.some((a) =>
-    p.flags.some(
-      (f) =>
-        a === f ||
-        a.startsWith(f + "=") ||
-        (f.length === 2 && a.startsWith(f) && a.length > 2),
-    ),
-  );
-}
 export function overrideTokens(p: Parameter, value: string): string[] {
   if (!p.supported) throw Error("Use the manual editor for " + p.name);
   if (p.action !== "store") return [p.name];
   if (p.type === "int" && !/^[+-]?\d+$/.test(value))
     throw Error(p.name + " needs an integer.");
-  if (p.type === "float" && (!value.trim() || !Number.isFinite(Number(value))))
+  if (
+    p.type === "float" &&
+    (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(value) ||
+      !Number.isFinite(Number(value)))
+  )
     throw Error(p.name + " needs a finite number.");
-  if (p.choices && !p.choices.some((c) => String(c) === value))
+  if (
+    p.choices &&
+    !p.choices.some((c) =>
+      p.type === "str"
+        ? typeof c === "string" && c === value
+        : typeof c === "number" && c === Number(value),
+    )
+  )
     throw Error(p.name + " needs one of the declared choices.");
   // Equals syntax protects values beginning with '-' and preserves empty/space tokens.
   return [p.name + "=" + value];
-}
-export function appendOverrides(
-  args: string[],
-  selected: { parameter: Parameter; value: string }[],
-) {
-  if (args.includes("--"))
-    throw Error(
-      "Arguments contain --; use the manual editor to preserve positional ordering.",
-    );
-  let result = [...args];
-  for (const { parameter, value } of selected) {
-    if (present(result, parameter))
-      throw Error(
-        parameter.name + " is already in runtime arguments; edit it below.",
-      );
-    result.push(...overrideTokens(parameter, value));
-  }
-  const error = argumentError(result);
-  if (error) throw Error(error);
-  return result;
 }

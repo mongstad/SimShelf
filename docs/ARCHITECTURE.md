@@ -118,9 +118,12 @@ explicit `simshelf-arguments.json` file. It parses AST/JSON, never imports modul
 or runs help commands. Declarations have a content fingerprint for in-dialog
 rescan warnings; neither declarations nor drafts are persisted. The optional
 schema takes precedence, with explicit failures rather than silent fallback.
-Unsupported/conflicting definitions require manual argv editing. Selected overrides
-are explicitly appended to the existing argv editor; defaults add no tokens.
-Pending overrides block save/launch, and applied argv invalidates validation.
+Unsupported/conflicting definitions require manual argv editing. Discovered metadata is merged into the existing argv editor without changing
+saved token representations/order. Missing optional rows are disabled; defaults
+add no tokens. Boolean flags remain valueless. Required supported values and
+reliable type/choice/duplicate conflicts block save/launch. Manual fallbacks preserve
+ambiguous and repeated argv; edits invalidate validation. Rescans preserve disabled
+edited values in the dialog; only enabled exact argv is persisted.
 No source, scientific version, journal, capture or completed-record changes occur.
 See [parameter discovery](PARAMETER_DISCOVERY.md) for limits and supported syntax.
 

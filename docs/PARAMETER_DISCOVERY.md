@@ -1,41 +1,54 @@
-# Discover simulation parameters
+# Simulation parameters
 
-Open **Start simulation → Discovered parameters**. SimShelf reads declarations
-without importing the simulation, probing its interpreter, running `--help`, or
-installing dependencies. Missing GPU libraries do not prevent static discovery.
+Open **Start simulation → Simulation parameters**. One editor combines discovered
+options with saved and manual arguments. SimShelf reads declarations without
+importing the simulation, probing its interpreter, running `--help`, or installing
+dependencies. Missing GPU libraries do not prevent static discovery.
 
-Each row shows aliases, help, type/choices, required state, source location and a
-known declared default or **unknown**. These are declarations, not resolved
-scientific values: scripts may compute different defaults during execution.
-Nothing is selected automatically and placeholders never become arguments.
+Supported parameters have their name on the left and value on the right, with
+concise help, required/optional status, type/choices and a declared default hint.
+The hint is not the resolved scientific value. No default is inserted into argv.
 
-1. Select an optional override and type its value, or select a supported boolean
-   flag. Required options also need deliberate entry; required positionals use
-   the manual editor.
-2. Choose **Add selected overrides to arguments**. Review **Exact argv**. Values
-   are emitted as `--option=value` (including empty strings, negative values and
-   spaces); no shell quoting/expansion occurs. Boolean flags contribute one token.
-3. Use **Runtime arguments** to edit/remove added options, pass repeatable options
-   or positionals, or paste a complete command's arguments. Existing aliases and
-   values are never replaced by discovery. Options already present must be edited
-   there; discovery conservatively detects short attached aliases as well.
-4. Add or clear pending overrides before saving/validating/launching. Save settings
-   stores only the existing exact argv representation, not a second parameter model.
+- Enable an optional parameter's checkbox, then enter the value you want. Disable
+  it to omit all its tokens; its edited value stays in this open dialog. Disabled
+  values are not saved as execution arguments and do not survive closing/reopening.
+- Required supported options are identified and must be supplied. Missing values,
+  invalid simple types/choices, values on boolean flags and conflicting known scalar
+  values block validation/save/launch. Explicit empty string arguments remain
+  distinct from missing values and are allowed for string options.
+- Boolean flags use a checkbox without an artificial value. A required boolean
+  flag also needs deliberate enablement.
+- Saved `--name=value` and `--name value` forms appear in separate name/value
+  fields while retaining their exact original tokens, alias and order. A discovered
+  option already present is not added again. Newly enabled options use equals
+  syntax; use Exact argv to review every change.
+- Unknown/repeated/positional/ambiguous tokens stay as clearly labeled manual rows
+  in this same editor, with the original add, remove, pair, split, move and paste
+  controls. Repeated options remain intact for manual review. Conflicting scalar values
+  are not silently resolved by last-wins; identical values and repeated boolean
+  flags remain valid. Unsupported repeatable actions can repeat normally.
 
-**Rescan parameters** rereads declarations without altering argv or pending text.
-A content change produces a review warning; disappeared pending options prevent
-application until cleared. Removed/unknown saved options remain in the manual
-editor: review them against the current declarations. A new dialog has no previous
-scan baseline, so it cannot infer when a saved argument was last valid. Discovery
-never rewrites historical commands or resolves every possible parser conflict.
+There is no separate discovered-parameter list, pending-override stage or Apply
+button. Edits immediately update the exact command preview and invalidate launch
+validation. Paste still requires explicit Replace or Cancel. Only the existing
+ordered argv array is saved; historical run commands are never rewritten.
 
-If argv contains the `--` positional delimiter, use the manual editor; automatic
-append cannot safely choose an insertion point. Repeated flags, positionals,
+**Rescan parameters** updates metadata without rewriting argv or disabled edited
+values. Changed declaration bytes produce a review warning. Removed definitions
+fall back to manual rows; disabled edited values remain disabled. A new dialog has
+no previous scan baseline and cannot infer when a saved argument was last valid.
+The optional schema retains precedence, with source/warnings in expandable inline
+notes. Unsupported required definitions are identified for manual review, not
+claimed to be automatically validated.
+
+Newly enabled options are placed before an existing `--` positional delimiter;
+existing tokens keep their relative order. Attached short flags, abbreviations,
 custom actions/types, multi-value arguments, groups/subparsers, multiple parser
-instances, parser mutations and dynamic definitions use honest manual fallback.
-Even ordinary static definitions are suggestions: conditional code, imports,
-shadowed names and runtime changes can alter their meaning. Confirm the preview
-and script behavior. No optional executable help fallback is implemented.
+instances, parser mutations and dynamic definitions use manual fallback. Required
+positionals are identified but not automatically assigned or counted: unknown
+options may consume tokens, so guessing could corrupt the intended command.
+Static definitions are advisory; conditional code, imports, shadowed names and
+runtime changes can alter their meaning. No executable help fallback is offered.
 
 ## Supported static argparse subset
 
