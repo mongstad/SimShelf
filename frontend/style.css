@@ -1830,3 +1830,21 @@ details label {
 .capture-summary {
   margin: 16px 0;
 }
+
+.interpreter-picker select {
+  width: 100%;
+}
+.interpreter-picker code,
+.dependency-results {
+  overflow-wrap: anywhere;
+}
+.dependency-results {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 12px;
+}
+.dependency-row {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}

@@ -36,9 +36,38 @@ The portal extends the original Stage 1 boundary with explicit local Python-scri
 execution. Registration and GET requests do not execute code. Token-protected,
 same-origin POST/PUT actions validate an explicitly selected Python interpreter,
 save execution settings, launch, or request stop. Validation invokes only an
-isolated Python version probe (`-I -S`), with a three-second timeout, not the script.
+isolated Python version probe (`-I -S -B`), with a three-second timeout, not the script.
 Interpreters are existing absolute Python executable paths; symlink spelling is
 retained so virtual environments keep their identity. No package installation.
+
+Interpreter discovery is passive and Linux-validated: a bounded set of project,
+saved, PATH, environment-hint and Conda registry paths is inspected without
+running executables or activation scripts. It returns at most 64 candidates,
+examines at most 32 PATH directories and 32 registry lines, ignores relative PATH
+entries, and preserves virtual-environment spelling/identity while deduplicating
+aliases. SimShelf's runtime is marked separately and never auto-selected.
+
+Explicit, token-protected `interpreter/check` and `dependencies/check` POSTs
+require a confirmed selection. A fixed standard-library-only probe runs via
+argv with `shell=False`, isolated startup, no bytecode writes and cwd `/`.
+Standalone checks have a five-second/512-KB output budget; launch validation
+reuses the same version probe with its existing three-second budget. Probe process
+groups are cleaned up on timeout/error. Executable trust remains the user's
+responsibility; these flags are not a sandbox for a malicious interpreter.
+
+Dependency probing reads bounded `.dist-info/METADATA` files from the selected
+interpreter's standard site-package locations, without importing packages or
+processing startup hooks. At most 4,000 directory entries and 256 KB per metadata
+file are inspected. Partial/legacy/path-hook metadata is reported conservatively.
+Static requirements/TOML files are limited to 256 KB each and 256 requirements;
+symlink declarations and nested/URL/editable/Conda solver inputs are not followed.
+The server's `packaging` library parses requirements and version constraints;
+markers use a complete environment supplied by the target probe, never a fallback
+to server metadata. No declarations means unknown requirements, not readiness.
+GPU access, imports and actual execution remain untested by metadata checks.
+Results are ephemeral UI advice; only the existing selected interpreter path is
+persisted. No recording, snapshot, schema, environment provisioning or backup
+contract changes are introduced.
 
 Execution settings live in the simulation's existing JSON record: interpreter,
 relative working directory, argv tokens and relative capture folder. Old records

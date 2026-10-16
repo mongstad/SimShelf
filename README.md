@@ -64,9 +64,13 @@ Once SimShelf is running, no terminal recording command is needed:
 
 1. Choose **Add simulation**, enter the existing local source folder and its Python
    entry file (relative to that folder), and add it. Registration never executes code.
-2. Select the simulation in the sidebar and choose **Start simulation**. Enter the
-   absolute path to its existing Python interpreter, for example a virtual
-   environment's `bin/python`. Only select code and interpreters you trust.
+2. Select the simulation in the sidebar and choose **Start simulation**. Choose
+   an existing interpreter from **Detected interpreters**, or use **Enter custom
+   path**. Project environments and system/PATH candidates are listed without
+   running them. Your saved selection is preserved; nothing is selected for you.
+   Only select code and interpreters you trust. **Check selected Python** reports
+   its version; optional **Check dependencies** compares declared requirements
+   with that environment's installed-distribution metadata.
 3. Add paired runtime arguments: parameter `--seed`, value `42`. Use **Add flag /
    positional** for a single token such as `--headless`. **No value** adds no token;
    a blank field passes an explicit empty argument. Type spaces directly, without
@@ -109,6 +113,43 @@ arguments or `SIMSHELF_OUTPUT_DIR`. It must not overwrite another job's results.
 The existing **File capture** rules control copies/references/ignored files. Runs
 with overlapping capture folders are rejected; distinct folders allow concurrent
 runs. SimShelf does not redirect arbitrary script writes or rewrite source.
+
+### Choose and check a Python environment
+
+**Rescan interpreters** refreshes a bounded list: saved selection, project `.venv`
+and `venv`, server PATH, server environment hints, accessible Conda registry
+entries, and SimShelf's runtime. The runtime is labeled separately; it may not
+have your scientific packages. Detection does not run candidates or activation
+scripts. Versions remain unknown until you explicitly check a trusted executable.
+A missing saved interpreter stays selected and is clearly flagged. Use a custom
+absolute path for other managers or locations; discovery is not exhaustive.
+
+**Check selected Python** and **Check dependencies** execute the selected Python
+with isolated startup, with time/output limits. They do not run your simulation,
+import installed packages, install anything, or evaluate `.pth` startup hooks.
+A selected executable can itself contain arbitrary code, so choose only one you
+trust. Saving and launching retain the existing explicit interpreter validation.
+Checks are advisory and shown for the current selection in the current dialog;
+changing selection or rescanning clears them and requires launch revalidation. Save settings remembers the path, not a guarantee
+that its environment will remain unchanged.
+
+Dependency checks support ordinary PEP 508 declarations in `requirements.txt`,
+static `[project].dependencies`, and `[project].requires-python` in
+`pyproject.toml`. They compare against the selected interpreter's distribution
+metadata, never SimShelf's package set. Missing, incompatible, not-applicable and
+unknown results remain distinct. With no declarations, requirements are unknown.
+Optional extras, transitive dependencies, Conda solver files, nested requirements,
+editable/URL installs and dynamic declarations are not resolved. Unsupported or
+incomplete metadata is explained. User-site and `PYTHONPATH` packages are not
+inspected. Checks work offline after SimShelf's dependencies are installed.
+
+A matching NumPy or CuPy distribution does **not** prove it imports successfully,
+that GPU/CUDA access works, or that a run will succeed. GPU execution is not part
+of these checks. Use your existing trusted scientific environment and verify GPU
+work separately. Fix environments yourself or choose another; SimShelf never
+modifies them. This feature adds `packaging` as a SimShelf runtime dependency;
+if upgrading an older checkout environment without it, explicitly run
+`./start.sh --setup` to update only SimShelf's dedicated environment.
 
 ### Check where outputs will land
 

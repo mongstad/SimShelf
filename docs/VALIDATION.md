@@ -90,3 +90,9 @@ assets. Earlier reports above retain their original review-time wording.
 See [issue #14 output destinations](validation/issue-14-output-paths.md) for
 explicit mappings, mismatch acknowledgement, capture-inspection wording,
 retention counts, browser checks and installed-package verification.
+
+## Later interpreter discovery validation
+
+See [issue #10 interpreter checks](validation/issue-10-interpreters.md) for passive
+discovery, explicit version/dependency metadata checks, environment isolation,
+browser/package checks, limitations and real NumPy/CuPy owner-verification steps.
