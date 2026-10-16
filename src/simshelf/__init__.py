@@ -1,6 +1,6 @@
 """Record Python simulations without a running web server."""
 
-__version__ = "0.1.0"
+from ._version import __version__
 
 
 def run(simulation, **kwargs):

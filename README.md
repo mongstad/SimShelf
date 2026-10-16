@@ -529,3 +529,14 @@ external launcher paths and legacy-workspace recovery checks.
 
 See [issue #5 validation](docs/validation/issue-5-portal-execution.md) for portal
 execution, cancellation, recovery and browser checks.
+
+## SimShelf application version
+
+The upper-right **Local · version** label and `simshelf --version` identify the
+application, independently of your simulation's `SIMSHELF_VERSION` tag. The label
+uses the running server's version; restart and reload after updating. Application
+updates do not renumber existing simulations or rewrite previous runs.
+
+See [application versioning](docs/APPLICATION_VERSIONING.md) for the single version
+source, transition from the historical `0.1.0` baseline, deterministic PR build
+increments and separately authorized immutable releases.

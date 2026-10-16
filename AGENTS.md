@@ -25,3 +25,13 @@ SimShelf is an independent, local-first Python simulation library and run journa
 - Push only to the issue branch and open/update one PR into `main`, referencing the issue (use `Closes #N` for an implementation PR). Summarize changes, changed files, validation, risks and concrete owner-verification steps.
 - Stop for owner review. Do not merge, enable auto-merge, close issues manually, move Project items to Done, tag releases, publish packages, change repository visibility/settings or start another issue without specific authorization.
 - Owner-approved merges can be followed by safe local branch housekeeping; preserve historical reports and original review-time status language.
+
+## Application version changes
+- Follow `docs/APPLICATION_VERSIONING.md`. Keep the authoritative version only in
+  `src/simshelf/_version.py`; scientific `SIMSHELF_VERSION` tags are independent.
+- Each implementation PR proposes the next build from freshly verified accepted
+  main. Run `python scripts/application_version.py --base-ref origin/main` before
+  handoff; repeat after main changes. Review fixes do not increment again.
+- Version-line changes and any tags/releases/publication require owner authority;
+  normal issue implementation does not authorize publication. Preserve historical
+  version evidence and build/test in external disposable directories.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "simshelf"
-version = "0.1.0"
+dynamic = ["version"]
 description = "A local simulation library and run journal for Python"
 readme = "README.md"
 license = "MIT"
@@ -17,6 +17,9 @@ dev = ["pytest>=8,<10", "httpx>=0.28,<1", "build>=1,<2"]
 
 [project.scripts]
 simshelf = "simshelf.cli:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "simshelf._version.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
