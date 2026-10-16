@@ -6,7 +6,14 @@ export type Config = {
   max_run_mb: number;
   rules: { pattern: string; action: "copy" | "reference" | "ignore" }[];
 };
+export type ExecutionSettings = {
+  interpreter: string;
+  cwd: string;
+  arguments: string[];
+  output_dir: string;
+};
 export type Simulation = {
+  execution?: ExecutionSettings;
   id: string;
   name: string;
   description: string;
@@ -37,6 +44,9 @@ export type Measurement = {
   unit?: string;
 };
 export type Run = {
+  launch?: { kind: string };
+  can_stop?: boolean;
+  stop_requested?: boolean;
   id: string;
   simulation_id: string;
   name: string;

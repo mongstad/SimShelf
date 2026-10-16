@@ -22,6 +22,7 @@ from .capture import preview, save_file
 from .common import clean_name
 from .source import blob_path
 from .store import Store
+from .portal import PortalJobs, execution_settings
 
 
 class SimulationInput(BaseModel):
@@ -32,9 +33,22 @@ class SimulationInput(BaseModel):
 
 
 class SimulationUpdate(BaseModel):
+    entrypoint: str | None = None
     config: dict | None = None
     name: str | None = None
     description: str | None = None
+
+
+class ExecutionInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    interpreter: str
+    cwd: str = "."
+    arguments: list[str] = Field(default_factory=list)
+    output_dir: str
+
+
+class LaunchInput(ExecutionInput):
+    name: str | None = Field(None, min_length=1, max_length=160)
 
 
 class RunUpdate(BaseModel):
@@ -48,6 +62,7 @@ class RunUpdate(BaseModel):
 def create_app(workspace=None) -> FastAPI:
     store = Store(workspace)
     token = secrets.token_urlsafe(32)
+    jobs = PortalJobs(store)
 
     async def recover():
         while True:
@@ -57,15 +72,19 @@ def create_app(workspace=None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app):
         task = asyncio.create_task(recover())
-        yield
-        task.cancel()
         try:
-            await task
-        except asyncio.CancelledError:
-            pass
+            yield
+        finally:
+            await asyncio.to_thread(jobs.close)
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
     app = FastAPI(title="SimShelf", version=__version__, lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.store = store
+    app.state.jobs = jobs
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "[::1]", "testserver"])
 
     @app.middleware("http")
@@ -121,6 +140,23 @@ def create_app(workspace=None) -> FastAPI:
     def versions(ident: str):
         return store.versions(ident)
 
+    @app.post("/api/simulations/{ident}/execution/validate")
+    def validate_execution(ident: str, body: ExecutionInput):
+        return execution_settings(store.simulation(ident), body.model_dump(), probe=True)
+
+    @app.put("/api/simulations/{ident}/execution")
+    def save_execution(ident: str, body: ExecutionInput):
+        plan = execution_settings(store.simulation(ident), body.model_dump(), probe=True)
+        return store.update_simulation(ident, execution=plan["settings"])
+
+    @app.post("/api/simulations/{ident}/launch", status_code=201)
+    def launch(ident: str, body: LaunchInput):
+        return jobs.start(ident, body.model_dump(exclude={"name"}), body.name)
+
+    @app.post("/api/runs/{ident}/stop", status_code=202)
+    def stop_run(ident: str):
+        return jobs.stop(ident)
+
     @app.get("/api/runs")
     def runs(simulation: str | None = None, status: str | None = None, q: str = "", version: str | None = None, limit: int = 500, offset: int = 0):
         if not 1 <= limit <= 1000 or offset < 0:
@@ -136,7 +172,7 @@ def create_app(workspace=None) -> FastAPI:
 
     @app.get("/api/runs/{ident}")
     def run_detail(ident: str):
-        return store.run(ident)
+        return {**store.run(ident), **jobs.control(ident)}
 
     @app.patch("/api/runs/{ident}")
     def annotate(ident: str, body: RunUpdate):

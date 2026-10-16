@@ -74,7 +74,8 @@ class ConsoleTee:
 
 
 class Run:
-    def __init__(self, simulation: str, *, workspace=None, name=None, parameters=None, tags=None, command=None, cwd=None, output_dir=None, join=True, capture_console=True):
+    def __init__(self, simulation: str, *, workspace=None, name=None, parameters=None, tags=None, command=None, cwd=None, output_dir=None, join=True, capture_console=True, launch=None):
+        self.launch = launch
         self.store = Store(workspace)
         self.simulation = self.store.simulation(simulation)
         if output_dir is not None:
@@ -122,6 +123,10 @@ class Run:
         self.initial_capture_errors = initial_errors
         self.started_clock = time.monotonic()
         data = {"id": self.id, "simulation_id": self.simulation["id"], "name": self.name or time.strftime("Run %b %d · %H:%M:%S"), "status": "running", "started_at": now(), "ended_at": None, "duration": None, "exit_code": None, "version": version, "snapshot_id": snapshot["id"], "structure_id": snapshot["structure_id"], "source_warnings": snapshot["warnings"], "command": self.command, "cwd": self.cwd, "parameters": self.parameters, "parameter_sources": {key: "python" for key in self.parameters}, "tags": self.tags, "notes": "", "version_note": "", "cover_id": None, "git": git_context(Path(self.simulation["root"])), "environment": environment(), "capture_config": self.simulation["config"], "capture_status": "pending", "capture_errors": initial_errors, "owner": {"pid": os.getpid(), "host": socket.gethostname(), "identity": process_identity(os.getpid())}}
+        if self.launch:
+            if self.simulation["entrypoint"] not in {file["path"] for file in snapshot["files"]}:
+                raise ValueError("The entry file must be included in source capture before portal launch")
+            data["launch"] = self.launch
         data["capture_root"] = str(self.output_dir)
         self.store.emit(self.id, "start", data)
         if self.capture_console:
@@ -179,11 +184,11 @@ class Run:
         return False
 
 
-def record_command(store: Store, simulation: str, command: list[str], *, name=None, tags=None, cwd=None, output_dir=None) -> tuple[str, int]:
+def record_command(store: Store, simulation: str, command: list[str], *, name=None, tags=None, cwd=None, output_dir=None, cancel=None, on_started=None, quiet=False, launch=None) -> tuple[str, int]:
     if not command:
         raise ValueError("Pass a command after --, for example: -- python field.py --seed 42")
     store.reconcile()
-    recorder = Run(simulation, workspace=store.path, command=command, name=name, tags=tags, cwd=cwd, output_dir=output_dir, join=False, capture_console=False)
+    recorder = Run(simulation, workspace=store.path, command=command, name=name, tags=tags, cwd=cwd, output_dir=output_dir, join=False, capture_console=False, launch=launch)
     recorder.__enter__()
     store.emit(recorder.id, "environment", {**environment(), "source": "recorder environment (child interpreter not yet reported)"})
     recorder.log_parameters(cli_parameters(command), source="command-line (inferred)")
@@ -194,8 +199,9 @@ def record_command(store: Store, simulation: str, command: list[str], *, name=No
     env["PYTHONUNBUFFERED"] = "1"
     logdir = store.path / "logs" / recorder.id
     logdir.mkdir(parents=True, exist_ok=True)
-    print(f"SimShelf recording {recorder.id[:8]} · version {store.run(recorder.id, False)['version']}", file=sys.stderr)
-    print(f"Run link: http://127.0.0.1:8740/#run/{recorder.id}", file=sys.stderr)
+    if not quiet:
+        print(f"SimShelf recording {recorder.id[:8]} · version {store.run(recorder.id, False)['version']}", file=sys.stderr)
+        print(f"Run link: http://127.0.0.1:8740/#run/{recorder.id}", file=sys.stderr)
     exit_code, interrupted, errors = 1, False, []
     process = None
     threads = []
@@ -203,11 +209,16 @@ def record_command(store: Store, simulation: str, command: list[str], *, name=No
     def forward(signum, _frame):
         nonlocal interrupted
         interrupted = True
+        if cancel is not None:
+            cancel.set()
         if process is not None and process.poll() is None:
-            if os.name == "posix":
-                os.killpg(process.pid, signum)
-            else:
-                process.send_signal(signum)
+            try:
+                if os.name == "posix":
+                    os.killpg(process.pid, signum)
+                else:
+                    process.send_signal(signum)
+            except ProcessLookupError:
+                pass
     def tee(pipe, target, path):
         saved = 0
         try:
@@ -218,7 +229,7 @@ def record_command(store: Store, simulation: str, command: list[str], *, name=No
                         if buffer:
                             buffer.write(chunk)
                             buffer.flush()
-                        else:
+                        elif target is not None:
                             target.write(chunk.decode(errors="replace"))
                             target.flush()
                     except (OSError, ValueError):
@@ -233,22 +244,66 @@ def record_command(store: Store, simulation: str, command: list[str], *, name=No
         finally:
             pipe.close()
     try:
-        process = subprocess.Popen(command, cwd=recorder.cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=os.name == "posix")
         if threading.current_thread() is threading.main_thread():
             for signum in (signal.SIGINT, signal.SIGTERM):
                 old_handlers[signum] = signal.signal(signum, forward)
-        for pipe, target, name_ in ((process.stdout, sys.stdout, "stdout.log"), (process.stderr, sys.stderr, "stderr.log")):
+        if on_started:
+            on_started(recorder.id)
+        if cancel is not None and cancel.is_set():
+            interrupted, exit_code = True, 130
+            return recorder.id, exit_code
+        process = subprocess.Popen(command, cwd=recorder.cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=os.name == "posix", shell=False)
+        for pipe, target, name_ in ((process.stdout, None if quiet else sys.stdout, "stdout.log"), (process.stderr, None if quiet else sys.stderr, "stderr.log")):
             thread = threading.Thread(target=tee, args=(pipe, target, logdir / name_), daemon=True)
             thread.start()
             threads.append(thread)
-        exit_code = process.wait()
+        if cancel is None:
+            exit_code = process.wait()
+        else:
+            stopping_at = None
+            while process.poll() is None:
+                if cancel.wait(.1):
+                    interrupted = True
+                    if stopping_at is None:
+                        stopping_at = time.monotonic()
+                        try:
+                            os.killpg(process.pid, signal.SIGTERM)
+                        except ProcessLookupError:
+                            pass
+                    elif time.monotonic() - stopping_at >= 3:
+                        try:
+                            os.killpg(process.pid, signal.SIGKILL)
+                        except ProcessLookupError:
+                            pass
+                        break
+                    time.sleep(.05)
+            exit_code = process.wait()
+            # Also stop descendants that outlived the main script. Detached new
+            # sessions are outside this process-group ownership contract.
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+                if not interrupted:
+                    interrupted = True
+                    errors.append("The script exited with descendants still running; the remaining process group was stopped.")
+            except ProcessLookupError:
+                pass
         for thread in threads:
             thread.join(timeout=5)
         if any(t.is_alive() for t in threads):
             errors.append("A child process kept a terminal pipe open; log capture may be incomplete")
-    except OSError as exc:
+    except Exception as exc:
+        if cancel is None and not isinstance(exc, OSError):
+            raise
+        exit_code = 1
         errors.append(str(exc))
     finally:
+        if cancel is not None and process is not None and process.poll() is None:
+            interrupted = True
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            exit_code = process.wait()
         for signum, handler in old_handlers.items():
             signal.signal(signum, handler)
         recorder.finish(exit_code, status="interrupted" if interrupted or exit_code < 0 else None, error="\n".join(errors) or None)

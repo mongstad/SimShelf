@@ -10,6 +10,7 @@ import type {
   Version,
 } from "./types";
 import "./style.css";
+import { LaunchSimulation } from "./LaunchSimulation";
 
 const icons: Record<string, React.ReactNode> = {
   grid: (
@@ -966,9 +967,40 @@ function RunDetails({
             <Status status={run.status} />
             <span>Version {run.version}</span>
             <span>{date(run.started_at)}</span>
-            <span>{duration(run.duration)}</span>
+            <span>
+              {duration(
+                run.status === "running"
+                  ? Math.max(
+                      0,
+                      (Date.now() - Date.parse(run.started_at)) / 1000,
+                    )
+                  : run.duration,
+              )}
+            </span>
           </div>
         </div>
+        {run.can_stop && run.status === "running" && (
+          <button
+            disabled={busy || run.stop_requested}
+            onClick={async () => {
+              setBusy(true);
+              setError("");
+              try {
+                await api(`/runs/${id}/stop`, { method: "POST" });
+                setNotice(
+                  "Stop requested. Waiting for the process to exit and final output capture to finish.",
+                );
+                await refresh();
+              } catch (e) {
+                setError((e as Error).message);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {run.stop_requested ? "Stopping…" : "Stop run"}
+          </button>
+        )}
         <button
           onClick={() =>
             save({
@@ -1012,6 +1044,28 @@ function RunDetails({
           {notice}
         </div>
       )}
+      {run.status === "failed" && (
+        <div className="error-banner" role="alert">
+          The simulation exited with code {run.exit_code}. Open Logs → stderr
+          for dependency, argument or script errors. No dependencies are
+          installed automatically.
+        </div>
+      )}
+      {run.status === "interrupted" && (
+        <p className="notice">
+          Execution was interrupted. Check logs and capture details before using
+          partial results.
+        </p>
+      )}
+      {run.status === "running" &&
+        run.launch?.kind === "portal" &&
+        !run.can_stop && (
+          <p className="notice">
+            This server does not own the recorder. A previous server's run may
+            still be stopping or capturing outputs; refresh to see recovery
+            status.
+          </p>
+        )}
       {tab === "overview" && (
         <>
           <div className="overview-grid">
@@ -1839,12 +1893,23 @@ function App() {
                     Add simulation
                   </button>
                   <button
-                    className="primary"
                     onClick={() => setModal("record")}
                     disabled={!simulations.length}
                   >
                     <Icon name="terminal" />
-                    Record a run
+                    Terminal / editor
+                  </button>
+                  <button
+                    className="primary"
+                    title={
+                      !simulation
+                        ? "Select a simulation in the sidebar first"
+                        : "Configure and launch this simulation"
+                    }
+                    disabled={!simulation || !simulation.available}
+                    onClick={() => setModal("launch")}
+                  >
+                    Start simulation
                   </button>
                 </div>
               </header>
@@ -1926,8 +1991,8 @@ function App() {
                         </div>
                         <div>
                           <span>02</span>
-                          <strong>Run from your terminal</strong>
-                          <small>Or add a small Python context.</small>
+                          <strong>Choose Python and start</strong>
+                          <small>Or keep using your terminal or editor.</small>
                         </div>
                         <div>
                           <span>03</span>
@@ -2251,7 +2316,7 @@ function App() {
                           <p>
                             {search || status || param || version || imagesOnly
                               ? "Try a different parameter, status, or search."
-                              : "Record from your terminal or editor, then find the results here."}
+                              : "Select a simulation and start it here, or record from your terminal or editor."}
                           </p>
                           {!(
                             search ||
@@ -2314,6 +2379,19 @@ function App() {
             refresh();
           }}
         />
+      )}
+      {modal === "launch" && simulation && (
+        <Modal title="Start a simulation" close={() => setModal("")} wide>
+          <LaunchSimulation
+            simulation={simulation}
+            saved={refresh}
+            done={(id) => {
+              setModal("");
+              showRun(id);
+              refresh();
+            }}
+          />
+        </Modal>
       )}
       {modal === "record" && (
         <RecordHelp

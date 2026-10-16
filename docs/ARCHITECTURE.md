@@ -1,4 +1,4 @@
-# Stage 1 architecture
+# SimShelf architecture
 
 ## Local components
 
@@ -29,6 +29,63 @@ leaves its durable event available for `doctor` to recover.
 
 The database is authoritative for queries; journals provide write recovery, not
 a distributed synchronization protocol. Git export/import is deliberately deferred.
+
+## Local portal execution
+
+The portal extends the original Stage 1 boundary with explicit local Python-script
+execution. Registration and GET requests do not execute code. Token-protected,
+same-origin POST/PUT actions validate an explicitly selected Python interpreter,
+save execution settings, launch, or request stop. Validation invokes only an
+isolated Python version probe (`-I -S`), with a three-second timeout, not the script.
+Interpreters are existing absolute Python executable paths; symlink spelling is
+retained so virtual environments keep their identity. No package installation.
+
+Execution settings live in the simulation's existing JSON record: interpreter,
+relative working directory, argv tokens and relative capture folder. Old records
+need no schema migration. The entry remains a registered, existing `.py` file
+inside the simulation root and must appear in source capture. Updating an entry
+never changes source bytes or the registered version file. Settings changes affect
+future launches only; each run keeps its exact command/cwd/capture configuration.
+Backups include settings, but machine-local paths must be checked after restore.
+
+Synchronous API handlers run in FastAPI's thread pool. A server-owned supervisor
+process calls the same `record_command` path as the CLI; it reserves capture roots
+through the existing transactional start event. That supervisor is the recorded
+owner (PID, host, start identity), so a replacement UI server does not prematurely
+mark an alive recorder dead. `SIMSHELF_RUN_ID` lets a script's Python API join the
+same record. The child environment is still labeled unknown until it reports
+itself; interpreter validation is not dependency or reproducibility validation.
+
+The browser sends argument arrays, never shell code. Execution is exactly
+`[selected_python, registered_absolute_script, *arguments]` with `shell=False`.
+There is no browser-supplied Python `-c`, shell, scheduler or remote-command mode.
+Each run receives its root-constrained working directory and capture path.
+Scientific code is executable and must be trusted by the local user. Source can
+still change during execution, as in terminal/editor recording.
+
+Each server retains its supervisors' control-pipe write ends; explicit stop,
+normal server shutdown, or abrupt server death closes the pipe. The independent
+supervisor observes EOF and cancels its owned script process group: SIGTERM,
+then SIGKILL after three seconds. Cancellation before child creation records an
+interrupted run without executing the script. Remaining in-group descendants are
+stopped even when the main script exits first; such a run is interrupted rather
+than reported successful. Final capture is attempted and reports its own outcome.
+Stop is available only for live supervisors owned by that server, never by trusting
+a browser-provided PID. Closing the tab does not close the control pipe.
+
+The server accepts at most 32 active supervisors and waits up to 30 seconds for
+startup acknowledgement. A startup timeout requests cancellation and tells the
+user to check retained runs rather than implying execution never began. Shutdown
+requests all cancellations and waits up to 15 seconds; supervisors still completing
+capture remain independent rather than being killed and losing evidence. A new
+server observes their run state and resumes normal journal/dead-owner recovery.
+CLI/editor process ownership and stop behavior are unchanged.
+
+This initial supervisor requires Linux. Scripts that daemonize or create separate
+sessions escape its process-group boundary and are unsupported. Direct supervisor
+termination, machine failure or uninterruptible I/O can prevent cleanup/capture;
+interrupted state is not a guarantee all external processes stopped. Restart does
+not resume simulations or recreate environments. Completed records stay immutable.
 
 ## Version contract
 

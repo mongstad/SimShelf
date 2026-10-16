@@ -71,3 +71,10 @@ shipped with the source tree; launch the app to create an empty workspace.
 
 The historical checks above describe the original prototype validation. Local
 browser captures were removed because they included machine-specific paths.
+
+## Later portal execution validation
+
+The original prototype checks above remain historical. See
+[issue #5 portal execution](validation/issue-5-portal-execution.md) for the
+subsequent local launch/stop capability, process ownership, recovery and browser
+checks.

@@ -1,9 +1,9 @@
 # SimShelf
 
-Your local simulation library and run journal. Keep running Python from a terminal
-or editor, then use your browser to find, compare, and annotate the results.
+Your local simulation library and run journal. Run Python from the local browser portal, a terminal
+or an editor, then use your browser to find, compare, and annotate the results.
 
-Stage 1 includes terminal and editor recording, explicit simulation versions,
+SimShelf includes local portal, terminal and editor recording, explicit simulation versions,
 exact source snapshots, parameters, scalar measurements, screenshots, notes,
 file-capture policies, and portable workspace backups. Everything is local.
 
@@ -17,7 +17,8 @@ From a fresh checkout, explicitly set up its dedicated Python environment once:
 ```
 
 The app opens at **http://127.0.0.1:8740**. Keep the terminal running while using
-the browser. Closing the browser does not interrupt separately recorded runs.
+the browser. Closing the browser does not interrupt recorded runs. Stopping the server cancels
+its portal-launched runs; terminal/editor recorders remain independent.
 Press Ctrl+C in the server terminal to stop the interface.
 
 Python 3.11 or newer is required. The launcher keeps its environment and default
@@ -56,6 +57,63 @@ SIMSHELF_HOME=/path/to/my-library ./start.sh
 
 The workspace contains the database and retained files, not your source project.
 Keep it on a local disk. Register simulation source folders separately.
+
+## Start a simulation in the browser
+
+Once SimShelf is running, no terminal recording command is needed:
+
+1. Choose **Add simulation**, enter the existing local source folder and its Python
+   entry file (relative to that folder), and add it. Registration never executes code.
+2. Select the simulation in the sidebar and choose **Start simulation**. Enter the
+   absolute path to its existing Python interpreter, for example a virtual
+   environment's `bin/python`. Only select code and interpreters you trust.
+3. Add runtime arguments as separate fields: `--seed` and `42` are two arguments;
+   `a value with spaces` is one. Do not add shell quotes. The preview displays the
+   exact argument array; shell operators, substitutions and wildcards stay literal.
+4. Check the working directory (relative to the source folder, `.` by default),
+   capture folder and optional run name. **Validate interpreter & paths** checks
+   Python without importing the simulation. It cannot certify installed script
+   dependencies. **Save settings** remembers the selection without launching.
+5. Choose **Start simulation** to save the settings and execute the registered
+   script. Run details show its ID, live status and elapsed time. Open **Logs** for
+   stdout/stderr, updated every three seconds; inspect parameters, metrics, source
+   and retained files after completion.
+
+If the registered entry is missing or wrong, choose an existing `.py` file inside
+that source folder and click **Update registered entry**. This changes registration
+only, never source or the registered version file. Previous runs keep their entry
+command and source snapshot. Validate the new execution settings before starting.
+
+The interpreter must already exist; SimShelf never installs packages, activates or
+modifies a simulation environment. Plain scripts do not need SimShelf installed.
+Scripts that import `simshelf` need it available in their selected interpreter.
+A missing dependency or invalid argument produces a failed run with the real exit
+code and stderr; fix the selected environment or arguments explicitly and start a
+new run. Saved interpreter paths are machine-specific and are revalidated on each
+launch, including after restoring a backup.
+
+The capture folder is relative to the registered source root, even with a different
+working directory. Point the script at the same output location using its own
+arguments or `SIMSHELF_OUTPUT_DIR`. It must not overwrite another job's results.
+The existing **File capture** rules control copies/references/ignored files. Runs
+with overlapping capture folders are rejected; distinct folders allow concurrent
+runs. SimShelf does not redirect arbitrary script writes or rewrite source.
+
+**Stop run** requests cancellation of a portal run owned by this server. It sends
+SIGTERM to the script's process group, then SIGKILL after three seconds if needed,
+and attempts final output capture. The run is marked interrupted, even if it
+handles termination and exits zero. Closing a browser tab leaves the run active;
+stopping/restarting or killing the server requests the same cancellation through
+an independent recorder supervisor. A new server can observe previous runs while
+they finish cancellation/capture. Terminal/editor runs must be stopped at their
+original process. Recovery never reports unfinished capture as successful.
+
+Portal execution currently requires Linux and ordinary foreground Python scripts.
+Do not use scripts that daemonize or move child processes into separate sessions:
+those processes escape the owned process group. Killing the recorder supervisor
+itself, system failure, and uninterruptible operating-system I/O can prevent final
+capture or cleanup; interrupted/incomplete records are not proof every external
+process stopped. No environment recreation or exact reproducibility is promised.
 
 ## Record your first simulation
 
@@ -372,8 +430,8 @@ environment. `pnpm-lock.yaml` records the frontend dependencies.
 
 This is a single-user local application, bound to loopback. Browser writes use a
 same-origin token, and registered paths/source manifests constrain file access.
-Remote hosting, user accounts, Git synchronization, browser job launching, full
-time-series plots, and 3D viewing are outside Stage 1.
+Remote hosting, user accounts, Git synchronization, environment provisioning, full
+time-series plots, and 3D viewing remain outside the current feature set.
 
 See [architecture](docs/ARCHITECTURE.md) for storage and versioning contracts and
 [validation](docs/VALIDATION.md) for the checks performed on this build.
@@ -383,3 +441,6 @@ repository cleanup, history exposure, and package validation evidence.
 
 See [issue #2 validation](docs/validation/issue-2-external-development.md) for
 external launcher paths and legacy-workspace recovery checks.
+
+See [issue #5 validation](docs/validation/issue-5-portal-execution.md) for portal
+execution, cancellation, recovery and browser checks.
