@@ -68,6 +68,13 @@ Setup resolves `pyproject.toml` ranges; its tested environment included FastAPI
 - Shell syntax, Python parsing and `git diff --check` passed. Historical reports,
   architecture and all existing frontend assets compare unchanged to accepted main.
 
+- A fresh local clone of implementation commit `72a4d58` passed explicit setup,
+  initialization and demo recording with a clean `git status --porcelain` and
+  an identical complete file/hash inventory before/after (including ignored files).
+  The initial hardlink-based local clone failed across filesystem boundaries;
+  retrying with `git clone --no-hardlinks` succeeded. No application failure was
+  involved. The follow-up commit adds only this validation result.
+
 ## Limits and owner checks
 
 No visual browser interaction or non-Linux validation was performed. Network
