@@ -212,6 +212,28 @@ itself, system failure, and uninterruptible operating-system I/O can prevent fin
 capture or cleanup; interrupted/incomplete records are not proof every external
 process stopped. No environment recreation or exact reproducibility is promised.
 
+## Quit or reopen SimShelf
+
+Closing or refreshing a browser tab leaves the local server and simulations running.
+Reopen the displayed localhost URL to reconnect. To shut down this server, use
+**Quit SimShelf** in the sidebar. Confirmation shows the number of active portal
+recorders, including startup/final capture. **Cancel** is the safe
+default; **Stop runs and quit** explicitly requests cancellation and final capture.
+The confirmation uses **Stop runs and quit** even when no portal recorders are active. The portal then shows shutdown
+feedback; close the tab and restart using the launcher when needed.
+
+CLI/editor recorders are independent and continue outside the portal. Quitting
+never deletes records or outputs. Cancellation can leave partial results; inspect
+run and capture status after restarting. Slow capture can outlive the server's
+bounded shutdown wait. Detached processes and operating-system failures remain
+outside its guarantees. A new launch during confirmation requires review again.
+
+Ctrl+C / SIGTERM in the original server terminal still initiates the same portal
+cancellation path. Custom ASGI/service hosts do not support the portal Quit action;
+stop them in their original terminal or service manager. Starting a second server
+on an occupied port reports the URL to check and the alternative `--port` option;
+it never kills the existing process or assumes that port belongs to SimShelf.
+
 ## Record your first simulation
 
 Use the launcher CLI to select the same environment and workspace as the UI:

@@ -1,3 +1,4 @@
+import { QuitServer } from "./QuitServer";
 import { CaptureSummary } from "./CaptureSummary";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -1623,6 +1624,7 @@ function App() {
     [limit, setLimit] = useState(200),
     [backingUp, setBackingUp] = useState(false),
     [notice, setNotice] = useState("");
+  const [quitting, setQuitting] = useState(false);
   const [theme, setTheme] = useState(
     localStorage.getItem("simshelf-theme") || "system",
   );
@@ -1680,7 +1682,7 @@ function App() {
       });
   }, []);
   useEffect(() => {
-    if (!workspace) return;
+    if (!workspace || quitting) return;
     let active = true;
     const timer = setTimeout(() => {
       if (active) refresh();
@@ -1693,7 +1695,7 @@ function App() {
       clearTimeout(timer);
       clearInterval(interval);
     };
-  }, [workspace, refresh]);
+  }, [workspace, refresh, quitting]);
   useEffect(() => {
     const handler = () =>
       setDetail(
@@ -1763,6 +1765,10 @@ function App() {
       setBackingUp(false);
     }
   }
+  if (quitting) return <main className="content"><h1>SimShelf is shutting down</h1>
+    <p>Cancellation requested for portal runs; final capture is attempted. Slow capture may continue after the server exits.</p>
+    <p>You can close this tab. Terminal/editor recorders remain independent. Restart using the launcher when needed.</p>
+    <p className="muted">Interrupted status does not guarantee detached processes stopped. Check retained runs and capture status after restarting.</p></main>;
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -1810,6 +1816,7 @@ function App() {
           )}
         </div>
         <div className="sidebar-bottom">
+          <button className="nav-item" onClick={() => setModal("quit")}>Quit SimShelf</button>
           <button className="nav-item" onClick={backup} disabled={backingUp}>
             <Icon name="download" />
             {backingUp ? "Preparing backup…" : "Back up workspace"}
@@ -2369,6 +2376,7 @@ function App() {
           )}
         </div>
       </main>
+      {modal === "quit" && <Modal title="Quit SimShelf" close={() => setModal("")}><QuitServer close={() => setModal("")} accepted={() => setQuitting(true)} /></Modal>}
       {modal === "add" && (
         <AddSimulation
           close={() => setModal("")}

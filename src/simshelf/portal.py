@@ -72,6 +72,7 @@ class PortalJobs:
         self.lock = threading.RLock()
         self.jobs: dict[subprocess.Popen, dict] = {}
         self.closing = False
+        self.generation = 0
 
     def control(self, run_id: str) -> dict:
         with self.lock:
@@ -92,6 +93,7 @@ class PortalJobs:
             process = subprocess.Popen([sys.executable, "-B", "-m", "simshelf.portal_worker"],
                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                        stderr=subprocess.DEVNULL, start_new_session=True, shell=False)
+            self.generation += 1
             self.jobs[process] = {"run_id": None, "stopping": False}
             payload = {"workspace": str(self.store.path), "simulation": simulation,
                        "settings": plan["settings"], "name": name, "acknowledge_outputs": acknowledge_outputs}
@@ -145,6 +147,26 @@ class PortalJobs:
                 raise ValueError("This server does not own an active recorder for this run. CLI/editor runs must be stopped at their original process.")
             self._cancel(process)
         return {"stop_requested": True}
+
+    def shutdown_status(self):
+        with self.lock:
+            return {"generation": self.generation, "active_runs": sum(
+                p.poll() is None for p in self.jobs), "closing": self.closing}
+
+    def request_shutdown(self, generation: int, stop_runs: bool):
+        # Serialize consent against admission, including supervisors still starting.
+        with self.lock:
+            if self.closing:
+                return False
+            status = self.shutdown_status()
+            if generation != status["generation"]:
+                raise ValueError("Runs changed since confirmation. Review Quit SimShelf again.")
+            if status["active_runs"] and not stop_runs:
+                raise ValueError("Active portal runs require explicit Stop runs and quit confirmation.")
+            self.closing = True
+            for process in list(self.jobs):
+                self._cancel(process)
+            return True
 
     def close(self):
         with self.lock:

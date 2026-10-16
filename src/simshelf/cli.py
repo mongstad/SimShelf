@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import socket
+import errno
 import sys
 import threading
 import webbrowser
@@ -72,10 +74,29 @@ def main(argv=None) -> int:
             if not 1 <= args.port <= 65535:
                 raise ValueError("Port must be between 1 and 65535")
             url = f"http://127.0.0.1:{args.port}"
-            print(f"SimShelf: {url}\nWorkspace: {store.path}", flush=True)
-            if not args.no_open:
-                threading.Timer(1, lambda: webbrowser.open(url)).start()
-            uvicorn.run(create_app(store.path), host="127.0.0.1", port=args.port, log_level="warning")
+            # Reserve the actual listener before opening a browser. No probe/close race.
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+                listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                try:
+                    listener.bind(("127.0.0.1", args.port))
+                    listener.listen(2048)
+                except OSError as exc:
+                    if exc.errno == errno.EADDRINUSE:
+                        raise ValueError(f"Port {args.port} is already in use. Open {url} to check the existing server, or choose another --port. Stop an existing SimShelf instance using Quit SimShelf or its original terminal.") from exc
+                    raise
+                app = create_app(store.path, request_shutdown=lambda: setattr(server, "should_exit", True))
+                server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=args.port, log_level="warning"))
+                print(f"SimShelf: {url}\nWorkspace: {store.path}", flush=True)
+                timer = None
+                if not args.no_open:
+                    timer = threading.Timer(1, lambda: webbrowser.open(url))
+                    timer.daemon = True
+                    timer.start()
+                try:
+                    server.run(sockets=[listener])
+                finally:
+                    if timer:
+                        timer.cancel()
         elif args.action == "list":
             store.reconcile()
             items = store.runs(simulation=args.simulation) if args.simulation else store.simulations()

@@ -108,3 +108,9 @@ consistency and existing portal-label validation. Earlier evidence is unchanged.
 See [issue #16 parameter discovery](validation/issue-16-parameters.md) for static
 and explicit-schema discovery, opt-in argv overrides, source/installed browser
 checks and scientific-default limitations. Earlier reports are preserved.
+
+## Later explicit shutdown validation
+
+See [issue #12 explicit shutdown](validation/issue-12-shutdown.md) for protected
+Quit confirmation, lifecycle races, independent recorders, actual port release,
+browser checks and installed-package verification. Earlier evidence is unchanged.
