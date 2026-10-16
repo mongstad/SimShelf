@@ -158,6 +158,27 @@ termination, machine failure or uninterruptible I/O can prevent cleanup/capture;
 interrupted state is not a guarantee all external processes stopped. Restart does
 not resume simulations or recreate environments. Completed records stay immutable.
 
+## Explicit server shutdown
+
+The CLI reserves a loopback listener before opening a browser, then owns a single
+Uvicorn Server instance. Its injected callback sets that instance's exit request;
+there is no PID endpoint or signal to unrelated processes. Custom `create_app`
+hosts have no callback and report portal Quit as unavailable.
+
+`GET /api/server` reports live supervisor count (including startup/capture), launch
+generation and capability. `POST /api/server/quit` requires loopback peer access,
+the existing session token/origin checks, explicit confirmation, and consent to
+stop active runs. The supervisor lock atomically checks the reviewed launch
+generation and closes launch admission. In-flight validation cannot start a run
+after this gate; newly admitted runs invalidate prior consent. Repeated Quit is
+idempotent. Cancellation closes the existing control pipes immediately; response
+background work requests server exit after the acknowledgement. Normal lifespan
+cleanup retains the existing 15-second shared wait and independent capture owner.
+No new recorder lifecycle, auto-restart, unload handler or data migration exists.
+The browser stops polling after acknowledgement and describes shutdown as requested,
+not proof of completed capture or termination of detached processes. Failed/lost
+responses advise checking the original terminal before restarting.
+
 ## Application version contract
 
 The application version is a literal in `simshelf/_version.py`. Setuptools reads

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import difflib
 import json
+import ipaddress
 import secrets
 import tempfile
 from contextlib import asynccontextmanager
@@ -65,6 +66,13 @@ class LaunchInput(ExecutionInput):
     name: str | None = Field(None, min_length=1, max_length=160)
 
 
+class QuitInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    confirmed: bool = False
+    generation: int
+    stop_runs: bool = False
+
+
 class RunUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=160)
     notes: str | None = Field(None, max_length=50000)
@@ -73,7 +81,7 @@ class RunUpdate(BaseModel):
     version_note: str | None = Field(None, max_length=10000)
 
 
-def create_app(workspace=None) -> FastAPI:
+def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
     store = Store(workspace)
     token = secrets.token_urlsafe(32)
     jobs = PortalJobs(store)
@@ -126,6 +134,30 @@ def create_app(workspace=None) -> FastAPI:
     @app.get("/api/workspace")
     def workspace_info():
         return {"path": str(store.path), "version": __version__, "token": token, "simulation_count": len(store.simulations())}
+
+    def require_loopback(request: Request):
+        try:
+            local = request.client and ipaddress.ip_address(request.client.host).is_loopback
+        except ValueError:
+            local = False
+        if not local:
+            raise HTTPException(403, "Quit is available only from this computer.")
+
+    @app.get("/api/server")
+    def server_status(request: Request):
+        require_loopback(request)
+        return {**jobs.shutdown_status(), "can_quit": request_shutdown is not None}
+
+    @app.post("/api/server/quit")
+    def quit_server(body: QuitInput, request: Request):
+        require_loopback(request)
+        if request_shutdown is None:
+            raise HTTPException(409, "This launch mode cannot quit from the portal. Stop its server in the original terminal or service manager.")
+        if not body.confirmed:
+            raise ValueError("Confirm Quit SimShelf explicitly.")
+        first = jobs.request_shutdown(body.generation, body.stop_runs)
+        # Send acknowledgement before asking the actual hosting server to exit.
+        return JSONResponse({"closing": True}, background=BackgroundTask(request_shutdown) if first else None)
 
     @app.get("/api/simulations")
     def simulations():
