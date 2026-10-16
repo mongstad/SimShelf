@@ -134,3 +134,38 @@ launcher/version suites were not rerun. No simulation environment was modified.
 6. Check narrow-window use and custom-path entry. Explicitly validate and launch
    the harmless script, inspect its recorded interpreter/argv, then change future
    selection and confirm the completed record/snapshot remains unchanged.
+
+## Owner-review correction — 2026-10-17
+
+Owner testing reported a successful Python 3.14.8 selection, working CuPy/GPU
+access and a successful simulation launch, but repeated `Server PATH` labels.
+This is owner-reported scientific validation, not an agent GPU test.
+
+Discovery now retains each distinct source label once, in discovery order.
+Candidate identity, alias resolution and saved path precedence are unchanged.
+Dropdown entries show environment/project or SimShelf runtime, the full path,
+saved status and check result; complete distinct discovery sources appear below
+the selection. Unclassified executables are labeled simply Python in the list,
+without guessing an environment type or Python version.
+
+Focused validation: 33 interpreter/portal tests passed (one existing
+Starlette/httpx deprecation warning), including repeated PATH entries plus
+executable and directory aliases while preserving distinct venvs and the saved
+path. Four frontend tests passed, including the owner-reported repeated-source
+case, checked version, missing state, project environment and runtime labels.
+TypeScript and frontend build passed; bundled JS refreshed, CSS and third-party
+notices unchanged. Headless Chromium passed the concise checked-label assertion
+and existing selection, dependency checks, custom path, save/reload, rescan,
+moved-environment and recorded-launch flow. No page errors.
+
+The first sandboxed Python run stalled after nine tests and was interrupted;
+the host-permission rerun completed successfully. Packaging and unrelated suites
+were not repeated for this label-only correction. No new GPU test was performed.
+Historical validation above is preserved.
+
+Owner check: reopen Start simulation with the saved `/usr/bin/python`, rescan,
+and confirm one concise entry with the same selected path. After Check selected
+Python, expect `Python · /usr/bin/python · Saved · Python 3.14.8 · checked` for
+the reported environment (a SimShelf-runtime label takes precedence if applicable).
+Discovery details should list each source once. Custom paths and existing
+check/launch actions should continue to work as before.

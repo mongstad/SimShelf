@@ -31,12 +31,16 @@ def test_discovery_is_passive_bounded_and_preserves_venv_identity(project, tmp_p
     (root / 'venv/pyvenv.cfg').write_text('home = /not/probed\n')
     alias = tmp_path / 'alias'
     alias.symlink_to(root / '.venv/bin', target_is_directory=True)
-    monkeypatch.setenv('PATH', f'{root}/.venv/bin:{alias}::relative/path')
+    (python.parent / 'python3').symlink_to(python)
+    (python.parent / 'python3.14').symlink_to(python)
+    monkeypatch.setenv('PATH', f'{root}/.venv/bin:{alias}:{alias}::relative/path')
     monkeypatch.delenv('VIRTUAL_ENV', raising=False)
     monkeypatch.delenv('CONDA_PREFIX', raising=False)
     monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
     monkeypatch.setattr(subprocess, 'Popen', lambda *a, **k: pytest.fail('Passive discovery must not execute Git, Conda or Python'))
     result = discovery({**sim, 'execution': {'interpreter': str(python)}})
+    assert result['candidates'][0]['sources'] == ['Saved selection', 'Project .venv', 'Server PATH']
+    assert result['candidates'][0]['path'] == str(python)
     assert not sentinel.exists()
     assert sum(c['path'] == str(python) for c in result['candidates']) == 1
     assert not any(c['path'] == str(alias / 'python') for c in result['candidates'])

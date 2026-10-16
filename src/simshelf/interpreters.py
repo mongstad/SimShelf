@@ -50,7 +50,8 @@ def discovery(simulation):
             runtime = path == Path(sys.executable) or (kind != "Unclassified executable" and prefix.resolve() == Path(sys.prefix).resolve())
             if key in seen:
                 existing = seen[key]
-                existing["sources"].append(source)
+                if source not in existing["sources"]:
+                    existing["sources"].append(source)
                 existing["simshelf_runtime"] |= runtime
                 return
             item = {"path": str(path), "sources": [source], "kind": kind,

@@ -2,7 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { DependencyResults, InterpreterPicker } from "./InterpreterPicker.tsx";
+import {
+  DependencyResults,
+  InterpreterPicker,
+  interpreterLabel,
+} from "./InterpreterPicker.tsx";
 const render = (component, props) =>
   renderToStaticMarkup(React.createElement(component, props));
 test("undeclared dependencies never produce a compatibility claim", () => {
@@ -70,4 +74,41 @@ test("custom saved path stays visible and checks disclose executable boundary", 
   assert.match(html, /Enter custom path/);
   assert.match(html, /Discovery does not run executables/);
   assert.match(html, /Only select interpreters you trust/);
+});
+
+test("interpreter entries stay concise with repeated discovery sources", () => {
+  const candidate = {
+    path: "/usr/bin/python",
+    kind: "Unclassified executable",
+    available: true,
+    simshelf_runtime: false,
+    state: "Not probed",
+    sources: ["Saved selection", ...Array(6).fill("Server PATH")],
+  };
+  assert.equal(
+    interpreterLabel(candidate, "3.14.8"),
+    "Python · /usr/bin/python · Saved · Python 3.14.8 · checked",
+  );
+  assert.equal(candidate.sources.length, 7); // Display never mutates discovery data.
+  assert.equal(
+    interpreterLabel({
+      ...candidate,
+      available: false,
+      state: "Missing or not executable",
+    }),
+    "Python · /usr/bin/python · Saved · Missing or not executable",
+  );
+  assert.match(
+    interpreterLabel({ ...candidate, simshelf_runtime: true }),
+    /^SimShelf runtime ·/,
+  );
+  assert.match(
+    interpreterLabel({
+      ...candidate,
+      path: "/project env/.venv/bin/python",
+      kind: "Virtual environment",
+      sources: ["Project .venv", "Server PATH"],
+    }),
+    /^Project \.venv \(Virtual environment\) · \/project env\/\.venv\/bin\/python · Not probed$/,
+  );
 });

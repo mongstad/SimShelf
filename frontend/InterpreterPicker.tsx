@@ -10,6 +10,27 @@ type Candidate = {
   state: string;
 };
 type Python = { version: string; prefix: string };
+export function interpreterLabel(candidate: Candidate, version?: string) {
+  const project = candidate.sources.find((source) =>
+    source.startsWith("Project "),
+  );
+  const environment =
+    candidate.kind === "Unclassified executable" || candidate.kind === "Unknown"
+      ? "Python"
+      : candidate.kind;
+  const name = candidate.simshelf_runtime
+    ? "SimShelf runtime"
+    : project
+      ? `${project} (${environment})`
+      : environment;
+  return [
+    name,
+    candidate.path,
+    ...(candidate.sources.includes("Saved selection") ? ["Saved"] : []),
+    version ? `Python ${version} · checked` : candidate.state,
+  ].join(" · ");
+}
+
 type Dependencies = {
   python: Python;
   files: string[];
@@ -172,12 +193,10 @@ export function InterpreterPicker({
               value={candidate.path}
               disabled={!candidate.available}
             >
-              {candidate.simshelf_runtime ? "SimShelf runtime — " : ""}
-              {candidate.sources.join(" / ")} · {candidate.kind} ·{" "}
-              {candidate.path} ·{" "}
-              {candidate.path === value && python
-                ? `Python ${python.version} · checked`
-                : candidate.state}
+              {interpreterLabel(
+                candidate,
+                candidate.path === value ? python?.version : undefined,
+              )}
             </option>
           ))}
           <option value="custom">Enter custom path</option>
@@ -209,7 +228,8 @@ export function InterpreterPicker({
       </label>
       {selected && (
         <p>
-          {selected.kind} ·{" "}
+          {selected.kind} · Discovered via:{" "}
+          {[...new Set(selected.sources)].join(", ")}.{" "}
           {python ? `Python ${python.version} checked` : selected.state}.{" "}
           {selected.simshelf_runtime && (
             <strong>
