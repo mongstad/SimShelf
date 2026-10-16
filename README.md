@@ -217,9 +217,9 @@ process stopped. No environment recreation or exact reproducibility is promised.
 Closing or refreshing a browser tab leaves the local server and simulations running.
 Reopen the displayed localhost URL to reconnect. To shut down this server, use
 **Quit SimShelf** in the sidebar. Confirmation shows the number of active portal
-recorders, including startup/final capture. **Cancel / Keep running** is the safe
+recorders, including startup/final capture. **Cancel** is the safe
 default; **Stop runs and quit** explicitly requests cancellation and final capture.
-With no portal recorders, confirm **Quit server**. The portal then shows shutdown
+The confirmation uses **Stop runs and quit** even when no portal recorders are active. The portal then shows shutdown
 feedback; close the tab and restart using the launcher when needed.
 
 CLI/editor recorders are independent and continue outside the portal. Quitting

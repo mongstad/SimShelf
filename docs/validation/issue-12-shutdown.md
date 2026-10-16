@@ -106,3 +106,16 @@ real kernel uninterruptible I/O and detached scientific processes are not exerci
 Shutdown acknowledgement is not proof all processes/capture completed. Existing
 supervisors may continue capture after the server's 15-second shared wait. Custom
 ASGI/service hosting requires shutdown through its owner. No release is published.
+
+## Owner wording revision
+
+2026-10-17: confirmation buttons now read **Cancel** and **Stop runs and quit**
+for both active and idle servers. Cancel still dismisses the dialog without
+stopping anything; confirmation retains the existing shutdown behavior. Version
+remains 0.1.0.3. Earlier review-time wording above is preserved as history.
+TypeScript and production build passed. The source Chromium workflow passed again
+with the new labels, including Cancel focus and run preservation, active and idle
+Quit, actual port reuse, tab reopening, interrupted records and partial output.
+No backend changes; Python/package checks were not repeated for this wording-only
+revision. Updated browser fixtures/screenshots are external under
+`/tmp/simshelf12-wording`.

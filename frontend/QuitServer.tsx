@@ -99,14 +99,10 @@ export function QuitServer({
       )}
       <div className="modal-actions">
         <button ref={cancel} autoFocus onClick={close} disabled={busy}>
-          Cancel / Keep running
+          Cancel
         </button>
         <button disabled={!state?.can_quit || busy} onClick={quit}>
-          {busy
-            ? "Requesting shutdown…"
-            : state?.active_runs
-              ? "Stop runs and quit"
-              : "Quit server"}
+          {busy ? "Requesting shutdown…" : "Stop runs and quit"}
         </button>
       </div>
     </>
