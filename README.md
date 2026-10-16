@@ -9,9 +9,10 @@ file-capture policies, and portable workspace backups. Everything is local.
 
 ## Open the app
 
-From this directory:
+From a fresh checkout, explicitly set up its dedicated Python environment once:
 
 ```bash
+./start.sh --setup
 ./start.sh
 ```
 
@@ -19,10 +20,33 @@ The app opens at **http://127.0.0.1:8740**. Keep the terminal running while usin
 the browser. Closing the browser does not interrupt separately recorded runs.
 Press Ctrl+C in the server terminal to stop the interface.
 
-The launcher uses `.simshelf/` in this checkout as the workspace. On first use it
-creates `.venv/` and installs the Python package if necessary. Python 3.11 or
-newer is required; the built browser interface is included, so Node.js is not
-needed to use the application.
+Python 3.11 or newer is required. The launcher keeps its environment and default
+workspace outside the checkout. For a checkout at `/path/to/SimShelf/SimShelf`:
+
+```text
+/path/to/SimShelf/
+  SimShelf/                 source checkout
+  environments/SimShelf/    dedicated development Python environment
+  workspaces/SimShelf/      persistent library
+  workspaces/SimShelf-demo/ optional demo library
+  test-output/SimShelf/     optional demo sources and outputs
+```
+
+`--setup` explicitly creates or updates only the launcher's dedicated environment.
+Normal startup never installs dependencies. An active editor/terminal virtual
+environment is not modified. Existing environments without this checkout's
+ownership marker are refused; select a new path instead. A failed setup can be
+retried with the same command. The built browser interface is included, so Node.js
+is not needed to use the application.
+
+Workspace precedence for the launcher is `--workspace PATH` (before `--cli` or
+`--demo`), then `SIMSHELF_HOME`, then the external default above. Relative paths
+resolve from the invoking terminal directory; `~` is expanded. Empty overrides
+are rejected. `SIMSHELF_DEV_ROOT` changes the parent development directory and
+`SIMSHELF_DEV_ENV` selects a dedicated environment path, which must be outside the
+checkout. Set the same overrides for setup and subsequent commands. Environments
+belong to one checkout: a different clone needs its own environment path. Library
+paths are independent of code revisions; updating source does not move records.
 
 For a different local workspace:
 
@@ -35,12 +59,10 @@ Keep it on a local disk. Register simulation source folders separately.
 
 ## Record your first simulation
 
-Activate this installation and point the recorder at the same workspace as the UI:
+Use the launcher CLI to select the same environment and workspace as the UI:
 
 ```bash
-source .venv/bin/activate
-export SIMSHELF_HOME="$PWD/.simshelf"
-simshelf add /path/to/my-simulation --name "Scalar field" --entry field.py
+./start.sh --cli add /path/to/my-simulation --name "Scalar field" --entry field.py
 ```
 
 The command prints a stable simulation ID, such as `scalar-field`. You can also
@@ -50,16 +72,19 @@ in place; source files are not moved or rewritten.
 From your simulation directory, wrap your usual command:
 
 ```bash
-simshelf record --simulation scalar-field --name "Lower damping" -- \
+/path/to/SimShelf/SimShelf/start.sh --cli record --simulation scalar-field --name "Lower damping" -- \
   python field.py --dt 0.002 --seed 42 --damping 0.05
 ```
 
 The recorder preserves the command as an argument array, its working directory,
 source snapshot, exit status, stdout, stderr, and selected new or changed outputs.
 It streams output to your terminal and returns the simulation's exit code.
+The child command uses your terminal's `PATH`, so `python` can remain your
+simulation interpreter; use its absolute path when needed. The launcher does not
+activate its development environment in your shell.
 Ctrl+C and termination signals are forwarded to the child process on Linux.
 
-The interface is optional during recording. Use `simshelf list --simulation
+The interface is optional during recording. Use `./start.sh --cli list --simulation
 scalar-field` to inspect recorded runs without a browser.
 
 Named command-line flags are **inferred**, not a complete account of the script's
@@ -92,7 +117,8 @@ with simshelf.run(
 ```
 
 Use the same registered simulation ID and workspace in your editor and browser.
-Omit `workspace` when `SIMSHELF_HOME` is already set. Plain `simshelf` commands
+Omit `workspace` when `SIMSHELF_HOME` is already set. Set it to the launcher's
+external workspace path when recording from an editor. Plain installed `simshelf` commands
 without either setting use `~/.local/share/simshelf`.
 
 The Python API captures the actual interpreter and installed packages. If the
@@ -243,6 +269,36 @@ Run `simshelf doctor` to replay durable events that were not indexed and to mark
 dead local recorders interrupted. On Linux, process start identities guard
 against PID reuse. The browser performs this recovery periodically as well.
 
+### Continue or migrate a legacy checkout workspace
+
+If `.simshelf` exists in the checkout, default startup stops and prints its path.
+It never silently switches you to an empty library. Continue explicitly:
+
+```bash
+./start.sh --workspace "$PWD/.simshelf"
+```
+
+To migrate, first stop the UI and all recorders writing to that library. Choose a
+new archive name and a new or empty destination outside the checkout:
+
+```bash
+./start.sh --workspace "$PWD/.simshelf" --cli backup ../legacy-library-backup.zip
+./start.sh --workspace "$PWD/.simshelf" --cli restore ../legacy-library-backup.zip --to ../workspaces/migrated-library
+./start.sh --workspace ../workspaces/migrated-library
+```
+
+Check simulation/run counts, parameters, source snapshots, notes, screenshots and
+logs in the restored library. Set `SIMSHELF_HOME` to its absolute path for future
+launcher, CLI and editor use. Keep the original and backup until you have verified
+the result; the launcher never removes them. A failed restore does not overwrite
+an existing library. External references and registered simulation source paths
+are not relocated or backed up: keep those original folders available. Backups
+exclude unreferenced workspace files, so retain the original if it contains extras.
+Active runs restore as interrupted; stop writers before this migration.
+
+A custom workspace remains available through `SIMSHELF_HOME` or `--workspace`.
+Existing checkout-local `.venv` environments are left alone and are not reused.
+
 ## Try the included example
 
 The example needs only Python and SimShelf. It computes a small damped scalar
@@ -250,13 +306,18 @@ wave, writes actual field images and summary files, and keeps raw fields as
 references. Create four real runs in a separate demo workspace:
 
 ```bash
-.venv/bin/python scripts/create_demo.py
-.venv/bin/simshelf --workspace .demo-workspace ui
+./start.sh --demo
+./start.sh --workspace ../workspaces/SimShelf-demo
 ```
 
 One run deliberately fails to demonstrate retained partial results. The default
 workspace is unaffected. Running the demo command again appends another set of
-runs; it never clears existing history.
+runs; it never clears existing history. Each invocation copies the two example
+source files to a new external `test-output/SimShelf/scalar-demo-*` folder, which
+also retains its outputs and is registered as a separate simulation. Keep these
+folders while their reference-only files are useful. The demo honors an explicit
+`SIMSHELF_HOME` or `--workspace`; unset it to use the separate default demo library.
+Use `./start.sh --demo --output-root /external/path` to select another output root.
 
 ## Share the source project
 
@@ -274,14 +335,31 @@ and run details. Source distributions exclude the generated capture folders.
 ## Develop and verify
 
 ```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install -e '.[dev]'
+./start.sh --setup
+export PYTHONDONTWRITEBYTECODE=1
+export PYTHONPATH="$PWD/src"
+DEV_PYTHON="$(dirname "$PWD")/environments/$(basename "$PWD")/bin/python"
 pnpm install --frozen-lockfile
 pnpm run typecheck
 pnpm run build
-.venv/bin/python -m pytest -q
-.venv/bin/python -m build
+"$DEV_PYTHON" -B -m pytest -q -p no:cacheprovider --basetemp="$(mktemp -d /tmp/simshelf-tests-XXXXXX)/pytest"
+# Build in a disposable source copy, since setuptools writes build metadata.
+BUILD_ROOT="$(mktemp -d /tmp/simshelf-build-XXXXXX)"
+git archive HEAD | tar -x -C "$BUILD_ROOT"
+"$DEV_PYTHON" -B -m build "$BUILD_ROOT" --outdir "$BUILD_ROOT/dist"
 ```
+
+Adjust `DEV_PYTHON` if using `SIMSHELF_DEV_ROOT` or `SIMSHELF_DEV_ENV`. The launcher
+loads current checkout source without an editable installation; setup builds its
+installed package from a temporary copy, keeping packaging metadata external.
+The archive build above tests committed code; use an external copy including your
+changes to validate uncommitted work. Conventional `pip install -e` remains
+supported when explicitly requested, but setuptools may write ignored `.egg-info`
+metadata into that source tree. Use an external source copy if it must stay pristine.
+Do not install into an unrelated simulation interpreter without choosing to do so.
+`requirements-dev.lock` is the historical tested dependency set; setup resolves the
+ranges in `pyproject.toml`. Frontend development installs `node_modules` locally;
+this is separate from Python launch/record/test defaults.
 
 React/TypeScript source lives in `frontend/`. The build emits bundled assets into
 `src/simshelf/static/`, which are intentionally tracked and packaged with Python.
@@ -302,3 +380,6 @@ See [architecture](docs/ARCHITECTURE.md) for storage and versioning contracts an
 
 See [the issue #1 source audit](docs/validation/issue-1-source-audit.md) for
 repository cleanup, history exposure, and package validation evidence.
+
+See [issue #2 validation](docs/validation/issue-2-external-development.md) for
+external launcher paths and legacy-workspace recovery checks.
