@@ -110,6 +110,39 @@ The existing **File capture** rules control copies/references/ignored files. Run
 with overlapping capture folders are rejected; distinct folders allow concurrent
 runs. SimShelf does not redirect arbitrary script writes or rewrite source.
 
+### Check where outputs will land
+
+In **Start simulation → Output destinations**, inspect the resolved capture folder.
+For a recognized option such as `--wvz`, choose **Map argument … as file** only
+if that is how your script uses it. Choose directory for an output-folder option.
+For a custom flag, select **Declare output path**, then its path argument token.
+Use **Option=path** for a combined token, or declare a fixed path for scripts
+that have no output argument. Multiple declarations are supported. All paths
+resolve from the selected working directory; no shell expansion is performed.
+
+Review any **Outside capture folder** warning. **Use suggested path** explicitly
+changes the mapped argument to point inside capture; it does not move files,
+create folders, or change source. Check that your script supports that destination
+and will not overwrite existing results. Alternatively edit capture/arguments,
+or check **Proceed with declared outputs outside capture coverage** to run
+intentionally without capturing those locations. After changing an argument,
+confirm its mapping again when prompted. Settings are remembered for future
+launches; completed run records are unchanged.
+
+Undeclared writes remain unknown. Declarations check path coverage, not whether a
+script will actually write there or whether rules will retain its files. The
+portal never scans extra locations automatically. Additional external files
+cannot be registered as references from this editor; preserve them separately
+or configure a future run's capture folder explicitly.
+
+Run **Overview** and **Files** show the frozen capture folder and inspection
+counts: copied, referenced, ignored, skipped and unchanged. **Complete** describes
+inspection without reported errors; it does not mean every script output was
+backed up. Zero observed files is stated explicitly. Only copied files are in
+backups; references require their original files. Later attachments are separate
+from automatic-capture counts. Failed/interrupted runs can still retain files;
+check their capture status and errors as well as execution status.
+
 **Stop run** requests cancellation of a portal run owned by this server. It sends
 SIGTERM to the script's process group, then SIGKILL after three seconds if needed,
 and attempts final output capture. The run is marked interrupted, even if it

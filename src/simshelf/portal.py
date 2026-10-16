@@ -14,11 +14,12 @@ import time
 from .common import contained
 from .config import validate_config
 from .store import Store
+from .output_paths import output_review
 
 
 def execution_settings(simulation: dict, data: dict, *, probe=False) -> dict:
-    if not isinstance(data, dict) or set(data) - {"interpreter", "cwd", "arguments", "output_dir"}:
-        raise ValueError("Use interpreter, cwd, arguments and output_dir execution settings")
+    if not isinstance(data, dict) or set(data) - {"interpreter", "cwd", "arguments", "output_dir", "output_mappings"}:
+        raise ValueError("Use interpreter, cwd, arguments, output_dir and optional output_mappings execution settings")
     interpreter = data.get("interpreter", "")
     if not isinstance(interpreter, str) or not interpreter or "\0" in interpreter:
         raise ValueError("Select an absolute path to the simulation's Python interpreter")
@@ -50,7 +51,10 @@ def execution_settings(simulation: dict, data: dict, *, probe=False) -> dict:
     config = validate_config({**simulation["config"], "output_dir": output})
     contained(root, config["output_dir"])
     settings = {"interpreter": str(python), "cwd": cwd, "arguments": arguments, "output_dir": output}
-    result = {"settings": settings, "command": [str(python), str(script), *arguments],
+    mappings = data.get("output_mappings", [])
+    review = output_review(simulation, cwd, arguments, output, mappings)
+    settings["output_mappings"] = mappings
+    result = {"output_review": review, "settings": settings, "command": [str(python), str(script), *arguments],
               "cwd": str(directory), "output_path": str(contained(root, output))}
     if probe:
         try:
@@ -78,10 +82,12 @@ class PortalJobs:
             job = next((j for p, j in self.jobs.items() if j.get("run_id") == run_id and p.poll() is None), None)
             return {"can_stop": bool(job), "stop_requested": bool(job and job["stopping"])}
 
-    def start(self, simulation: str, settings: dict, name: str | None) -> dict:
+    def start(self, simulation: str, settings: dict, name: str | None, acknowledge_outputs: bool = False) -> dict:
         if not sys.platform.startswith("linux"):
             raise ValueError("Portal launching currently requires Linux. CLI/editor recording remains available.")
         plan = execution_settings(self.store.simulation(simulation), settings, probe=True)
+        if plan["output_review"]["requires_acknowledgement"] and not acknowledge_outputs:
+            raise ValueError("Declared outputs are outside capture coverage. Edit paths or explicitly acknowledge before launching.")
         with self.lock:
             if self.closing:
                 raise ValueError("Server is shutting down; no new runs can start")
@@ -92,7 +98,7 @@ class PortalJobs:
                                        stderr=subprocess.DEVNULL, start_new_session=True, shell=False)
             self.jobs[process] = {"run_id": None, "stopping": False}
             payload = {"workspace": str(self.store.path), "simulation": simulation,
-                       "settings": plan["settings"], "name": name}
+                       "settings": plan["settings"], "name": name, "acknowledge_outputs": acknowledge_outputs}
             threading.Thread(target=self._reap, args=(process,), daemon=True).start()
             try:
                 process.stdin.write((json.dumps(payload) + "\n").encode())

@@ -1,10 +1,12 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ArgumentEditor } from "./ArgumentEditor";
 import { argumentError, formatCommand } from "./arguments";
 import { api } from "./api";
-import type { Simulation } from "./types";
+import { OutputPaths } from "./OutputPaths";
+import type { Simulation, OutputMapping, OutputReview } from "./types";
 
 type Plan = {
+  output_review: OutputReview;
   command: string[];
   cwd: string;
   output_path: string;
@@ -35,14 +37,55 @@ export function LaunchSimulation({
   const [output, setOutput] = useState(
     initial?.output_dir || simulation.config.output_dir,
   );
+  const [mappings, setMappings] = useState<OutputMapping[]>(
+    initial?.output_mappings || [],
+  );
+  const [outputReview, setOutputReview] = useState<OutputReview | null>(null);
+  const [outputError, setOutputError] = useState("");
+  const [acknowledge, setAcknowledge] = useState(false);
+  const [argumentRevision, setArgumentRevision] = useState(0);
+  const outputRequest = JSON.stringify({
+    cwd,
+    arguments: args,
+    output_dir: output,
+    output_mappings: mappings,
+  });
+  useEffect(() => {
+    let active = true;
+    setOutputReview(null);
+    setOutputError("");
+    const timer = setTimeout(() => {
+      api<OutputReview>(`/simulations/${simulation.id}/execution/outputs`, {
+        method: "POST",
+        body: outputRequest,
+      })
+        .then((result) => {
+          if (active) setOutputReview(result);
+        })
+        .catch((e) => {
+          if (active) setOutputError((e as Error).message);
+        });
+    }, 250);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [outputRequest, simulation.id]);
   const [name, setName] = useState("");
   const [plan, setPlan] = useState<Plan | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
-  const settings = { interpreter, cwd, arguments: args, output_dir: output };
+  const settings = {
+    interpreter,
+    cwd,
+    arguments: args,
+    output_dir: output,
+    output_mappings: mappings,
+  };
   function edited() {
     setPlan(null);
+    setAcknowledge(false);
     setNotice("");
   }
   async function validate(save: boolean) {
@@ -71,6 +114,7 @@ export function LaunchSimulation({
         saved();
         setNotice("Execution settings saved for this simulation.");
       }
+      setOutputReview(result.output_review);
       setPlan(result);
     } catch (e) {
       setPlan(null);
@@ -81,7 +125,15 @@ export function LaunchSimulation({
   }
   async function start(e: React.FormEvent) {
     e.preventDefault();
-    if (!plan || busy || pastePending || argsError) return;
+    if (
+      !plan ||
+      busy ||
+      pastePending ||
+      argsError ||
+      !outputReview ||
+      (outputReview.requires_acknowledgement && !acknowledge)
+    )
+      return;
     setBusy(true);
     setError("");
     try {
@@ -94,7 +146,11 @@ export function LaunchSimulation({
         `/simulations/${simulation.id}/launch`,
         {
           method: "POST",
-          body: JSON.stringify({ ...settings, name: name || null }),
+          body: JSON.stringify({
+            ...settings,
+            name: name || null,
+            acknowledge_outputs: acknowledge,
+          }),
         },
       );
       done(result.run_id);
@@ -217,13 +273,40 @@ export function LaunchSimulation({
           </small>
         </label>
         <ArgumentEditor
-          initial={initial?.arguments || []}
+          key={argumentRevision}
+          initial={args}
           change={(next) => {
             setArgs(next);
             edited();
           }}
           pasteEditing={(pending) => {
             setPastePending(pending);
+            edited();
+          }}
+        />
+        <OutputPaths
+          args={args}
+          mappings={mappings}
+          review={outputReview}
+          error={outputError}
+          change={(next) => {
+            setMappings(next);
+            edited();
+          }}
+          apply={(index, value) => {
+            const mapping = mappings[index];
+            if (mapping.argument_index === null) return;
+            setArgs(
+              args.map((arg, i) =>
+                i === mapping.argument_index ? value : arg,
+              ),
+            );
+            setMappings(
+              mappings.map((item, i) =>
+                i === index ? { ...item, value } : item,
+              ),
+            );
+            setArgumentRevision(argumentRevision + 1);
             edited();
           }}
         />
@@ -249,14 +332,14 @@ export function LaunchSimulation({
         <div className="modal-actions">
           <button
             type="button"
-            disabled={pastePending || !!argsError}
+            disabled={pastePending || !!argsError || !outputReview}
             onClick={() => validate(false)}
           >
             Validate interpreter & paths
           </button>
           <button
             type="button"
-            disabled={pastePending || !!argsError}
+            disabled={pastePending || !!argsError || !outputReview}
             onClick={() => validate(true)}
           >
             Save settings
@@ -284,10 +367,28 @@ export function LaunchSimulation({
         leaves the run active. Stopping or restarting the SimShelf server
         requests cancellation. You can stop a portal run from its run details.
       </p>
+      {outputReview?.requires_acknowledgement && (
+        <label className="check-label">
+          <input
+            type="checkbox"
+            checked={acknowledge}
+            onChange={(e) => setAcknowledge(e.target.checked)}
+          />
+          Proceed with declared outputs outside capture coverage. I understand
+          they may not be retained or backed up.
+        </label>
+      )}
       <div className="modal-actions">
         <button
           className="primary"
-          disabled={busy || !plan || pastePending || !!argsError}
+          disabled={
+            busy ||
+            !plan ||
+            pastePending ||
+            !!argsError ||
+            !outputReview ||
+            (outputReview.requires_acknowledgement && !acknowledge)
+          }
         >
           {busy ? "Working…" : "Start simulation"}
         </button>

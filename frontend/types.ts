@@ -1,3 +1,19 @@
+export type OutputMapping = {
+  argument_index: number | null;
+  value: string;
+  kind: "file" | "directory";
+  format: "token" | "equals";
+};
+export type OutputReview = {
+  output_path: string;
+  requires_acknowledgement: boolean;
+  targets: (OutputMapping & {
+    resolved_path: string;
+    covered: boolean;
+    reason: string;
+    suggested_argument: string | null;
+  })[];
+};
 export type Config = {
   source_include: string[];
   source_exclude: string[];
@@ -7,6 +23,7 @@ export type Config = {
   rules: { pattern: string; action: "copy" | "reference" | "ignore" }[];
 };
 export type ExecutionSettings = {
+  output_mappings?: OutputMapping[];
   interpreter: string;
   cwd: string;
   arguments: string[];
@@ -44,7 +61,12 @@ export type Measurement = {
   unit?: string;
 };
 export type Run = {
-  launch?: { kind: string };
+  launch?: {
+    kind: string;
+    output_review?: OutputReview;
+    outputs_acknowledged?: boolean;
+  };
+  capture_root?: string;
   can_stop?: boolean;
   stop_requested?: boolean;
   id: string;
