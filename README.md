@@ -67,9 +67,20 @@ Once SimShelf is running, no terminal recording command is needed:
 2. Select the simulation in the sidebar and choose **Start simulation**. Enter the
    absolute path to its existing Python interpreter, for example a virtual
    environment's `bin/python`. Only select code and interpreters you trust.
-3. Add runtime arguments as separate fields: `--seed` and `42` are two arguments;
-   `a value with spaces` is one. Do not add shell quotes. The preview displays the
-   exact argument array; shell operators, substitutions and wildcards stay literal.
+3. Add paired runtime arguments: parameter `--seed`, value `42`. Use **Add flag /
+   positional** for a single token such as `--headless`. **No value** adds no token;
+   a blank field passes an explicit empty argument. Type spaces directly, without
+   shell quotes. **Split**, **Pair with next**, and the arrow buttons let you
+   organize and reorder arguments without guessing your script's syntax.
+   Grouping is only a view of adjacent tokens; saved settings retain exact argv.
+   Alternatively, **Paste arguments** accepts a quoted argument string such as
+   `--seed 42 --label 'with spaces' --headless`. Review the tokens and choose
+   **Replace arguments**, or cancel. Paste arguments only, without Python or the
+   script name. Unclosed quotes and trailing backslashes must be corrected.
+   Single/double quotes and backslashes group text; variables, wildcards, shell
+   operators and substitutions remain literal. Backslash-newline continues a
+   line. The command preview reflects unsaved edits; expand **Exact argv** to
+   inspect token boundaries. Editing settings requires validation again.
 4. Check the working directory (relative to the source folder, `.` by default),
    capture folder and optional run name. **Validate interpreter & paths** checks
    Python without importing the simulation. It cannot certify installed script

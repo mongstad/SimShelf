@@ -56,6 +56,13 @@ mark an alive recorder dead. `SIMSHELF_RUN_ID` lets a script's Python API join t
 same record. The child environment is still labeled unknown until it reports
 itself; interpreter validation is not dependency or reproducibility validation.
 
+The browser argument editor pairs adjacent tokens for display only. Splitting or
+pairing rows preserves the exact ordered string array; a null display value is
+absent and an empty string is an explicit token. Grouping is rederived on reopen,
+not stored as a second command representation. Paste import tokenizes quotes and
+escapes locally, without expansion or shell execution, and requires a reviewed
+replacement. Pending paste and argument edits invalidate launch validation.
+
 The browser sends argument arrays, never shell code. Execution is exactly
 `[selected_python, registered_absolute_script, *arguments]` with `shell=False`.
 There is no browser-supplied Python `-c`, shell, scheduler or remote-command mode.
