@@ -7,6 +7,8 @@ name = "simshelf"
 version = "0.1.0"
 description = "A local simulation library and run journal for Python"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1", "python-multipart>=0.0.20,<1"]
 

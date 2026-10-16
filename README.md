@@ -276,7 +276,7 @@ and run details. Source distributions exclude the generated capture folders.
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install -e '.[dev]'
-pnpm install
+pnpm install --frozen-lockfile
 pnpm run typecheck
 pnpm run build
 .venv/bin/python -m pytest -q
@@ -284,8 +284,11 @@ pnpm run build
 ```
 
 React/TypeScript source lives in `frontend/`. The build emits bundled assets into
-`src/simshelf/static/`, which are packaged with Python. Runtime UI resources are
-served locally; no CDN connection is required. Python dependencies are declared
+`src/simshelf/static/`, which are intentionally tracked and packaged with Python.
+The build also regenerates complete bundled dependency licenses; keep those and
+`app.js.LEGAL.txt` with the assets. See [third-party notices](THIRD_PARTY_NOTICES.md).
+Runtime UI resources are served locally; no CDN connection is required. Python
+dependencies are declared
 in `pyproject.toml`; `requirements-dev.lock` records the tested development
 environment. `pnpm-lock.yaml` records the frontend dependencies.
 
@@ -296,3 +299,6 @@ time-series plots, and 3D viewing are outside Stage 1.
 
 See [architecture](docs/ARCHITECTURE.md) for storage and versioning contracts and
 [validation](docs/VALIDATION.md) for the checks performed on this build.
+
+See [the issue #1 source audit](docs/validation/issue-1-source-audit.md) for
+repository cleanup, history exposure, and package validation evidence.
