@@ -114,6 +114,18 @@ The existing **File capture** rules control copies/references/ignored files. Run
 with overlapping capture folders are rejected; distinct folders allow concurrent
 runs. SimShelf does not redirect arbitrary script writes or rewrite source.
 
+### Discover available parameters
+
+**Start simulation → Simulation parameters** combines discovered options and saved
+arguments in one editor. Supported parameters show a name/value pair, concise
+help and a default hint. Enable optional parameters to pass them; disabled defaults
+contribute no arguments. Boolean flags need no value. Required options and known
+conflicts are checked before saving/launching. Saved aliases, equals/separate forms
+and order remain intact; unknown, repeated or positional arguments use manual rows
+in the same editor. Rescan preserves edits and warns about changed declarations.
+See [simulation parameters](docs/PARAMETER_DISCOVERY.md) for schema examples,
+manual fallback and validation limits.
+
 ### Choose and check a Python environment
 
 **Rescan interpreters** refreshes a bounded list: saved selection, project `.venv`

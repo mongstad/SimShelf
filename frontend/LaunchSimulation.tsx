@@ -29,6 +29,7 @@ export function LaunchSimulation({
   const [cwd, setCwd] = useState(initial?.cwd || ".");
   const [args, setArgs] = useState<string[]>(initial?.arguments || []);
   const [pastePending, setPastePending] = useState(false);
+  const [parameterError, setParameterError] = useState("");
   const argsError = argumentError(args);
   const preview = [
     interpreter || "(select Python)",
@@ -90,7 +91,7 @@ export function LaunchSimulation({
     setNotice("");
   }
   async function validate(save: boolean) {
-    if (pastePending || argsError) return;
+    if (pastePending || !!parameterError || argsError) return;
     setBusy(true);
     setError("");
     setNotice("");
@@ -130,6 +131,7 @@ export function LaunchSimulation({
       !plan ||
       busy ||
       pastePending ||
+      !!parameterError ||
       argsError ||
       !outputReview ||
       (outputReview.requires_acknowledgement && !acknowledge)
@@ -268,6 +270,12 @@ export function LaunchSimulation({
         <ArgumentEditor
           key={argumentRevision}
           initial={args}
+          simulationId={simulation.id}
+          entry={simulation.entrypoint || ""}
+          validation={(error) => {
+            setParameterError(error);
+            if (error) edited();
+          }}
           change={(next) => {
             setArgs(next);
             edited();
@@ -325,14 +333,18 @@ export function LaunchSimulation({
         <div className="modal-actions">
           <button
             type="button"
-            disabled={pastePending || !!argsError || !outputReview}
+            disabled={
+              pastePending || !!parameterError || !!argsError || !outputReview
+            }
             onClick={() => validate(false)}
           >
             Validate interpreter & paths
           </button>
           <button
             type="button"
-            disabled={pastePending || !!argsError || !outputReview}
+            disabled={
+              pastePending || !!parameterError || !!argsError || !outputReview
+            }
             onClick={() => validate(true)}
           >
             Save settings
@@ -378,6 +390,7 @@ export function LaunchSimulation({
             busy ||
             !plan ||
             pastePending ||
+            !!parameterError ||
             !!argsError ||
             !outputReview ||
             (outputReview.requires_acknowledgement && !acknowledge)

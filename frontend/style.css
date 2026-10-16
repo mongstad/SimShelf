@@ -1848,3 +1848,15 @@ details label {
   padding: 8px 0;
   border-bottom: 1px solid var(--line);
 }
+
+.parameter-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.parameter-heading h3 { margin: 0; }
+.parameter-row { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.parameter-row .argument-fields { align-items: center; }
+.parameter-row .check-label { margin: 0; flex-wrap: wrap; gap: 6px; }
+.parameter-row input:not([type="checkbox"]) { width: 100%; min-width: 0; }
+.parameter-hint { display: block; margin-top: 4px; overflow-wrap: anywhere; }
+.parameter-notes { margin: 8px 0; font-size: 12px; }
+
+.parameter-row .argument-fields > div { min-width: 0; }
+.parameter-row strong { overflow-wrap: anywhere; }
