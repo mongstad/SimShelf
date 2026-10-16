@@ -1716,3 +1716,29 @@ details label {
     transition: none !important;
   }
 }
+
+.launch-form fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.argument-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+}
+.argument-row input {
+  flex: 1;
+  min-width: 0;
+}
+.launch-preview {
+  max-height: 200px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.launch-form code {
+  overflow-wrap: anywhere;
+}

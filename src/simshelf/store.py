@@ -106,7 +106,7 @@ class Store:
             raise ValueError(f"Unknown simulation '{ident}'. Register its folder first with simshelf add.")
         return json.loads(row[0])
 
-    def update_simulation(self, ident: str, *, config=None, name=None, description=None) -> dict:
+    def update_simulation(self, ident: str, *, config=None, name=None, description=None, execution=None, entrypoint=None) -> dict:
         with self.connection() as conn:
             conn.execute("BEGIN IMMEDIATE")
             row = conn.execute("SELECT data FROM simulations WHERE id=?", (ident,)).fetchone()
@@ -116,6 +116,13 @@ class Store:
             if config is not None:
                 data["config"] = validate_config(config)
                 contained(Path(data["root"]), data["config"]["output_dir"])
+            if entrypoint is not None:
+                if not isinstance(entrypoint, str) or Path(entrypoint).is_absolute() or Path(entrypoint).suffix != ".py" or not contained(Path(data["root"]), entrypoint).is_file():
+                    raise ValueError("Choose an existing Python entry file relative to the registered source folder")
+                data["entrypoint"] = entrypoint
+            if execution is not None:
+                from .portal import execution_settings
+                data["execution"] = execution_settings(data, execution)["settings"]
             if name is not None:
                 if not name.strip() or len(name) > 160:
                     raise ValueError("Name must contain 1–160 characters")
