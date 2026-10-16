@@ -7,6 +7,7 @@ import threading
 import webbrowser
 from pathlib import Path
 
+from . import __version__
 from .backup import create_backup, restore_backup
 from .common import default_workspace
 from .recording import record_command
@@ -16,7 +17,7 @@ from .store import Store
 def parser() -> argparse.ArgumentParser:
     cli = argparse.ArgumentParser(prog="simshelf", description="Your local simulation library and run journal.")
     cli.add_argument("--workspace", type=Path, help="Workspace folder (or set SIMSHELF_HOME)")
-    cli.add_argument("--version", action="version", version="SimShelf 0.1.0")
+    cli.add_argument("--version", action="version", version=f"SimShelf {__version__}")
     commands = cli.add_subparsers(dest="action", required=True)
     commands.add_parser("init", help="Create the local workspace")
     add = commands.add_parser("add", help="Register an existing simulation folder")

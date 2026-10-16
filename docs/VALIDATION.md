@@ -96,3 +96,9 @@ retention counts, browser checks and installed-package verification.
 See [issue #10 interpreter checks](validation/issue-10-interpreters.md) for passive
 discovery, explicit version/dependency metadata checks, environment isolation,
 browser/package checks, limitations and real NumPy/CuPy owner-verification steps.
+
+## Later application version validation
+
+See [issue #18 application versioning](validation/issue-18-application-version.md)
+for the authoritative version, accepted-main increment checks, source/wheel
+consistency and existing portal-label validation. Earlier evidence is unchanged.

@@ -1597,6 +1597,7 @@ function RunDetails({
 
 function App() {
   const [workspace, setWorkspace] = useState(""),
+    [applicationVersion, setApplicationVersion] = useState<string | null>(null),
     [simulations, setSimulations] = useState<Simulation[]>([]),
     [simulationId, setSimulationId] = useState(""),
     [runs, setRuns] = useState<Run[]>([]),
@@ -1671,6 +1672,7 @@ function App() {
     connect()
       .then((info) => {
         setWorkspace(info.path);
+        setApplicationVersion(info.version);
       })
       .catch((e) => {
         setError(e.message);
@@ -1841,7 +1843,7 @@ function App() {
           </div>
           <span className="local-badge">
             <span />
-            Local · 0.1.0
+            Local · {applicationVersion || "Version unavailable"}
           </span>
         </div>
         <div className="main-content">

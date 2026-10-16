@@ -144,6 +144,20 @@ termination, machine failure or uninterruptible I/O can prevent cleanup/capture;
 interrupted state is not a guarantee all external processes stopped. Restart does
 not resume simulations or recreate environments. Completed records stay immutable.
 
+## Application version contract
+
+The application version is a literal in `simshelf/_version.py`. Setuptools reads
+that attribute without importing runtime dependencies; Python and CLI import it,
+and FastAPI exposes it through its metadata and `/api/workspace`. The existing
+upper-right portal label consumes that response, with an unavailable state before
+connection. No runtime Git, Node, build counter or installed-metadata lookup is
+involved. Source and installed-wheel behavior share the same contract.
+
+[Application versioning](APPLICATION_VERSIONING.md) defines the historical
+`0.1.0` baseline, numbered builds, explicit accepted-main check and owner-controlled
+release process. This value is independent of storage schema, scientific tags and
+exact source/Git identity; changing it never migrates or rewrites run records.
+
 ## Version contract
 
 `SIMSHELF_VERSION` is a single top-level literal string in the registered version
