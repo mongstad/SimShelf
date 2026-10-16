@@ -110,7 +110,7 @@ with simshelf.run("field", parameters={"argv": sys.argv[1:], "seed": 7}) as run:
     print("live stdout", flush=True)
     print("diagnostic stderr", file=sys.stderr, flush=True)
 ''')
-    arguments = ["--label", "with spaces", "; touch SHOULD_NOT_EXIST", "$(touch OTHER)", "*", "", "--flag=2"]
+    arguments = ["--label", "with spaces", "; touch SHOULD_NOT_EXIST", "$(touch OTHER)", "*", "", "--flag=2", "--repeat", "α", "--repeat", "雪", "a\"b", "a'b", "--headless", "--", "-positional", ""]
     with TestClient(create_app(store.path)) as client:
         auth = headers(client)
         response = client.put(f"/api/simulations/{sim['id']}/execution", headers=auth, json=settings(arguments=arguments))
@@ -133,6 +133,11 @@ with simshelf.run("field", parameters={"argv": sys.argv[1:], "seed": 7}) as run:
     assert restored.run(run_id)["snapshot"] == run["snapshot"]
     with TestClient(create_app(store.path)) as client:
         assert client.get("/api/simulations").json()[0]["execution"]["arguments"] == arguments
+        before = store.run(run_id)
+        response = client.put(f"/api/simulations/{sim['id']}/execution", headers=headers(client), json=settings(arguments=["--future", "changed"]))
+        assert response.status_code == 200
+        assert store.run(run_id) == before
+        assert store.run(run_id)["command"] == [sys.executable, str(source), *arguments]
 
 
 @pytest.mark.parametrize("code, expected, diagnostic", [

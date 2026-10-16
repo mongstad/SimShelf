@@ -78,3 +78,9 @@ The original prototype checks above remain historical. See
 [issue #5 portal execution](validation/issue-5-portal-execution.md) for the
 subsequent local launch/stop capability, process ownership, recovery and browser
 checks.
+
+## Later argument editor validation
+
+See [issue #11 argument editor](validation/issue-11-argument-editor.md) for paired
+rows, paste tokenization, exact argv round trips, browser checks and packaged
+assets. Earlier reports above retain their original review-time wording.

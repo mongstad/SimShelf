@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { ArgumentEditor } from "./ArgumentEditor";
+import { argumentError, formatCommand } from "./arguments";
 import { api } from "./api";
 import type { Simulation } from "./types";
 
@@ -23,6 +25,13 @@ export function LaunchSimulation({
   const [interpreter, setInterpreter] = useState(initial?.interpreter || "");
   const [cwd, setCwd] = useState(initial?.cwd || ".");
   const [args, setArgs] = useState<string[]>(initial?.arguments || []);
+  const [pastePending, setPastePending] = useState(false);
+  const argsError = argumentError(args);
+  const preview = [
+    interpreter || "(select Python)",
+    `${simulation.root}/${entry || "(entry file)"}`,
+    ...args,
+  ];
   const [output, setOutput] = useState(
     initial?.output_dir || simulation.config.output_dir,
   );
@@ -37,6 +46,7 @@ export function LaunchSimulation({
     setNotice("");
   }
   async function validate(save: boolean) {
+    if (pastePending || argsError) return;
     setBusy(true);
     setError("");
     setNotice("");
@@ -71,7 +81,7 @@ export function LaunchSimulation({
   }
   async function start(e: React.FormEvent) {
     e.preventDefault();
-    if (!plan || busy) return;
+    if (!plan || busy || pastePending || argsError) return;
     setBusy(true);
     setError("");
     try {
@@ -206,65 +216,49 @@ export function LaunchSimulation({
             capture.
           </small>
         </label>
-        <h3>Runtime arguments</h3>
-        <p className="muted">
-          One field is one argument. For example, add <code>--seed</code> and{" "}
-          <code>42</code> as two fields. Spaces stay inside a field; do not add
-          shell quotes. Empty fields pass an empty argument.
-        </p>
-        {args.map((arg, i) => (
-          <div className="argument-row" key={i}>
-            <input
-              aria-label={`Argument ${i + 1}`}
-              value={arg}
-              onChange={(e) => {
-                setArgs(args.map((a, j) => (j === i ? e.target.value : a)));
-                edited();
-              }}
-            />
-            <button
-              type="button"
-              aria-label={`Remove argument ${i + 1}`}
-              onClick={() => {
-                setArgs(args.filter((_, j) => j !== i));
-                edited();
-              }}
-            >
-              Remove
-            </button>
-          </div>
-        ))}
-        <button
-          type="button"
-          onClick={() => {
-            setArgs([...args, ""]);
+        <ArgumentEditor
+          initial={initial?.arguments || []}
+          change={(next) => {
+            setArgs(next);
             edited();
           }}
-          disabled={args.length >= 256}
-        >
-          Add argument
-        </button>
-        <h3>Command preview · separate arguments</h3>
-        <pre className="log-block launch-preview">
-          {JSON.stringify(
-            plan?.command || [
-              interpreter || "(select Python)",
-              `${simulation.root}/${simulation.entrypoint || "(entry file)"}`,
-              ...args,
-            ],
-            null,
-            2,
-          )}
+          pasteEditing={(pending) => {
+            setPastePending(pending);
+            edited();
+          }}
+        />
+        {argsError && (
+          <p className="error-banner" role="alert">
+            {argsError}
+          </p>
+        )}
+        <h3>Command preview</h3>
+        <pre className="log-block launch-preview" aria-label="Command preview">
+          {formatCommand(preview)}
         </pre>
+        <details>
+          <summary>Exact argv</summary>
+          <pre className="log-block launch-preview" aria-label="Exact argv">
+            {JSON.stringify(preview, null, 2)}
+          </pre>
+        </details>
         <small>
           No shell is used: metacharacters and wildcards are passed literally to
           the script.
         </small>
         <div className="modal-actions">
-          <button type="button" onClick={() => validate(false)}>
+          <button
+            type="button"
+            disabled={pastePending || !!argsError}
+            onClick={() => validate(false)}
+          >
             Validate interpreter & paths
           </button>
-          <button type="button" onClick={() => validate(true)}>
+          <button
+            type="button"
+            disabled={pastePending || !!argsError}
+            onClick={() => validate(true)}
+          >
             Save settings
           </button>
         </div>
@@ -291,7 +285,10 @@ export function LaunchSimulation({
         requests cancellation. You can stop a portal run from its run details.
       </p>
       <div className="modal-actions">
-        <button className="primary" disabled={busy || !plan}>
+        <button
+          className="primary"
+          disabled={busy || !plan || pastePending || !!argsError}
+        >
           {busy ? "Working…" : "Start simulation"}
         </button>
       </div>

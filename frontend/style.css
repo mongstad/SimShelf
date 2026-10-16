@@ -1742,3 +1742,70 @@ details label {
 .launch-form code {
   overflow-wrap: anywhere;
 }
+
+.argument-editor .argument-row {
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 10px 0;
+}
+.argument-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.argument-fields label {
+  min-width: 0;
+  margin: 0;
+}
+.argument-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.argument-actions button {
+  padding: 5px 9px;
+  font-size: 12px;
+}
+.argument-no-value {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 40px;
+  font-weight: normal;
+}
+.argument-no-value button {
+  padding: 5px 9px;
+  font-size: 12px;
+}
+.argument-paste {
+  margin-top: 16px;
+}
+.argument-paste textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+@media (max-width: 480px) {
+  .argument-fields {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}
+
+.argument-fields textarea {
+  min-height: 40px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.argument-value {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+}
