@@ -41,6 +41,7 @@ const icons: Record<string, React.ReactNode> = {
   ),
   arrow: <path d="m9 5 7 7-7 7" />,
   close: <path d="m6 6 12 12M6 18 18 6" />,
+  power: <path d="M12 3v9m-5.7-6.7a8 8 0 1 0 11.4 0" />,
   download: (
     <>
       <path d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5" />
@@ -1870,10 +1871,13 @@ function App() {
           )}
         </div>
         <div className="sidebar-bottom">
-          <button className="nav-item" onClick={() => setModal("quit")}>Quit SimShelf</button>
-          <button className="nav-item" onClick={backup} disabled={backingUp}>
+          <button className="nav-item sidebar-utility" onClick={() => setModal("quit")}>
+            <Icon name="power" />
+            <span>Quit SimShelf</span>
+          </button>
+          <button className="nav-item sidebar-utility sidebar-backup" onClick={backup} disabled={backingUp}>
             <Icon name="download" />
-            {backingUp ? "Preparing backup…" : "Back up workspace"}
+            <span>{backingUp ? "Preparing backup…" : "Back up workspace"}</span>
           </button>
           <label className="theme-label">
             <span>Appearance</span>
