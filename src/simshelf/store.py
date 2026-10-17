@@ -40,7 +40,7 @@ class Store:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.executescript(SCHEMA)
             row = conn.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()
-            if row and row[0] not in {"1", "2", "3"}:
+            if row and row[0] not in {"1", "2", "3", "4"}:
                 raise ValueError("This workspace uses a newer database schema. Upgrade SimShelf.")
             conn.execute("INSERT OR IGNORE INTO metadata VALUES ('schema_version', '1')")
             conn.execute("INSERT OR IGNORE INTO metadata VALUES ('workspace_id', ?)", (uuid.uuid4().hex,))
@@ -156,6 +156,13 @@ class Store:
 
     @locked_store
     def apply(self, event: dict) -> None:
+        progress_error = None
+        if event["kind"] == "finish":
+            from .progress import recover_progress
+            try:
+                recover_progress(self, event["run_id"])
+            except (ValueError, OSError, sqlite3.Error, KeyError, TypeError) as exc:
+                progress_error = f"Progress recovery failed: {exc}"
         with self.connection() as conn:
             conn.execute("BEGIN IMMEDIATE")
             if conn.execute("SELECT 1 FROM applied_events WHERE id=?", (event["id"],)).fetchone():
@@ -197,6 +204,8 @@ class Store:
                 elif kind == "finish":
                     if run["status"] == "running":
                         run.update(data)
+                        if progress_error:
+                            run["progress_error"] = progress_error
                 elif kind == "artifact":
                     if not deleted_screenshot(conn, data["id"]):
                         conn.execute("INSERT OR IGNORE INTO artifacts VALUES (?,?,?)", (data["id"], run_id, json_text(data)))
@@ -228,6 +237,8 @@ class Store:
         with self.connection() as conn:
             applied = {row[0] for row in conn.execute("SELECT id FROM applied_events")}
         for file in sorted((self.path / "journal").glob("*/*.json")):
+            if file.name == "progress.json":
+                continue
             if file.stem in applied:
                 continue
             try:
@@ -235,6 +246,12 @@ class Store:
                 recovered += 1
             except (ValueError, OSError, sqlite3.Error) as exc:
                 errors.append(f"{file.parent.name}/{file.name}: {exc}")
+        from .progress import recover_progress
+        for file in (self.path / "journal").glob("*/progress.json"):
+            try:
+                recover_progress(self, file.parent.name)
+            except (ValueError, OSError, sqlite3.Error, KeyError, TypeError) as exc:
+                errors.append(f"Progress recovery: {exc}")
         for run in self.runs(status="running", limit=10000):
             owner = run.get("owner", {})
             if owner.get("host") == socket.gethostname() and owner.get("pid") and not process_alive(owner["pid"], owner.get("identity")):
@@ -271,6 +288,10 @@ class Store:
                 raise ValueError("Run not found")
             result = json.loads(row[0])
             result["baseline_deleted"] = deleted_run(conn, result.get("baseline_run_id", "")) is not None
+            from .progress import enabled
+            if enabled(conn):
+                progress = conn.execute("SELECT data FROM progress WHERE run_id=?", (ident,)).fetchone()
+                result["progress"] = json.loads(progress[0]) if progress else None
             if detail:
                 result["artifacts"] = [self.artifact_state(json.loads(r[0])) for r in conn.execute("SELECT data FROM artifacts WHERE run_id=? ORDER BY rowid", (ident,))]
                 for artifact in result["artifacts"]:

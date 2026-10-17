@@ -69,7 +69,7 @@ def delete_screenshot(store, run_id, ident, *, confirmed=False):
         conn.execute("DELETE FROM artifacts WHERE id=? AND run_id=?", (ident, run_id))
         blob = artifact["blob"]
         conn.execute("INSERT OR IGNORE INTO metadata VALUES (?,?)", (f"cleanup:blobs/{blob[:2]}/{blob}", "pending"))
-        conn.execute("UPDATE metadata SET value='3' WHERE key='schema_version'")
+        conn.execute("UPDATE metadata SET value='3' WHERE key='schema_version' AND value IN ('1','2')")
     try:
         errors = cleanup_removed(store)
     except (OSError, ValueError, sqlite3.Error) as exc:

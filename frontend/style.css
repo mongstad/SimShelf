@@ -1945,3 +1945,40 @@ details label {
 
 .removal-list { max-height: 14rem; overflow: auto; padding-left: 1.5rem; }
 .removal-list li { margin-bottom: .75rem; overflow-wrap: anywhere; }
+
+/* Progress is telemetry, separate from execution status and scientific metrics. */
+.run-progress {
+  --progress-fill: light-dark(#147d70, #249e8b);
+  --progress-track: light-dark(#dde8e5, #233b3a);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin: 16px 0;
+  background: var(--surface);
+  overflow-wrap: anywhere;
+}
+.progress-heading { display: flex; justify-content: space-between; gap: 12px; }
+.run-progress progress {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 8px;
+  margin: 10px 0;
+  border: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--progress-track);
+  color: var(--progress-fill);
+  accent-color: var(--progress-fill);
+}
+.run-progress progress::-webkit-progress-bar { background: var(--progress-track); border-radius: 4px; }
+.run-progress progress::-webkit-progress-value { background: var(--progress-fill); }
+.run-progress progress::-moz-progress-bar { background: var(--progress-fill); }
+@media (forced-colors: active) {
+  .run-progress { --progress-fill: Highlight; --progress-track: Canvas; }
+  .run-progress progress { border: 1px solid CanvasText; forced-color-adjust: none; }
+}
+.progress-stage { margin: 6px 0; }
+.run-progress small { display: block; margin-top: 6px; }
+.progress-settings { border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.progress-settings summary { cursor: pointer; font-weight: 600; }

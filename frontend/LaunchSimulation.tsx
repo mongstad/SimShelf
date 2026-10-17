@@ -1,3 +1,4 @@
+import { ProgressSettings } from "./ProgressSettings";
 import React, { useState, useEffect } from "react";
 import { ArgumentEditor } from "./ArgumentEditor";
 import { argumentError, formatCommand } from "./arguments";
@@ -73,12 +74,14 @@ export function LaunchSimulation({
       clearTimeout(timer);
     };
   }, [outputRequest, simulation.id]);
+  const [progressMode, setProgressMode] = useState(initial?.progress_mode || "off");
   const [name, setName] = useState("");
   const [plan, setPlan] = useState<Plan | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const settings = {
+    progress_mode: progressMode,
     interpreter,
     cwd,
     arguments: args,
@@ -176,6 +179,7 @@ export function LaunchSimulation({
         <code>{simulation.entrypoint || "No entry file registered"}</code>
       </p>
       <fieldset disabled={busy}>
+        <ProgressSettings value={progressMode} change={value => {setProgressMode(value);edited();}} />
         <label>
           Registered entry file
           <input

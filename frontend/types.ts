@@ -23,6 +23,7 @@ export type Config = {
   rules: { pattern: string; action: "copy" | "reference" | "ignore" }[];
 };
 export type ExecutionSettings = {
+  progress_mode?: string;
   output_mappings?: OutputMapping[];
   interpreter: string;
   cwd: string;
@@ -62,6 +63,8 @@ export type Measurement = {
   unit?: string;
 };
 export type Run = {
+  progress?: {current: number | null; total: number | null; stage: string | null; source: string; reported_at: string} | null;
+  progress_error?: string | null;
   launch?: {
     kind: string;
     output_review?: OutputReview;

@@ -128,3 +128,18 @@ Earlier evidence is unchanged.
 See [issue #24 screenshot deletion](validation/issue-24-screenshot-deletion.md)
 for ownership boundaries, schema-3 audit/replay behavior, focused tests and
 source/installed browser checks. Earlier reports remain unchanged.
+
+## Later optional progress validation
+
+See [issue #17 progress](validation/issue-17-progress.md) for explicit schema-4
+enablement, bounded telemetry, recovery/backup tests, source/installed browser
+checks, limitations and owner verification. Earlier reports remain unchanged.
+
+For PR #34's later parser refinement, see
+[issue #17 console revision](validation/issue-17-console-revision.md): expanded
+conservative formats, observational-only 100% lifecycle checks and revised
+installed-browser/package evidence.
+
+The later [compact progress panel revision](validation/issue-17-panel-revision.md)
+records frontend-only rendering, theme contrast, grouped counts and installed
+desktop/narrow browser validation. Earlier reports remain unchanged.
