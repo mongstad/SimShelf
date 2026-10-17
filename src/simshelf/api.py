@@ -77,6 +77,7 @@ class OutputInput(BaseModel):
 
 class ExecutionInput(OutputInput):
     interpreter: str
+    progress_mode: str = "off"
 
 
 class LaunchInput(ExecutionInput):
@@ -98,6 +99,11 @@ class RemovalInput(BaseModel):
 
 
 class ScreenshotDeletionInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    confirmed: bool = False
+
+
+class ProgressEnableInput(BaseModel):
     model_config = {"extra": "forbid"}
     confirmed: bool = False
 
@@ -159,6 +165,11 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
     @app.exception_handler(ValueError)
     async def value_error(_request, exc):
         return JSONResponse({"detail": str(exc)}, status_code=400)
+
+    @app.post("/api/workspace/progress/enable")
+    def enable_progress_endpoint(body: ProgressEnableInput):
+        from .progress import enable_progress
+        return enable_progress(store, confirmed=body.confirmed)
 
     @app.get("/api/workspace")
     def workspace_info():

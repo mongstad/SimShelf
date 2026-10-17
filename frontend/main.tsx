@@ -1,3 +1,4 @@
+import { RunProgress } from "./RunProgress";
 import { DeleteScreenshot, withoutScreenshots } from "./DeleteScreenshot";
 import { RemoveRuns, type RemovalResult } from "./RemoveRuns";
 import { QuitServer } from "./QuitServer";
@@ -1026,6 +1027,7 @@ function RunDetails({
         </button>
         <button disabled={busy || run.status === "running" || run.capture_status === "pending"} onClick={() => requestRemoval(run)}>Remove run…</button>
       </header>
+      <RunProgress run={run} />
       <nav className="tabs" aria-label="Run detail sections">
         {[
           "overview",

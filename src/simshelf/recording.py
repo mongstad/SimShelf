@@ -75,8 +75,9 @@ class ConsoleTee:
 
 
 class Run:
-    def __init__(self, simulation: str, *, workspace=None, name=None, parameters=None, tags=None, command=None, cwd=None, output_dir=None, join=True, capture_console=True, launch=None):
+    def __init__(self, simulation: str, *, workspace=None, name=None, parameters=None, tags=None, command=None, cwd=None, output_dir=None, join=True, capture_console=True, launch=None, progress_mode="off"):
         self.launch = launch
+        self.progress_mode = progress_mode
         self.store = Store(workspace)
         self.simulation = self.store.simulation(simulation)
         if output_dir is not None:
@@ -99,6 +100,9 @@ class Run:
         self.started_clock = time.monotonic()
         self.capture_console = capture_console
         self.console_streams = []
+        from .progress import ProgressWriter
+        self.progress_writer = ProgressWriter(self.store, self.id)
+        self.progress_enabled = False
 
     @property
     def output_dir(self) -> Path:
@@ -125,6 +129,7 @@ class Run:
         self.initial_capture_errors = initial_errors
         self.started_clock = time.monotonic()
         data = {"id": self.id, "simulation_id": self.simulation["id"], "name": self.name or time.strftime("Run %b %d · %H:%M:%S"), "status": "running", "started_at": now(), "ended_at": None, "duration": None, "exit_code": None, "version": version, "snapshot_id": snapshot["id"], "structure_id": snapshot["structure_id"], "source_warnings": snapshot["warnings"], "command": self.command, "cwd": self.cwd, "parameters": self.parameters, "parameter_sources": {key: "python" for key in self.parameters}, "tags": self.tags, "notes": "", "version_note": "", "cover_id": None, "git": git_context(Path(self.simulation["root"])), "environment": environment(), "capture_config": self.simulation["config"], "capture_status": "pending", "capture_errors": initial_errors, "owner": {"pid": os.getpid(), "host": socket.gethostname(), "identity": process_identity(os.getpid())}}
+        data["progress_mode"] = self.progress_mode
         if self.launch:
             if self.simulation["entrypoint"] not in {file["path"] for file in snapshot["files"]}:
                 raise ValueError("The entry file must be included in source capture before portal launch")
@@ -153,6 +158,22 @@ class Run:
             raise ValueError("Simulation time must be finite")
         self.store.emit(self.id, "metric", {"name": name, "value": float(value), "step": step, "sim_time": sim_time, "unit": unit})
 
+    def progress(self, current=None, total=None, *, stage=None):
+        """Report optional latest progress; first explicitly enable the library.
+
+        Unknown totals never imply a percentage. Calls are coalesced to one durable
+        write per second and flushed on context exit; 100% is not run success.
+        """
+        from .progress import enabled, progress_report
+        if not self.started or self.finished:
+            raise ValueError("Report progress inside an active run context")
+        if not self.progress_enabled:
+            with self.store.connection() as conn:
+                if not enabled(conn):
+                    raise ValueError("Explicitly enable progress reporting for this library first")
+            self.progress_enabled = True
+        self.progress_writer.report(progress_report(current, total, stage=stage))
+
     def attach(self, path, *, policy="copy", caption="") -> dict:
         if policy not in ("copy", "reference"):
             raise ValueError("Attachment policy must be copy or reference")
@@ -162,7 +183,11 @@ class Run:
         self.store.emit(self.id, "annotation", {"notes": text})
 
     def finish(self, exit_code=0, *, status=None, error=None):
-        if self.joined or self.finished:
+        if self.finished:
+            return
+        self.progress_writer.close()
+        if self.joined:
+            self.finished = True
             return
         status = status or ("completed" if exit_code == 0 else "failed")
         try:
@@ -172,7 +197,7 @@ class Run:
                 capture["capture_status"] = "partial"
         except Exception as exc:
             capture = {"capture_status": "incomplete", "capture_errors": [str(exc)]}
-        self.store.emit(self.id, "finish", {"status": status, "ended_at": now(), "duration": time.monotonic() - self.started_clock, "exit_code": exit_code, "error": error, **capture})
+        self.store.emit(self.id, "finish", {"status": status, "ended_at": now(), "duration": time.monotonic() - self.started_clock, "exit_code": exit_code, "error": error, "progress_error": self.progress_writer.error, **capture})
         self.finished = True
 
     def __exit__(self, exc_type, exc, tb):
@@ -186,11 +211,17 @@ class Run:
         return False
 
 
-def record_command(store: Store, simulation: str, command: list[str], *, name=None, tags=None, cwd=None, output_dir=None, cancel=None, on_started=None, quiet=False, launch=None) -> tuple[str, int]:
+def record_command(store: Store, simulation: str, command: list[str], *, name=None, tags=None, cwd=None, output_dir=None, cancel=None, on_started=None, quiet=False, launch=None, progress_mode="off") -> tuple[str, int]:
     if not command:
         raise ValueError("Pass a command after --, for example: -- python field.py --seed 42")
+    from .progress import TEXT_MODES, TextProgressParser, enabled
+    if not isinstance(progress_mode, str) or progress_mode not in TEXT_MODES:
+        raise ValueError("Choose off, step or percent progress parsing")
+    with store.connection() as conn:
+        if progress_mode != "off" and not enabled(conn):
+            raise ValueError("Enable progress reporting for this library before selecting a text adapter")
     store.reconcile()
-    recorder = Run(simulation, workspace=store.path, command=command, name=name, tags=tags, cwd=cwd, output_dir=output_dir, join=False, capture_console=False, launch=launch)
+    recorder = Run(simulation, workspace=store.path, command=command, name=name, tags=tags, cwd=cwd, output_dir=output_dir, join=False, capture_console=False, launch=launch, progress_mode=progress_mode)
     recorder.__enter__()
     store.emit(recorder.id, "environment", {**environment(), "source": "recorder environment (child interpreter not yet reported)"})
     recorder.log_parameters(cli_parameters(command), source="command-line (inferred)")
@@ -222,6 +253,8 @@ def record_command(store: Store, simulation: str, command: list[str], *, name=No
             except ProcessLookupError:
                 pass
     def tee(pipe, target, path):
+        parser = TextProgressParser(progress_mode)
+        source = "text:" + path.stem
         saved = 0
         try:
             with path.open("wb") as stream:
@@ -236,6 +269,8 @@ def record_command(store: Store, simulation: str, command: list[str], *, name=No
                             target.flush()
                     except (OSError, ValueError):
                         pass
+                    for report in parser.feed(chunk):
+                        recorder.progress_writer.report(report, source)
                     remaining = 10 * 1024**2 - saved
                     if remaining > 0:
                         stream.write(chunk[:remaining])
@@ -244,6 +279,9 @@ def record_command(store: Store, simulation: str, command: list[str], *, name=No
                     if len(chunk) > remaining and "Terminal log truncated at 10 MB per stream" not in errors:
                         errors.append("Terminal log truncated at 10 MB per stream")
         finally:
+            final_report = parser.finish()
+            if final_report is not None:
+                recorder.progress_writer.report(final_report, source)
             pipe.close()
     try:
         if threading.current_thread() is threading.main_thread():

@@ -33,6 +33,7 @@ def parser() -> argparse.ArgumentParser:
     record.add_argument("--tag", action="append", default=[])
     record.add_argument("--cwd", type=Path, help="Working directory; defaults to your current directory")
     record.add_argument("--output-dir", help="Run-specific capture folder relative to the simulation folder")
+    record.add_argument("--progress", choices=["off", "step", "percent"], default="off", help="Opt-in whole-line progress parser; requires explicit library enablement")
     record.add_argument("command", nargs=argparse.REMAINDER)
     ui = commands.add_parser("ui", help="Open the local browser interface")
     ui.add_argument("--port", type=int, default=8740)
@@ -47,6 +48,8 @@ def parser() -> argparse.ArgumentParser:
     restore = commands.add_parser("restore", help="Restore into a new or empty workspace")
     restore.add_argument("archive", type=Path)
     restore.add_argument("--to", type=Path, required=True)
+    progress = commands.add_parser("enable-progress", help="Enable schema 4: older builds cannot open this library. Verify a backup and stop older servers/recorders first.")
+    progress.add_argument("--confirm", action="store_true", help="Confirm incompatible library upgrade after verifying a backup and stopping older servers/recorders")
     commands.add_parser("doctor", help="Recover pending records and detect interrupted runs")
     return cli
 
@@ -66,7 +69,7 @@ def main(argv=None) -> int:
             print(f"Registered {sim['name']}\nSimulation ID: {sim['id']}\nSource folder: {sim['root']}")
         elif args.action == "record":
             command = args.command[1:] if args.command[:1] == ["--"] else args.command
-            _, code = record_command(store, args.simulation, command, name=args.name, tags=args.tag, cwd=args.cwd, output_dir=args.output_dir)
+            _, code = record_command(store, args.simulation, command, name=args.name, tags=args.tag, cwd=args.cwd, output_dir=args.output_dir, progress_mode=args.progress)
             return code
         elif args.action == "ui":
             import uvicorn
@@ -112,6 +115,10 @@ def main(argv=None) -> int:
             print(json.dumps(store.run(args.run_id), indent=2))
         elif args.action == "backup":
             print(f"Backup saved: {create_backup(store, args.destination)}")
+        elif args.action == "enable-progress":
+            from .progress import enable_progress
+            enable_progress(store, confirmed=args.confirm)
+            print("Progress reporting enabled (schema 4). Older SimShelf versions cannot open this library.")
         elif args.action == "doctor":
             print(json.dumps(store.reconcile(), indent=2))
         return 0

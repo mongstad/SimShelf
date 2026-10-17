@@ -12,7 +12,7 @@ from .source import read_snapshot
 from .workspace_lock import locked_store
 
 ID = re.compile(r"[0-9a-f]{32}\Z")
-MANAGED = re.compile(r"(?:blobs/[0-9a-f]{2}/[0-9a-f]{64}|snapshots/[0-9a-f]{64}\.json|logs/[0-9a-f]{32}/(?:stdout|stderr)\.log|journal/[0-9a-f]{32}/[0-9]{20}-[0-9a-f]{32}\.json)\Z")
+MANAGED = re.compile(r"(?:blobs/[0-9a-f]{2}/[0-9a-f]{64}|snapshots/[0-9a-f]{64}\.json|logs/[0-9a-f]{32}/(?:stdout|stderr)\.log|journal/[0-9a-f]{32}/(?:[0-9]{20}-[0-9a-f]{32}|progress)\.json)\Z")
 
 
 def deleted_run(conn, ident):
@@ -128,6 +128,8 @@ def remove_runs(store, identifiers, *, confirmed=False):
             conn.execute("INSERT INTO metadata VALUES (?,?)", ("deleted_run:" + run["id"], json_text(tombstone)))
             for table in ("artifacts", "metrics", "annotations"):
                 conn.execute(f"DELETE FROM {table} WHERE run_id=?", (run["id"],))
+            if conn.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()[0] == "4":
+                conn.execute("DELETE FROM progress WHERE run_id=?", (run["id"],))
             conn.execute("DELETE FROM runs WHERE id=?", (run["id"],))
         for relative in candidates:
             if not MANAGED.fullmatch(relative):

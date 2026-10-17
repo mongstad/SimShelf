@@ -112,8 +112,15 @@ def restore_backup(archive_path: Path, target: Path) -> Store:
             if conn.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                 raise ValueError("Backup database failed its integrity check")
             version = conn.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()
-            if not version or version[0] not in {"1", "2", "3"}:
+            if not version or version[0] not in {"1", "2", "3", "4"}:
                 raise ValueError("Unsupported backup database schema")
+            if version[0] == "4":
+                from .progress import validate_saved_report
+                for run_id, sequence, raw in conn.execute("SELECT run_id,sequence,data FROM progress"):
+                    report = json.loads(raw)
+                    validate_saved_report(report)
+                    if type(sequence) is not int or sequence < 1 or not conn.execute("SELECT 1 FROM runs WHERE id=?", (run_id,)).fetchone():
+                        raise ValueError("Invalid progress record in backup")
             for ident, raw in conn.execute("SELECT id,data FROM runs WHERE status='running'").fetchall():
                 run = json.loads(raw)
                 run.update(status="interrupted", ended_at=manifest["created_at"], capture_status="incomplete", capture_errors=["This run was still active when the backup was taken."], owner={})

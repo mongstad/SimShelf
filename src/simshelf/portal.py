@@ -19,7 +19,7 @@ from .interpreters import probe_interpreter
 
 
 def execution_settings(simulation: dict, data: dict, *, probe=False) -> dict:
-    if not isinstance(data, dict) or set(data) - {"interpreter", "cwd", "arguments", "output_dir", "output_mappings"}:
+    if not isinstance(data, dict) or set(data) - {"interpreter", "cwd", "arguments", "output_dir", "output_mappings", "progress_mode"}:
         raise ValueError("Use interpreter, cwd, arguments, output_dir and optional output_mappings execution settings")
     interpreter = data.get("interpreter", "")
     if not isinstance(interpreter, str) or not interpreter or "\0" in interpreter:
@@ -52,6 +52,11 @@ def execution_settings(simulation: dict, data: dict, *, probe=False) -> dict:
     config = validate_config({**simulation["config"], "output_dir": output})
     contained(root, config["output_dir"])
     settings = {"interpreter": str(python), "cwd": cwd, "arguments": arguments, "output_dir": output}
+    from .progress import TEXT_MODES
+    progress_mode = data.get("progress_mode", "off")
+    if not isinstance(progress_mode, str) or progress_mode not in TEXT_MODES:
+        raise ValueError("Choose off, step or percent progress parsing")
+    settings["progress_mode"] = progress_mode
     mappings = data.get("output_mappings", [])
     review = output_review(simulation, cwd, arguments, output, mappings)
     settings["output_mappings"] = mappings
@@ -83,6 +88,10 @@ class PortalJobs:
         if not sys.platform.startswith("linux"):
             raise ValueError("Portal launching currently requires Linux. CLI/editor recording remains available.")
         plan = execution_settings(self.store.simulation(simulation), settings, probe=True)
+        from .progress import enabled
+        with self.store.connection() as conn:
+            if plan["settings"]["progress_mode"] != "off" and not enabled(conn):
+                raise ValueError("Enable progress reporting for this library before launching a text adapter")
         if plan["output_review"]["requires_acknowledgement"] and not acknowledge_outputs:
             raise ValueError("Declared outputs are outside capture coverage. Edit paths or explicitly acknowledge before launching.")
         with self.lock:

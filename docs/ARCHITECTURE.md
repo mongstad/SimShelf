@@ -8,8 +8,9 @@
   attachments, and joins an active wrapper through its run ID.
 - FastAPI provides the local UI API and serves the compiled React/TypeScript app.
 - SQLite stores simulations, runs, artifact manifests, measurements, annotation
-  history, and event deduplication IDs. Schema versions 1 and 2 are checked at startup; version 2 is selected only by
-  explicit run removal.
+  history, and event deduplication IDs. Schema versions 1–4 are checked at startup. Run removal selects schema 2,
+  screenshot deletion selects schema 3, and explicit library progress enablement
+  selects schema 4; none of these upgrades happens on ordinary startup.
 - Source snapshots and retained artifacts share a SHA-256-addressed blob store.
 
 ```text
@@ -294,3 +295,17 @@ and captured scientific outputs stay unchanged. Reference-aware cleanup shares t
 run-removal lock/queue and never unlinks source/shared content still in use. Only an
 explicit successful deletion activates schema 3; schema-1/2 startup stays compatible.
 The list/gallery derives a surviving cover without rewriting historical annotations.
+
+
+## Optional progress telemetry
+
+[Progress reporting](PROGRESS.md) uses a separate latest-state table and bounded
+atomic `journal/<run-id>/progress.json` checkpoint after explicit schema-4 consent.
+It is not a scientific metric or annotation event. Managed-data locking serializes
+checkpoint publication, sequence allocation, replay, finish, backup and removal.
+One-second coalescing plus final flush bounds durable work; one row/checkpoint per
+run bounds retained telemetry. Older finalized run rows remain unchanged.
+Structured API input takes precedence over explicit whole-line text adapters;
+stdout/stderr bytes and process ownership remain unchanged. Lifecycle status is
+independent of reported fraction. The [design](PROGRESS_DESIGN.md) specifies the
+separately authorized migration and recovery boundaries.
