@@ -223,8 +223,10 @@ process stopped. No environment recreation or exact reproducibility is promised.
 ## Follow simulation progress
 
 Run details show progress when the simulation supplies it; otherwise the panel
-shows Progress unavailable without inventing a percentage. Progress never
-replaces execution status or proves success. Enable progress explicitly for a
+shows Progress unavailable. Successfully completed runs display 100% and, when
+available, the stored total as both step counts. This completion display never
+rewrites the original report. Reported progress never determines execution status
+or proves success. Enable progress explicitly for a
 library, then use `run.progress(current=..., total=..., stage=...)` or opt in to
 interpreting supported step/percentage text in Start simulation. This optional
 feature upgrades that library to schema 4; older builds cannot reopen it. Verify

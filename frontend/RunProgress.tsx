@@ -3,15 +3,14 @@ import type { Run } from "./types";
 
 export function RunProgress({ run }: { run: Run }) {
   const report = run.progress;
+  const validTotal = typeof report?.total === "number" && Number.isFinite(report.total) && report.total > 0;
   const known =
     report &&
     typeof report.current === "number" &&
     Number.isFinite(report.current) &&
-    typeof report.total === "number" &&
-    Number.isFinite(report.total) &&
-    report.total > 0 &&
+    validTotal &&
     report.current >= 0 &&
-    report.current <= report.total;
+    report.current <= report.total!;
   const percent = known
     ? report!.current! === report!.total
       ? 100
@@ -21,37 +20,36 @@ export function RunProgress({ run }: { run: Run }) {
         )
     : null;
   const completed = run.status === "completed";
+  // Completion is a display projection only; never overwrite the stored report.
+  const displayedPercent = completed ? 100 : percent;
+  const displayedCurrent = completed ? report?.total : report?.current;
+  const showCounts = completed ? validTotal : known;
+  const formatCount = (value: number) => value.toLocaleString("en-US", { maximumFractionDigits: 12 });
   return (
     <section className="run-progress" aria-label="Simulation progress">
       <div className="progress-heading">
         <strong>
           {completed || known ? "Progress" : "Progress unavailable"}
         </strong>
-        {!completed && percent !== null && <span>{percent}%</span>}
+        {displayedPercent !== null && <span>{displayedPercent}%</span>}
       </div>
       {(completed || known) && (
         <progress
           aria-label={completed ? "Successful process completion" : "Simulation progress"}
           aria-valuetext={completed
-            ? known
-              ? `Process completed; last reported progress ${percent}%, ${report!.current!.toLocaleString("en-US", { maximumFractionDigits: 12 })} of ${report!.total!.toLocaleString("en-US", { maximumFractionDigits: 12 })} steps`
-              : "Process completed; no reported progress available"
+            ? validTotal
+              ? `100% process completion; ${formatCount(report!.total!)} of ${formatCount(report!.total!)} steps displayed from the stored total, not a measured progress report`
+              : "100% process completion; no valid step total available, not a measured progress report"
             : undefined}
           value={completed ? 100 : report!.current!}
           max={completed ? 100 : report!.total!}
         />
       )}
-      {completed && (
-        <div className="progress-heading">
-          <strong>{known ? "Last reported progress" : "Progress unavailable"}</strong>
-          {percent !== null && <span>{percent}%</span>}
-        </div>
-      )}
-      {known && (
+      {showCounts && (
         <div className="muted">
-          {report!.current!.toLocaleString("en-US", { maximumFractionDigits: 12 })}
+          {formatCount(displayedCurrent!)}
           {" / "}
-          {report!.total!.toLocaleString("en-US", { maximumFractionDigits: 12 })} steps
+          {formatCount(report!.total!)} steps
         </div>
       )}
       {report?.stage && <div className="progress-stage">{report.stage}</div>}

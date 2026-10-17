@@ -33,11 +33,12 @@ must therefore reject the opted-in library rather than appear fully compatible.
   Source and report time remain stored internally. The owner-requested compact
   panel shows percentage, grouped counts and optional stage. For completed runs,
   successful process completion fills the bar to 100%, independently of telemetry.
-  Completed runs label actual telemetry Last reported progress below the bar;
-  its accessible description distinguishes completion from that report. No stored
-  report is synthesized or changed. Execution status remains in the run header.
-  Unknown telemetry shows Progress unavailable without reported percentage,
-  invented counts or ETA, including beneath a completed run's full bar.
+  Completed runs display 100% and the stored finite positive total as both current
+  and total counts. Their accessible description identifies these as completion
+  display values, not measured telemetry. The original report stays unchanged.
+  Completed runs without a valid total show 100% without step counts. Other states
+  retain actual telemetry, or Progress unavailable without invented values.
+  Execution status remains in the run header.
 - Coalesce updates to at most one durable update per second per run, flushing the
   final pending update before finalization. Keep only latest telemetry and one
   bounded recovery checkpoint per run, not an unbounded stream of progress events.
