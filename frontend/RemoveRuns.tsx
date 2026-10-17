@@ -38,7 +38,7 @@ export function RemoveRuns({ runs, close, removed }: {
       {r.simulation_id} · {r.version} · {r.status} · {new Date(r.started_at).toLocaleString()}<br /><code>{r.id}</code></li>)}</ul>
     <p>Removal is irreversible in this library: run records, notes, measurements, logs and unshared managed copies are removed. Back up first if you may need them.</p>
     <p>Original source folders, Git history and original output files (including external references) are never deleted. Existing backups keep their old data.</p>
-    <p>The first removal upgrades this library to schema 2, which older SimShelf builds cannot open. Stop any older servers or recorders using it first.</p>
+    <p>Run removal requires at least schema 2, which older SimShelf builds cannot open. Libraries on a newer schema keep it. Stop any older servers or recorders using it first.</p>
     <p className="muted">A minimal deletion audit remains. Shared files and baseline snapshots needed by surviving runs are retained. Existing source comparisons stay unchanged; future runs use the earliest surviving run as their baseline.</p>
     {!eligible && <p role="alert">Running or finalizing runs cannot be removed. Cancel, stop them and wait for finalization, then review the selection again.</p>}
     {error && <p role="alert" className="error-banner">{error}</p>}

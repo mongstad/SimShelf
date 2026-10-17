@@ -1,3 +1,4 @@
+import { DeleteScreenshot, withoutScreenshots } from "./DeleteScreenshot";
 import { RemoveRuns, type RemovalResult } from "./RemoveRuns";
 import { QuitServer } from "./QuitServer";
 import { CaptureSummary } from "./CaptureSummary";
@@ -819,13 +820,17 @@ function RunDetails({
       text: "",
       truncated: false,
     });
+  const [deleteImage, setDeleteImage] = useState<Artifact | null>(null);
+  const deletedScreenshots = useRef(new Set<string>());
+  const screenshotsHeading = useRef<HTMLHeadingElement>(null);
+  const deleteTrigger = useRef<HTMLButtonElement | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const activeRunId = useRef(id);
   activeRunId.current = id;
   const refresh = useCallback(async () => {
     try {
       const r = await api<Run>(`/runs/${id}`);
-      if (activeRunId.current === id) setRun(r);
+      if (activeRunId.current === id) setRun(withoutScreenshots(r, deletedScreenshots.current));
       return r;
     } catch (e) {
       if (activeRunId.current === id) { setRun(null); setError((e as Error).message); }
@@ -837,6 +842,7 @@ function RunDetails({
     setRun(null);
     setError("");
     setTab("overview");
+    setDeleteImage(null);
     setNotice("");
     refresh().then((r) => {
       if (r && live) {
@@ -896,7 +902,7 @@ function RunDetails({
         body: JSON.stringify(data),
       });
       if (activeRunId.current !== id) return;
-      setRun(saved);
+      setRun(withoutScreenshots(saved, deletedScreenshots.current));
       if (data.tags) setTags(saved.tags.join(", "));
       changed();
       setNotice("Saved");
@@ -1287,7 +1293,7 @@ function RunDetails({
         <section className="surface">
           <div className="section-heading">
             <div>
-              <h2>Screenshots & visual results</h2>
+              <h2 ref={screenshotsHeading} tabIndex={-1}>Screenshots & visual results</h2>
               <p className="muted">
                 Drop images here, paste from your clipboard, or choose files.
               </p>
@@ -1326,13 +1332,13 @@ function RunDetails({
               <div className="screenshots-grid">
                 {images.map((image) => (
                   <figure key={image.id}>
-                    <a href={imageUrl(image)} target="_blank" rel="noreferrer">
+                    {image.availability === "missing" ? <div className="empty-inline">Image file is missing.</div> : <a href={imageUrl(image)} target="_blank" rel="noreferrer">
                       <img
                         src={imageUrl(image)}
                         alt={image.caption || image.name}
                         loading="lazy"
                       />
-                    </a>
+                    </a>}
                     <figcaption>
                       <strong>{image.name}</strong>
                       <input
@@ -1362,6 +1368,13 @@ function RunDetails({
                           ? "✓ Cover image"
                           : "Use as cover"}
                       </button>
+                      <button className="text-button" disabled={busy || image.screenshot_deletion_reason !== null}
+                        aria-label={`Delete screenshot: ${image.name}`}
+                        aria-describedby={image.screenshot_deletion_reason ? `deletion-reason-${image.id}` : undefined}
+                        onClick={e => { deleteTrigger.current = e.currentTarget; setDeleteImage(image); }}>
+                        Delete screenshot
+                      </button>
+                      {image.screenshot_deletion_reason && <small id={`deletion-reason-${image.id}`}>{image.screenshot_deletion_reason}</small>}
                     </figcaption>
                   </figure>
                 ))}
@@ -1374,7 +1387,7 @@ function RunDetails({
               </div>
             )}
           </div>
-          <small>PNG, JPEG, WebP, or GIF · up to 25 MB per image</small>
+          <small>PNG, JPEG, WebP, or GIF · up to 25 MB per image. Only manually attached managed images on finished runs can be deleted. Captured outputs are preserved; external references remain in Files.</small>
         </section>
       )}
       {tab === "files" && (
@@ -1596,6 +1609,21 @@ function RunDetails({
           )}
         </section>
       )}
+      {deleteImage && <DeleteScreenshot image={deleteImage} run={run}
+        close={() => { setDeleteImage(null); setTimeout(() => deleteTrigger.current?.focus(), 0); }}
+        deleted={result => {
+          deletedScreenshots.current.add(result.deleted_id);
+          setRun(current => current ? withoutScreenshots(current, deletedScreenshots.current) : current);
+          setDeleteImage(null);
+          setError("");
+          setNotice(result.cleanup_errors.length
+            ? "Screenshot removed from the gallery. File cleanup is pending: " + result.cleanup_errors.join("; ")
+            : result.already_deleted ? "Screenshot was already deleted." : "Screenshot deleted.");
+          setTimeout(() => screenshotsHeading.current?.focus(), 0);
+          changed();
+          refresh();
+        }} />}
+
     </div>
   );
 }
@@ -1635,6 +1663,7 @@ function App() {
     localStorage.getItem("simshelf-theme") || "system",
   );
   const simulation = simulations.find((s) => s.id === simulationId);
+  const refreshSequence = useRef(0);
   const activeQuery = useRef("");
   activeQuery.current = JSON.stringify([
     simulationId,
@@ -1644,6 +1673,7 @@ function App() {
     limit,
   ]);
   const refresh = useCallback(async () => {
+    const sequence = ++refreshSequence.current;
     const requestKey = JSON.stringify([
       simulationId,
       status,
@@ -1660,7 +1690,7 @@ function App() {
       if (version) query.set("version", version);
       if (search) query.set("q", search);
       const nextRuns = await api<Run[]>(`/runs?${query}`);
-      if (activeQuery.current !== requestKey) return;
+      if (activeQuery.current !== requestKey || sequence !== refreshSequence.current) return;
       const retained = nextRuns.filter(r => !removedIds.current.has(r.id));
       setRuns(retained);
       setSelected(previous => previous.filter(id => retained.some(r => r.id === id)));

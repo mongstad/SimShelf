@@ -283,3 +283,14 @@ threads/processes. Live simulations do not hold the lock for their lifetime.
 Source/log reads hold it while resolving and reading; artifact downloads retain an
 open inode so concurrent unlink cannot break bytes or range requests. Removal
 never mutates surviving execution metadata or traverses original output paths.
+
+
+## Deliberate screenshot deletion
+
+[Screenshot deletion](SCREENSHOT_DELETION.md) limits removal to manually attached
+managed raster images on finalized runs. Separate schema-3 tombstones and annotation
+entries preserve original attachment history and suppress replay; completed run rows
+and captured scientific outputs stay unchanged. Reference-aware cleanup shares the
+run-removal lock/queue and never unlinks source/shared content still in use. Only an
+explicit successful deletion activates schema 3; schema-1/2 startup stays compatible.
+The list/gallery derives a surviving cover without rewriting historical annotations.
