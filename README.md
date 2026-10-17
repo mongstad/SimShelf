@@ -214,8 +214,8 @@ process stopped. No environment recreation or exact reproducibility is promised.
 
 ## Follow simulation progress
 
-Run details show last-reported progress when the simulation supplies it; otherwise
-they show Running and elapsed time without inventing a percentage. Progress never
+Run details show progress when the simulation supplies it; otherwise the panel
+shows Progress unavailable without inventing a percentage. Progress never
 replaces execution status or proves success. Enable progress explicitly for a
 library, then use `run.progress(current=..., total=..., stage=...)` or opt in to
 interpreting supported step/percentage text in Start simulation. This optional

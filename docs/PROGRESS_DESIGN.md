@@ -30,8 +30,10 @@ must therefore reject the opted-in library rather than appear fully compatible.
   the last state; they are not interpreted as monotonic global progress.
 - Last-reported progress is separate from run status. A 100% report is not success;
   finalized/interrupted runs retain the last accepted report without forcing 100%.
-  UI shows source and report time; stale reports remain labeled last reported.
-  Unknown progress shows Running and elapsed time, without percentage or ETA.
+  Source and report time remain stored internally. The owner-requested compact
+  panel shows Progress, percentage, grouped counts and optional stage; execution
+  status remains in the existing run header. Unknown progress shows Progress
+  unavailable, without percentage, invented counts or ETA.
 - Coalesce updates to at most one durable update per second per run, flushing the
   final pending update before finalization. Keep only latest telemetry and one
   bounded recovery checkpoint per run, not an unbounded stream of progress events.
@@ -48,8 +50,8 @@ must therefore reject the opted-in library rather than appear fully compatible.
 Offer explicit disabled/step-count/percentage text adapter selection in saved
 launch settings and CLI recording. Recognize bounded, anchored supported formats,
 including carriage-return-delimited updates; never infer progress from arbitrary
-numbers, parameters, or an untrusted regex. Keep raw log bytes unchanged. Clearly
-label parsed text as interpreted progress rather than structured API reporting.
+numbers, parameters, or an untrusted regex. Keep raw log bytes unchanged. Retain
+the distinction between interpreted text and structured API reporting internally.
 Structured reports take precedence if both sources are present. No source edits,
 imports, dependency installs, ETA, pause/resume or stop-semantics changes.
 

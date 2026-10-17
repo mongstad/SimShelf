@@ -139,3 +139,7 @@ For PR #34's later parser refinement, see
 [issue #17 console revision](validation/issue-17-console-revision.md): expanded
 conservative formats, observational-only 100% lifecycle checks and revised
 installed-browser/package evidence.
+
+The later [compact progress panel revision](validation/issue-17-panel-revision.md)
+records frontend-only rendering, theme contrast, grouped counts and installed
+desktop/narrow browser validation. Earlier reports remain unchanged.

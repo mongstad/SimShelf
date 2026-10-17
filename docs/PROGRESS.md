@@ -1,6 +1,6 @@
 # Simulation progress
 
-Run details show **Last reported progress** when a simulation supplies a valid
+Run details show **Progress** when a simulation supplies a valid
 current/total pair. Unknown totals show no percentage. Elapsed wall-clock time
 stays beside the run status. Finalized runs keep their last report, which may be
 less than 100%; even a 100% report does not establish successful execution.
@@ -107,7 +107,7 @@ an unrestricted regex preview.
 Reports are observational: even 100% never stops, cancels or finalizes a run.
 The process can continue producing results and can still fail with its real exit
 status. Unsupported lines do not create a report; if a valid earlier report
-exists it remains labeled as the last report, otherwise progress stays unknown.
+exists it remains displayed, otherwise progress shows **Progress unavailable**.
 
 Newlines and carriage returns terminate a report; a final unterminated line is
 also considered. Invalid, decorated, ANSI-colored or overlong lines (over 256
@@ -115,8 +115,10 @@ bytes) are ignored. Both stdout and stderr are inspected; their relative orderin
 is not guaranteed. Raw retained log bytes and log-size limits are unchanged.
 Structured API reports take priority over parsed text for the rest of that run.
 
-The UI explicitly labels text reports as **Interpreted from stdout/stderr**.
-These are user-selected interpretations, not validated scientific measurements.
+The compact panel shows **Progress**, percentage, grouped step counts and an
+optional stage. Source and report time remain stored internally but are not shown
+in the panel. Parsed text is a user-selected interpretation, not a validated
+scientific measurement. The existing run header provides execution status.
 There is no custom regex, arbitrary log-number inference, total inferred from
 `--steps`, ETA, or automatic source modification. Unsupported formats remain
 ordinary logs. Source changes are required only if you choose to instrument the
@@ -133,8 +135,9 @@ the replaceable checkpoint itself. Restore retains latest progress and marks
 previously active runs interrupted, as before. Run removal deletes its progress;
 screenshot removal does not alter progress or downgrade the library schema.
 
-The displayed report time makes infrequent/stale updates visible. A run can make
-progress between reports or stop reporting altogether. Never infer liveness,
+The panel retains the latest report, including after finalization; it does not
+display report age. A run can make progress between reports or stop reporting
+altogether. Never infer liveness,
 physical simulation time, success or complete output capture from the bar.
 Linux is the validated recorder platform. Browser polling remains approximately
 three seconds. Long-job bounds are tested with synthetic updates; scientific
