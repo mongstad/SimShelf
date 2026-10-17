@@ -20,6 +20,9 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
   const [connection, setConnection] = useState<Review | null>(null);
   const [status, setStatus] = useState<Review | null>(null);
   const [automatic, setAutomatic] = useState<Review | null>(null);
+  const rememberedConnection = useRef<Review | null>(null);
+  const setupPanel = useRef<HTMLDetailsElement | null>(null);
+  const setupPath = useRef<HTMLInputElement | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const cancelReview = useRef<HTMLButtonElement | null>(null);
   const restoreFocus = useRef(false);
@@ -34,10 +37,12 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
     const c = await api<Review>("/workspace/archive");
     const s = await api<Review>(`/simulations/${simulation.id}/archive`);
     setConnection(c.connection);
+    if (c.connection) rememberedConnection.current = c.connection;
     setStatus(c.status);
     setAutomatic(s.automatic_status);
     setRuns(s.runs);
-    setPath(c.connection?.path || "");
+    if (refreshDraft)
+      setPath(c.connection?.path || rememberedConnection.current?.path || "");
     if (refreshDraft) setFuture(s.settings?.future.join("\n") || "");
   }
   useEffect(() => {
@@ -96,7 +101,52 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
   return (
     <section className="git-archive">
       <h2>Shared master Git archive</h2>
-      <MasterArchiveStatus status={status} />
+      <MasterArchiveStatus
+        status={status}
+        busy={busy || !!review}
+        onChange={(trigger) => {
+          returnFocus.current = trigger;
+          restoreFocus.current = true;
+          if (status?.state === "connected") {
+            void action(async () => {
+              await post("/workspace/archive/disconnect");
+              setReview(null);
+              await load();
+            });
+          } else {
+            const previous = connection || rememberedConnection.current;
+            if (
+              !previous?.path ||
+              !previous?.identity ||
+              !previous?.workspace
+            ) {
+              restoreFocus.current = false;
+              if (setupPanel.current) setupPanel.current.open = true;
+              setupPath.current?.focus();
+              setMessage(
+                "Choose an archive location and confirm setup to connect.",
+              );
+            } else {
+              void action(async () => {
+                await post("/workspace/archive/connect", {
+                  path: previous.path,
+                  expected_connection: previous,
+                  confirmed: true,
+                });
+                await load();
+                setMessage(
+                  "Original archive reconnected. Saved consent was not changed.",
+                );
+              });
+            }
+          }
+        }}
+      />
+      {connection && (
+        <p className="path">
+          Configured archive: <code>{connection.path}</code>
+        </p>
+      )}
       <AutomaticArchiveToggle
         name={simulation.name}
         automatic={automatic}
@@ -123,40 +173,18 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
       >
         Refresh archive status
       </button>
-      {connection && (
-        <button
-          disabled={busy}
-          onClick={() =>
-            void action(async () => {
-              await post("/workspace/archive/disconnect");
-              setReview(null);
-              await load();
-            })
-          }
-        >
-          Disconnect archive
-        </button>
-      )}
       <p>
         One separate local repository for all simulations. Archive commits are
         independent of scientific versions and source Git history. No uploads or
         remote synchronization.
       </p>
       {message && <p role="status">{message}</p>}
-      {connection && (
-        <p>
-          Configured archive: <code>{connection.path}</code>
-        </p>
-      )}
-      <details key={connection ? "configured" : "setup"}>
-        <summary>
-          {connection
-            ? "Reconnect or set up another archive"
-            : "Connect archive locally"}
-        </summary>
+      <details ref={setupPanel}>
+        <summary>Archive location and setup</summary>
         <label>
           Dedicated archive directory
           <input
+            ref={setupPath}
             value={path}
             disabled={busy}
             onChange={(e) => setPath(e.target.value)}
@@ -178,8 +206,10 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
           repositories cannot be used.
         </p>
         <button
-          disabled={busy || !path.trim()}
-          onClick={() =>
+          disabled={busy || !!review || !path.trim()}
+          onClick={(e) => {
+            returnFocus.current = e.currentTarget;
+            restoreFocus.current = true;
             void action(async () => {
               await post("/workspace/archive/connect", {
                 path,
@@ -188,14 +218,15 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
               });
               await load();
               setMessage(
-                "Archive connected. Automatic archival requires separate consent.",
+                "Archive location confirmed. Automatic archival uses its separate consent.",
               );
-            })
-          }
+              setInitialize(false);
+            });
+          }}
         >
           {initialize
             ? "Initialize and connect archive"
-            : "Connect archive locally"}
+            : "Confirm archive location"}
         </button>{" "}
       </details>
       <p className="muted">
@@ -569,23 +600,53 @@ export function RunArchive({
   );
 }
 
-export function MasterArchiveStatus({ status }: { status?: Review | null }) {
+export function MasterArchiveStatus({
+  status,
+  busy = false,
+  onChange,
+}: {
+  status?: Review | null;
+  busy?: boolean;
+  onChange?: (trigger: HTMLButtonElement) => void;
+}) {
+  const connected = status?.state === "connected";
   return (
-    <p
-      role="status"
-      className={status?.state === "connected" ? "archive-connected" : ""}
-    >
-      {status?.state === "connected" ? (
-        <>
-          <span aria-hidden="true">✓ </span>Master simulation archive connected
-        </>
-      ) : status?.state === "disconnected" ? (
-        "Local archive disconnected"
-      ) : (
-        "Master archive availability unknown / unavailable"
-      )}
-      {status?.reason && <small className="path">{status.reason}</small>}
-    </p>
+    <div className="automatic-archive-control">
+      <div className="automatic-archive-line">
+        <span
+          role="status"
+          aria-live="polite"
+          className={connected ? "archive-connected" : ""}
+        >
+          {connected && <span aria-hidden="true">✓ </span>}
+          Master simulation archive —{" "}
+          {connected
+            ? "Connected"
+            : status?.state === "disconnected"
+              ? "Disconnected"
+              : "Unavailable"}
+        </span>
+        {onChange && (
+          <button
+            type="button"
+            role="switch"
+            aria-label="Master simulation archive connection"
+            aria-checked={connected}
+            aria-describedby="master-archive-help"
+            className="archive-toggle"
+            disabled={busy || !status}
+            onClick={(e) => onChange(e.currentTarget)}
+          >
+            <span className="archive-toggle-knob" aria-hidden="true" />
+            {connected ? "ON" : "OFF"}
+          </button>
+        )}
+      </div>
+      <small id="master-archive-help">
+        {status?.reason ||
+          "Shared repository access. Automatic archival is set separately for each simulation."}
+      </small>
+    </div>
   );
 }
 

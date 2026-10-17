@@ -204,11 +204,11 @@ test("connection success is explicit, green-classed and never inferred during lo
   );
   assert.match(
     render(MasterArchiveStatus, { status: connection }),
-    /Master simulation archive connected/,
+    /Master simulation archive — Connected/,
   );
   assert.match(
     render(MasterArchiveStatus, { status: { state: "disconnected" } }),
-    /Local archive disconnected/,
+    /Master simulation archive — Disconnected/,
   );
   for (const status of [null, { state: "unavailable", reason: "missing" }])
     assert.doesNotMatch(
@@ -305,4 +305,30 @@ test("automatic archival has one accessible authoritative switch", async () => {
     /Automatic archive consent|Confirm archival settings|Disable for future runs|Enable automatic archive for this simulation/,
   );
   assert.match(html, /<details><summary>Automatic archival settings/);
+});
+
+test("master connection switch is distinct and only reflects confirmed availability", () => {
+  for (const state of ["connected", "disconnected", "unavailable"]) {
+    const html = render(MasterArchiveStatus, {
+      status: { state },
+      onChange: () => {},
+    });
+    assert.match(html, /aria-label="Master simulation archive connection"/);
+    assert.match(html, new RegExp(`aria-checked="${state === "connected"}"`));
+    assert.equal(html.includes("archive-connected"), state === "connected");
+    assert.match(html, /Automatic archival is set separately/);
+    assert.doesNotMatch(html, /Disconnect archive|Connect archive locally/);
+  }
+  assert.match(
+    render(MasterArchiveStatus, { status: null, onChange: () => {} }),
+    / disabled=/,
+  );
+  assert.match(
+    render(MasterArchiveStatus, {
+      status: connection,
+      busy: true,
+      onChange: () => {},
+    }),
+    / disabled=/,
+  );
 });

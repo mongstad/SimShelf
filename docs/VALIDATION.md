@@ -201,3 +201,7 @@ all-theme installed-browser/package evidence. Earlier reports remain unchanged.
 The [automatic archival toggle revision](validation/issue-56-archival-toggle-revision.md)
 records the single-control workflow, explicit consent, state/focus handling,
 running-plan isolation and focused installed-browser/package checks.
+
+The [master connection toggle revision](validation/issue-56-master-toggle-revision.md)
+records explicit identity-checked reconnection, collapsed setup, independent
+consent, failure/restart checks and all-theme desktop/narrow validation.

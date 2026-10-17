@@ -9,7 +9,7 @@ revision, exact source snapshot and archive commit are different records.
 
 1. Create an empty directory outside the SimShelf application, library and all
    simulation source folders. In **Git history → Shared master Git archive →
-   Connect archive locally**, enter its absolute path, select initialization and
+   Archive location and setup**, enter its absolute path, select initialization and
    choose **Initialize and connect archive**. No remote is contacted. This is a
    dedicated **bare** Git repository: files are viewed through SimShelf, not a
    working-tree checkout. Existing arbitrary/source repositories are refused.
@@ -147,7 +147,7 @@ is the existing bounded text preview, not a new source export feature.
 A connection check is a point-in-time hint; download verifies the object again.
 If a configured archive becomes unavailable, its path remains visible for recovery.
 Choose **Refresh archive status**, or explicitly reconnect it. Archive initialization
-is collapsed by default when connected; **Disconnect archive** remains visible.
+is collapsed by default; the master connection switch remains visible.
 
 Notes remain in the workspace and workspace backups, not in current Git archive
 manifests. Image attachments can already be explicitly archived, but this does not
@@ -175,3 +175,34 @@ and **Review archival settings** available for deliberate changes while enabled.
 Closing a review or completing an operation returns keyboard focus to its trigger;
 Cancel receives initial review focus. The switch exposes its checked state to
 assistive technology. Status is distinct from the master archive connection.
+
+
+### Master archive connection toggle
+
+The **Master simulation archive** switch controls shared repository access, not
+per-simulation consent. Its green Connected status and path describe the master
+archive; the separately labeled Automatic archival switch describes future-run
+consent for the selected simulation.
+
+Switching OFF disconnects without deleting the repository, historical events,
+managed copies or saved simulation consent. Existing frozen run plans are not
+rewritten. New publication and Git downloads require a valid connection;
+workspace-managed downloads remain independent. Existing publication/recovery
+safeguards continue to govern work already in progress.
+
+Switching ON explicitly reconnects the remembered original path and identity when
+available in the current Git history panel. It never initializes a repository or
+runs at startup. Missing/replaced repositories are rejected; check the original
+location or deliberately use **Archive location and setup**. The backend verifies
+the expected path, repository identity and library binding before reconnecting,
+and rejects a conflicting connection changed elsewhere.
+
+Disconnect removes the existing active connection record. No new persistent
+reconnection preference is introduced: after reloading or leaving the panel,
+ON opens setup if the prior path/identity is no longer available. Enter the known
+archive path and **Confirm archive location**, or explicitly select initialization
+for an existing empty dedicated directory. Changing location never moves files.
+
+Reconnecting the exact original archive can make previously granted consent
+usable again; it does not grant new consent. A different archive or changed
+source/capture selections still requires the separate automatic-archival review.

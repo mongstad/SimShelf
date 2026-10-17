@@ -183,10 +183,24 @@ def repo_lock(store, saved):
 
 @unavailable_errors
 @locked_store
-def connect(store, path, initialize=False, confirmed=False):
+def connect(store, path, initialize=False, confirmed=False, expected_connection=None):
     if confirmed is not True:
         raise ValueError('Explicitly confirm local archive setup.')
     root = boundaries(store, path)
+    if expected_connection is not None:
+        # A quick reconnect must never adopt a replacement repository or move
+        # an old library binding. Deliberate setup remains a separate action.
+        if (not isinstance(expected_connection, dict)
+                or set(expected_connection) != {'path', 'identity', 'workspace'}
+                or initialize or expected_connection.get('workspace') != workspace_identity(store)):
+            raise ValueError('Review the archive location and setup for this library.')
+        if not shutil.which('git'):
+            raise ValueError('Git unavailable. Install or restore Git before reconnecting.')
+        if get(store, 'connection') not in (None, expected_connection):
+            raise ValueError('Archive connection changed. Refresh before reconnecting.')
+        if str(root) != expected_connection.get('path'):
+            raise ValueError('Archive location changed. Review archive location and setup.')
+        validate_repo(store, expected_connection)
     if initialize:
         if any(root.iterdir()):
             raise ValueError('Initialize only an existing empty dedicated directory.')
@@ -205,6 +219,8 @@ def connect(store, path, initialize=False, confirmed=False):
     if not re.fullmatch('[0-9a-f]{32}', saved['identity']):
         raise ValueError('Invalid archive identity.')
     validate_repo(store, saved)
+    if expected_connection is not None and saved != expected_connection:
+        raise ValueError('Archive identity changed. Restore the original archive or review archive location and setup.')
     put(store, 'connection', saved)
     return saved
 

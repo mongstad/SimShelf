@@ -476,3 +476,89 @@ def test_activation_rejects_stale_capture_and_selection_reviews(setup):
         archive.enable(store, a['id'], review, True)
     assert archive.automatic_status(Store(store.path), a['id'])['state'] == 'disabled'
     assert archive.automatic_status(store, b['id'])['state'] == 'enabled'
+
+
+def test_verified_reconnect_preserves_consent_history_and_running_plan(setup):
+    from fastapi.testclient import TestClient
+    from simshelf.api import create_app
+    store, repo, (a, b) = setup
+    ident = run_output(store, a)
+    record = store.run(ident, False)
+    events = archive.entries(store, ident)
+    saved = archive.get(store, 'connection')
+    consent = [archive.get(store, 'settings:' + s['id']) for s in (a, b)]
+    running = Run(a['id'], workspace=store.path, capture_console=False)
+    running.__enter__()
+    plan = archive.get(store, 'initial:' + running.id)
+    client = TestClient(create_app(store.path))
+    headers = {'X-SimShelf-Token': client.get('/api/workspace').json()['token']}
+    assert client.post('/api/workspace/archive/disconnect', headers=headers).status_code == 200
+    assert archive.connection_status(Store(store.path))['state'] == 'disconnected'
+    assert [archive.get(store, 'settings:' + s['id']) for s in (a, b)] == consent
+    assert archive.get(store, 'initial:' + running.id) == plan
+    assert archive.automatic_status(store, a['id'])['state'] == 'review_required'
+    with pytest.raises(ValueError):
+        archive.settings_preview(store, a['id'], [])
+    file = next(f for f in store.run(ident)['artifacts'] if f['policy'] == 'copy')
+    assert client.get(f'/api/artifacts/{file["id"]}/file?download=true').content == b'one'
+    route = f'/api/runs/{ident}/archive/{events[0]["id"]}/0/file'
+    assert client.get(route).status_code == 400
+    body = {'path': saved['path'], 'expected_connection': saved, 'confirmed': True}
+    assert client.post('/api/workspace/archive/connect', headers=headers, json=body).status_code == 200
+    assert client.get(route).status_code == 200
+    assert archive.connection_status(Store(store.path))['state'] == 'connected'
+    assert [archive.get(store, 'settings:' + s['id']) for s in (a, b)] == consent
+    assert archive.get(store, 'initial:' + running.id) == plan
+    running.finish()
+    assert store.run(ident, False) == record
+    assert archive.entries(store, ident) == events
+
+
+def test_quick_reconnect_rejects_replacement_missing_changed_binding_and_initialization(setup, monkeypatch):
+    store, repo, (a, b) = setup
+    saved = archive.get(store, 'connection')
+    archive.put(store, 'connection', None)
+    marker = repo / 'simshelf-archive-id'
+    marker.write_text(uuid.uuid4().hex)
+    with pytest.raises(ValueError, match='identity changed'):
+        archive.connect(store, saved['path'], confirmed=True, expected_connection=saved)
+    assert archive.get(store, 'connection') is None
+    marker.write_text(saved['identity'])
+    moved = repo.with_name('moved'); repo.rename(moved)
+    with pytest.raises(ValueError):
+        archive.connect(store, saved['path'], confirmed=True, expected_connection=saved)
+    moved.rename(repo)
+    for expected, initialize in [({**saved, 'workspace':'other'}, False), (saved, True), ({}, False)]:
+        with pytest.raises(ValueError):
+            archive.connect(store, saved['path'], initialize, True, expected)
+        assert archive.get(store, 'connection') is None
+    monkeypatch.setattr(archive.shutil, 'which', lambda _: None)
+    with pytest.raises(ValueError, match='Git unavailable'):
+        archive.connect(store, saved['path'], confirmed=True, expected_connection=saved)
+    assert archive.get(store, 'connection') is None
+    monkeypatch.undo()
+    other = {**saved, 'identity':uuid.uuid4().hex}
+    archive.put(store, 'connection', other)
+    with pytest.raises(ValueError, match='connection changed'):
+        archive.connect(store, saved['path'], confirmed=True, expected_connection=saved)
+    assert archive.get(store, 'connection') == other
+
+
+def test_connection_write_failure_preserves_previous_state(setup, monkeypatch):
+    from fastapi.testclient import TestClient
+    from simshelf.api import create_app
+    store, repo, sims = setup
+    saved = archive.get(store, 'connection')
+    client = TestClient(create_app(store.path))
+    headers = {'X-SimShelf-Token': client.get('/api/workspace').json()['token']}
+    original_put = archive.put
+    def rejected(*args):
+        raise ValueError('Connection change failed; refresh and retry.')
+    monkeypatch.setattr(archive, 'put', rejected)
+    assert client.post('/api/workspace/archive/disconnect', headers=headers).status_code == 400
+    assert archive.get(store, 'connection') == saved
+    original_put(store, 'connection', None)
+    response = client.post('/api/workspace/archive/connect', headers=headers,
+                          json={'path':saved['path'],'confirmed':True,'expected_connection':saved})
+    assert response.status_code == 400
+    assert archive.get(store, 'connection') is None
