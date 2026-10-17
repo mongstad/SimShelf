@@ -4,7 +4,6 @@ import ast
 import json
 import os
 import stat
-import subprocess
 import sys
 from pathlib import Path
 
@@ -106,16 +105,6 @@ def source_snapshot(workspace: Path, simulation: dict) -> dict:
     result = {"id": snapshot_id, "structure_id": structure_id, "files": files, "warnings": warnings}
     atomic_write(workspace / "snapshots" / f"{snapshot_id}.json", json_text(result).encode())
     return result
-
-
-def git_context(root: Path) -> dict:
-    def git(*args):
-        try:
-            return subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, timeout=3, check=True).stdout.strip()
-        except (OSError, subprocess.SubprocessError):
-            return None
-    commit = git("rev-parse", "HEAD")
-    return {"commit": commit, "branch": git("branch", "--show-current") if commit else None, "dirty": bool(git("status", "--porcelain")) if commit else None}
 
 
 def read_snapshot(workspace: Path, snapshot_id: str) -> dict:

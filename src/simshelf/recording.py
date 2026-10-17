@@ -17,7 +17,8 @@ from pathlib import Path
 
 from .capture import capture_outputs, output_inventory, save_file
 from .common import json_text, now, process_identity
-from .source import blob_path, git_context, read_version, source_snapshot
+from .git_provenance import observe as observe_git
+from .source import blob_path, read_version, source_snapshot
 from .workspace_lock import locked_recorder
 from .store import Store
 
@@ -128,7 +129,7 @@ class Run:
         self.before, initial_errors = output_inventory(self.simulation)
         self.initial_capture_errors = initial_errors
         self.started_clock = time.monotonic()
-        data = {"id": self.id, "simulation_id": self.simulation["id"], "name": self.name or time.strftime("Run %b %d · %H:%M:%S"), "status": "running", "started_at": now(), "ended_at": None, "duration": None, "exit_code": None, "version": version, "snapshot_id": snapshot["id"], "structure_id": snapshot["structure_id"], "source_warnings": snapshot["warnings"], "command": self.command, "cwd": self.cwd, "parameters": self.parameters, "parameter_sources": {key: "python" for key in self.parameters}, "tags": self.tags, "notes": "", "version_note": "", "cover_id": None, "git": git_context(Path(self.simulation["root"])), "environment": environment(), "capture_config": self.simulation["config"], "capture_status": "pending", "capture_errors": initial_errors, "owner": {"pid": os.getpid(), "host": socket.gethostname(), "identity": process_identity(os.getpid())}}
+        data = {"id": self.id, "simulation_id": self.simulation["id"], "name": self.name or time.strftime("Run %b %d · %H:%M:%S"), "status": "running", "started_at": now(), "ended_at": None, "duration": None, "exit_code": None, "version": version, "snapshot_id": snapshot["id"], "structure_id": snapshot["structure_id"], "source_warnings": snapshot["warnings"], "command": self.command, "cwd": self.cwd, "parameters": self.parameters, "parameter_sources": {key: "python" for key in self.parameters}, "tags": self.tags, "notes": "", "version_note": "", "cover_id": None, "git": observe_git(self.store, self.simulation, snapshot), "environment": environment(), "capture_config": self.simulation["config"], "capture_status": "pending", "capture_errors": initial_errors, "owner": {"pid": os.getpid(), "host": socket.gethostname(), "identity": process_identity(os.getpid())}}
         data["progress_mode"] = self.progress_mode
         if self.launch:
             if self.simulation["entrypoint"] not in {file["path"] for file in snapshot["files"]}:

@@ -108,6 +108,18 @@ class ProgressEnableInput(BaseModel):
     confirmed: bool = False
 
 
+class GitPreviewInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    path: str = Field(min_length=1, max_length=4096)
+    simulation_ids: list[str] = Field(max_length=1000)
+
+
+class GitConnectInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    preview: dict
+    confirmed: bool = False
+
+
 class RunUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=160)
     notes: str | None = Field(None, max_length=50000)
@@ -200,6 +212,36 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
         first = jobs.request_shutdown(body.generation, body.stop_runs)
         # Send acknowledgement before asking the actual hosting server to exit.
         return JSONResponse({"closing": True}, background=BackgroundTask(request_shutdown) if first else None)
+
+    @app.get("/api/workspace/git")
+    def git_connection():
+        from .git_provenance import connection
+        return {"connection": connection(store)}
+
+    @app.post("/api/workspace/git/preview")
+    def git_preview(body: GitPreviewInput):
+        from .git_provenance import preview
+        return preview(store, body.path, body.simulation_ids)
+
+    @app.post("/api/workspace/git/connect")
+    def git_connect(body: GitConnectInput):
+        from .git_provenance import connect_repository
+        if not body.confirmed:
+            raise ValueError("Review and confirm this local repository connection.")
+        try:
+            return connect_repository(store, body.preview)
+        except (KeyError, TypeError):
+            raise ValueError("Invalid connection preview; review the repository again.")
+
+    @app.post("/api/workspace/git/disconnect")
+    def git_disconnect():
+        from .git_provenance import disconnect_repository
+        return disconnect_repository(store)
+
+    @app.get("/api/simulations/{ident}/git")
+    def simulation_git(ident: str):
+        from .git_provenance import observe
+        return observe(store, store.simulation(ident), history=True)
 
     @app.get("/api/simulations")
     def simulations():

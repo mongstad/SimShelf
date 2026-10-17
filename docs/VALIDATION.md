@@ -164,3 +164,9 @@ semantics, focused regressions and packaged browser checks.
 The subsequent [completion-label review](validation/issue-40-completion-labels-review.md)
 records owner-requested 100% and total/total presentation, preserved stored reports,
 all-theme installed browser checks and focused lifecycle validation.
+
+## Optional local Git foundation
+
+See [issue #9 local Git](validation/issue-9-local-git.md) for the owner-approved
+staged scope, nullable provenance contract, Git safety/recording/restore tests,
+portal connection/history checks, package evidence and deferred remote operations.

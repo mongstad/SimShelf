@@ -331,6 +331,15 @@ Log measurements at a useful interval rather than on every cell update. This
 initial implementation journals each measurement synchronously. Full time-series
 charts are planned for Stage 2; Stage 1 shows the latest retained measurements.
 
+## Optional local Git history
+
+Select a simulation's **Git history** tab to preview and explicitly connect its
+existing source repository. Several simulation folders can share one repository.
+Inspect local branch/commit, raw-byte changes and recent folder history without
+an account or network. Recording and snapshots still work with Git disconnected
+or absent. See [local Git history](docs/GIT_PROVENANCE.md) for mapping, provenance,
+backup behavior and limits. Commits and remote synchronization are not exposed.
+
 ## Versions: you decide what counts as a new simulation
 
 Put one literal assignment near the top of the registered entry file:
