@@ -310,3 +310,20 @@ def test_schema_two_opens_without_migration_and_upgrades_only_on_deletion(projec
     assert delete_screenshot(restored, ident, image['id'], confirmed=True)['cleanup_errors'] == []
     with restored.connection() as conn:
         assert conn.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()[0] == '3'
+
+
+def test_workspace_reports_live_schema_for_confirmation(project):
+    store, sim, root, source = project
+    removed = finished(store, sim)
+    ident = finished(store, sim)
+    image = attach(store, ident, root)
+    with TestClient(create_app(store.path)) as client:
+        assert client.get('/api/workspace').json()['schema_version'] == 1
+        store.remove_runs([removed], confirmed=True)
+        assert client.get('/api/workspace').json()['schema_version'] == 2
+        info = client.get('/api/workspace').json()
+        assert info['schema_version'] == 2  # Reading never upgrades the library.
+        response = client.post(f'/api/runs/{ident}/screenshots/{image["id"]}/delete',
+            json={'confirmed': True}, headers={'X-SimShelf-Token': info['token']})
+        assert response.status_code == 200
+        assert client.get('/api/workspace').json()['schema_version'] == 3

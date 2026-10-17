@@ -975,6 +975,61 @@ th small {
   gap: 10px;
   margin-top: 25px;
 }
+/* Keep screenshot confirmation compact; other dialogs retain their own layout. */
+.modal.screenshot-deletion {
+  max-width: min(480px, calc(100vw - 32px));
+  padding: 22px;
+  overflow-wrap: anywhere;
+}
+.screenshot-deletion h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 20px;
+  margin: 0 0 16px;
+}
+.screenshot-deletion h2 svg {
+  color: var(--muted);
+}
+.screenshot-deletion svg {
+  flex-shrink: 0;
+}
+.screenshot-deletion p + p {
+  margin-top: 14px;
+}
+.screenshot-deletion-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--red);
+}
+.screenshot-compatibility {
+  padding: 10px 12px;
+  border-left: 2px solid var(--amber);
+  background: color-mix(in srgb, var(--amber) 6%, var(--surface));
+  border-radius: 0 5px 5px 0;
+}
+.screenshot-deletion .modal-actions {
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+.screenshot-deletion .screenshot-delete-button {
+  color: light-dark(#fff, #ffdedb);
+  background: light-dark(#a94743, #713d3a);
+  border-color: light-dark(#a94743, #a1605b);
+}
+.screenshot-delete-button:hover:not(:disabled) {
+  background: light-dark(#933b38, #854844);
+  border-color: light-dark(#933b38, #bc7770);
+}
+.screenshot-delete-button:focus-visible {
+  outline-color: var(--red);
+}
+.screenshot-delete-button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .callout {
   display: flex;
   gap: 11px;

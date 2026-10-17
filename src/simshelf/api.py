@@ -162,7 +162,9 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
 
     @app.get("/api/workspace")
     def workspace_info():
-        return {"path": str(store.path), "version": __version__, "token": token, "simulation_count": len(store.simulations())}
+        with store.connection() as conn:
+            schema_version = int(conn.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()[0])
+        return {"path": str(store.path), "version": __version__, "token": token, "simulation_count": len(store.simulations()), "schema_version": schema_version}
 
     def require_loopback(request: Request):
         try:

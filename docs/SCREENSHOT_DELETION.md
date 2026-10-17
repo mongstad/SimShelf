@@ -1,8 +1,9 @@
 # Delete a screenshot from a previous run
 
 Open the run's **Screenshots** tab, choose **Delete screenshot** under the image,
-and review the image name, run name and full IDs. Cancel has initial focus; Escape
-also cancels. Confirmation removes the attachment from this library permanently,
+and review the image name and run name. IDs remain internal deletion targets.
+Cancel has initial focus; Escape also cancels. The restrained red button and trash icon identify the destructive
+action. Confirmation removes the attachment from this library permanently,
 not just from the current view. The gallery/count update immediately; when the
 cover is removed the first remaining saved image becomes the displayed cover.
 
@@ -31,6 +32,9 @@ journal/annotation records and SQLite/WAL free pages may still contain metadata.
 The owner explicitly authorized schema 3 for issue #24 on 2026-10-17. Opening,
 recording and backing up schema-1/2 libraries does not migrate them. The first
 successful, explicitly confirmed screenshot deletion atomically marks schema 3.
+The dialog reads the current library format on every opening and warns about
+compatibility only for schema 1 or 2. Once schema 3 is in use, later confirmations
+omit this warning. Delete stays disabled if that check is pending or fails.
 Older builds cannot reopen that library. Stop older servers/recorders first; an
 already-open older process cannot be made safe by a newer process's check. Schema
 3 backups require a schema-3-capable build. Later whole-run removal never downgrades

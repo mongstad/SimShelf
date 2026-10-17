@@ -137,3 +137,70 @@ leave bytes pending until the owner resolves the problem.
    surviving images display and the deletion audit remains. Restore the pre-deletion
    backup elsewhere to verify recovery. Do not open the schema-3 library with an
    already-running old process. Review the compatibility decision before merging.
+
+## PR #30 review refinement — concise confirmation
+
+2026-10-17. This review revision supersedes the initial dialog presentation and
+UUID-display owner checks above; earlier evidence retains its original wording.
+The existing issue branch and PR #30 remain in use. Accepted main is still
+`896832172a73c3fd10a3728454e0c95257cd8227`; the gate accepts the unchanged proposed
+application version **0.1.0.5**.
+
+The dialog now uses only the real filename and run name, a short permanent-removal
+warning, and reassurance about the run/results/original files and existing backups.
+Full IDs remain internal request targets. Blob/audit/schema-number details are
+absent from the ordinary confirmation. Cancel stays neutral and receives initial
+focus; the restrained red Delete screenshot button has a decorative trash icon,
+hover/focus/disabled states, and still requires an explicit click or keyboard action.
+A small title icon, 480px maximum width and wrapping preserve the existing themes.
+
+`GET /api/workspace` now reports the current schema number read-only. Each dialog
+opening fetches it afresh: schema 1 or 2 shows a brief warning that older versions
+will no longer open the library; schema 3 omits it. Deletion remains disabled until
+the check succeeds, and failures leave Cancel/Escape available with an explanation.
+This read does not migrate anything. Storage/deletion/replay/backup modules and
+the version file are byte-for-byte unchanged from the original PR implementation.
+
+Validation for this revision:
+
+- **33 Python tests passed** in `test_screenshots.py`, `test_api.py`, and
+  `test_application_version.py`, including a new live schema 1→2→3 API check and
+  existing ownership/replay/shared-file/backup/concurrency safeguards. The existing
+  Starlette/httpx deprecation warning remains. No unexpected test failures.
+- **4 frontend tests passed**: dynamic escaped names, absent internal IDs/technical
+  copy, decorative icons, disabled Delete while checking, warning only for schema
+  1/2, short missing-file explanation, and exact selected-image filtering. TypeScript
+  and production builds passed; final CSS only refines disabled-button specificity.
+- Source browser checks: Dark and Light desktop plus 390×844 layouts, correct names,
+  no UUIDs, initial Cancel focus, Escape and Cancel returning to the trigger, Tab to
+  Delete and Enter confirmation, exact selected deletion, and immediate count change.
+  Both narrow themes had no horizontal dialog overflow. The source schema-1 warning
+  disappeared on the next opening after explicit deletion enabled schema 3.
+- Fresh installed-wheel browser checks: the schema-2 fixture showed the warning,
+  cancellation preserved all five references, explicit deletion removed exactly the
+  selected ID and upgraded to schema 3, and the immediately reopened dialog omitted
+  the warning. An injected compatibility-read HTTP 503 showed an error with Delete
+  disabled and Cancel focused; Escape left all references/tombstones unchanged.
+  Final database/API checks in both fixtures confirmed exactly one deletion, correct
+  internal targeting, unchanged remaining IDs, original bytes and scientific run
+  evidence. No unexplained browser errors were observed.
+- Wheel and sdist rebuilt externally, with wheel built from sdist; installed into a
+  fresh `/tmp` environment. Packaged JS/CSS/API and unchanged storage code match the
+  checkout. Both bundled license files are byte-identical to the original PR.
+  Python/metadata/CLI/API/OpenAPI/UI report 0.1.0.5. Installed startup works with
+  outbound connections denied and Git/Node absent from PATH. All fixtures, injected
+  flags and screenshots stayed in `/tmp/simshelf24-ux-*`; test servers/tabs were closed.
+
+This remains Linux/in-app Chromium validation, not other browsers/OSs or an actual
+screen-reader audit. The existing backend/storage limitations above still apply.
+The dialog uses a fresh compatibility read per opening, not a persistent live
+subscription while open; another client's upgrade during an already-open dialog
+can leave its conservative warning visible until reopening. No additional consent
+or storage behavior is introduced by that warning.
+
+Updated owner checks: in a disposable schema-1/2 library, verify the real names,
+short warning, red icon button, neutral focused Cancel, Escape and both themes at
+narrow width. Confirm one image, then immediately open another: the compatibility
+warning must be absent. Check the selected image alone disappeared and existing
+run/shared/original-file protections remain. Repeat on an already-schema-3 library;
+no compatibility warning should appear. Keep the backup/recovery checks above.

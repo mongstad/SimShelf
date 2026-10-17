@@ -12,6 +12,27 @@ export function withoutScreenshots(run: Run, deleted: Set<string>): Run {
     cover_id: images.find(a => a.id === run.cover_id)?.id || images[0]?.id || null };
 }
 
+function TrashIcon() {
+  return <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+    strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+    <path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7" />
+  </svg>;
+}
+
+export function ScreenshotDeletionCopy({ imageName, runName, schemaVersion, missing }: {
+  imageName: string; runName: string; schemaVersion: number | null; missing: boolean;
+}) {
+  return <>
+    <p>Are you sure you want to delete <strong>{imageName}</strong> from <strong>{runName}</strong>?</p>
+    <p className="screenshot-deletion-warning"><span aria-hidden="true">⚠</span><strong>This screenshot will be permanently removed from SimShelf. This action cannot be undone.</strong></p>
+    <p className="muted">The simulation run, its results, and original files will not be affected. Existing backups remain unchanged.</p>
+    {(schemaVersion === 1 || schemaVersion === 2) && <p className="screenshot-compatibility">
+      This also updates this library. Older SimShelf versions will no longer open it. Stop older servers and recorders first.
+    </p>}
+    {missing && <p className="muted">The image file is already missing. It will be removed from this run’s gallery.</p>}
+  </>;
+}
+
 export function DeleteScreenshot({ image, run, close, deleted }: {
   image: Artifact; run: Run; close: () => void; deleted: (result: ScreenshotDeletion) => void;
 }) {
@@ -20,10 +41,23 @@ export function DeleteScreenshot({ image, run, close, deleted }: {
   const submitting = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  useEffect(() => { dialog.current?.showModal(); cancel.current?.focus(); }, []);
+  const [schemaVersion, setSchemaVersion] = useState<number | null>(null);
+  useEffect(() => {
+    dialog.current?.showModal();
+    cancel.current?.focus();
+    let live = true;
+    // Read on each opening; a previous deletion may just have upgraded the library.
+    api<{ schema_version: number }>("/workspace").then(info => {
+      if (![1, 2, 3].includes(info.schema_version)) throw new Error("Unknown library format");
+      if (live) setSchemaVersion(info.schema_version);
+    }).catch(() => {
+      if (live) setError("Could not check library compatibility. Close this dialog and try again.");
+    });
+    return () => { live = false; };
+  }, []);
   useEffect(() => { if (error && !busy) cancel.current?.focus(); }, [error, busy]);
   async function remove() {
-    if (submitting.current) return;
+    if (submitting.current || schemaVersion === null) return;
     submitting.current = true;
     setBusy(true);
     setError("");
@@ -40,19 +74,17 @@ export function DeleteScreenshot({ image, run, close, deleted }: {
       setBusy(false);
     }
   }
-  return <dialog ref={dialog} className="modal" aria-labelledby="delete-screenshot-title"
+  return <dialog ref={dialog} className="modal screenshot-deletion" aria-labelledby="delete-screenshot-title"
     onCancel={e => { e.preventDefault(); if (!submitting.current) close(); }}>
-    <h2 id="delete-screenshot-title">Delete screenshot?</h2>
-    <p><strong>{image.name}</strong> from <strong>{run.name}</strong></p>
-    <p className="muted small">Run <code>{run.id}</code><br />Screenshot <code>{image.id}</code></p>
-    <p>This permanently removes this attachment from the library, not just this view. Its managed image copy is deleted only when no other attachment or source snapshot needs it.</p>
-    <p>The run, captured outputs, source snapshots, logs and original files are preserved. A deletion audit remains. Existing backups keep their old contents; there is no undo here. Back up first if needed.</p>
-    <p>This action enables schema 3 for this library. Stop older SimShelf servers and recorders first; older builds cannot reopen it.</p>
-    {image.availability === "missing" && <p>The image file is already missing. Its attachment record will still be removed.</p>}
+    <h2 id="delete-screenshot-title"><TrashIcon />Delete screenshot?</h2>
+    <ScreenshotDeletionCopy imageName={image.name} runName={run.name} schemaVersion={schemaVersion} missing={image.availability === "missing"} />
+    {schemaVersion === null && !error && <p className="muted" role="status">Checking library compatibility…</p>}
     {error && <p role="alert" className="error-banner">{error}</p>}
     <div className="modal-actions">
       <button ref={cancel} disabled={busy} onClick={close}>Cancel</button>
-      <button disabled={busy} onClick={remove}>{busy ? "Deleting…" : "Delete screenshot"}</button>
+      <button className="screenshot-delete-button" disabled={busy || schemaVersion === null} onClick={remove}>
+        <TrashIcon />{busy ? "Deleting…" : "Delete screenshot"}
+      </button>
     </div>
   </dialog>;
 }

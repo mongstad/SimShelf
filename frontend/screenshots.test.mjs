@@ -2,15 +2,35 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { DeleteScreenshot, withoutScreenshots } from './DeleteScreenshot.tsx';
+import { DeleteScreenshot, ScreenshotDeletionCopy, withoutScreenshots } from './DeleteScreenshot.tsx';
 
-test('confirmation identifies exact targets and explains irreversible storage effects', () => {
+const copy = schemaVersion => renderToStaticMarkup(React.createElement(ScreenshotDeletionCopy, {
+  imageName: '<asset>.png', runName: 'Run Oct 17 · 07:36:36', schemaVersion, missing: false,
+}));
+
+test('concise confirmation uses escaped names and keeps target IDs internal', () => {
   const html = renderToStaticMarkup(React.createElement(DeleteScreenshot, {
-    image: { id: 'image-id', name: '<image>.png', availability: 'missing' },
-    run: { id: 'run-id', name: 'Previous run' }, close() {}, deleted() {},
+    image: { id: 'secret-image-id', name: '<asset>.png', availability: 'available' },
+    run: { id: 'secret-run-id', name: 'Run Oct 17 · 07:36:36' }, close() {}, deleted() {},
   }));
-  for (const text of ['&lt;image&gt;.png', 'Previous run', 'run-id', 'image-id', 'not just this view', 'Existing backups', 'schema 3', 'already missing', 'Cancel', 'Delete screenshot']) assert.ok(html.includes(text), text);
+  for (const text of ['&lt;asset&gt;.png', 'Run Oct 17 · 07:36:36', 'permanently removed from SimShelf', 'cannot be undone', 'Existing backups remain unchanged', 'Cancel', 'Delete screenshot']) assert.ok(html.includes(text), text);
+  for (const text of ['secret-image-id', 'secret-run-id', 'blob', 'tombstone', 'audit', 'schema 3']) assert.ok(!html.includes(text), text);
   assert.match(html, /aria-labelledby="delete-screenshot-title"/);
+  assert.match(html, /class="screenshot-delete-button" disabled=""/);
+  assert.match(html, /aria-hidden="true" focusable="false"/);
+});
+
+test('only schema 1 and 2 show the compatibility warning', () => {
+  for (const schema of [1, 2]) assert.match(copy(schema), /Older SimShelf versions will no longer open it/);
+  for (const schema of [3, null]) assert.doesNotMatch(copy(schema), /Older SimShelf versions|updates this library/);
+});
+
+test('missing images retain a short understandable explanation', () => {
+  const html = renderToStaticMarkup(React.createElement(ScreenshotDeletionCopy, {
+    imageName: 'missing.png', runName: 'Past run', schemaVersion: 3, missing: true,
+  }));
+  assert.match(html, /already missing/);
+  assert.match(html, /removed from this run’s gallery/);
 });
 
 test('deletion removes only selected image and replaces cover without mutating stale response', () => {
