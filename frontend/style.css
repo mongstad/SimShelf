@@ -250,13 +250,23 @@ svg {
 }
 .brand {
   color: var(--text);
-  display: flex;
-  align-items: center;
+  display: block;
   gap: 9px;
   font-size: 22px;
   font-weight: 650;
   letter-spacing: -0.7px;
-  padding: 0 9px 36px;
+  padding: 0 9px 17px;
+}
+.brand-row { display: flex; align-items: center; gap: inherit; }
+.brand-tagline {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 15px;
+  font-weight: 400;
+  letter-spacing: normal;
+  color: var(--muted);
+  text-wrap: balance;
 }
 .brand:hover {
   text-decoration: none;
