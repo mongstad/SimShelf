@@ -65,7 +65,9 @@ The exact snapshot remains authoritative for captured bytes.
 Inspection is bounded: three seconds per Git subprocess, 4 MiB command output,
 10,000 tracked files, 32 MiB per file and 100 MiB tracked bytes. Exceeding a limit
 reports unavailable; no files are modified to recover. Linux/Git 2.56 is tested.
-Git/source/worktree mutation and import/copy operations are not exposed.
+The observation interface never mutates Git/source/worktrees. A separate
+[file-selection workflow](GIT_FILE_SELECTION.md) supports explicit inclusion
+preferences and reviewed `.gitignore` additions; import/copy is not exposed.
 
 ## Provider-neutral interface for issue #7
 

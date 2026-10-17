@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { GitFiles } from "./GitFiles";
 import { api } from "./api";
 import type { Simulation } from "./types";
 
@@ -94,6 +95,7 @@ export function GitHistory({ simulation, simulations }: { simulation: Simulation
       <button disabled={busy} onClick={()=>void action(refresh)}>Refresh history</button>
       <button disabled={busy} onClick={()=>void action(async()=>{await api("/workspace/git/disconnect",{method:"POST"});await refresh();})}>Disconnect Git</button>
     </div><p className="muted">Disconnecting preserves sources, Git history and recorded provenance. To change mappings, disconnect and preview a new connection.</p></>}
+    <GitFiles key={simulation.id} simulationId={simulation.id} />
     {view && <GitObservation value={view} />}
   </section>;
 }

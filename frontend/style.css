@@ -2057,3 +2057,16 @@ details label {
 .git-history .git-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .git-history dl { margin: 18px 0; }
 .git-history li { margin: 8px 0; }
+
+/* Issue 44: bounded file reviews reuse theme surfaces and controls. */
+.git-files { border-top: 1px solid var(--line); margin-top: 1rem; padding-top: 1rem; min-width: 0; }
+.git-files fieldset { min-width: 0; }
+.git-files code, .git-files small { overflow-wrap: anywhere; }
+.git-files small { display: block; }
+.git-file-list { max-height: 22rem; overflow: auto; margin-block: .5rem; }
+.git-files .git-file-list label { display: flex; flex-direction: row; align-items: flex-start; gap: .5rem; padding: .4rem; }
+.git-files input[type="checkbox"] { flex: 0 0 auto; margin-top: .25rem; }
+.git-files pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 15rem; overflow: auto; }
+.git-files details { margin-block: .65rem; }
+.git-files button { margin-block: .25rem; }
+.git-file-warning { font-weight: 600; }
