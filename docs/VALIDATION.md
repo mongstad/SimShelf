@@ -149,3 +149,9 @@ desktop/narrow browser validation. Earlier reports remain unchanged.
 See [issue #35 color themes](validation/issue-35-themes.md) for Onyx, Slate and
 Linen, unchanged original-theme comparisons, contrast tests, desktop/narrow
 browser evidence, package checks and the existing schema-4 dialog limitation.
+
+## Later completed-progress clarification
+
+See [issue #40 completed progress](validation/issue-40-completed-progress.md) for
+last-reported labeling, read-only investigation, lifecycle regressions and
+all-theme desktop/narrow source and installed-package checks.
