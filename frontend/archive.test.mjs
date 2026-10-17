@@ -332,3 +332,14 @@ test("master connection switch is distinct and only reflects confirmed availabil
     / disabled=/,
   );
 });
+
+test("configured unavailable archive remains explicitly disconnectable", () => {
+  const html = render(MasterArchiveStatus, {
+    status: { state: "unavailable", reason: "Missing archive" },
+    configured: true,
+    onChange: () => {},
+  });
+  assert.match(html, /aria-checked="true"/);
+  assert.match(html, /Unavailable — configured/);
+  assert.doesNotMatch(html, /archive-connected| disabled=/);
+});

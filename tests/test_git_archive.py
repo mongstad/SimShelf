@@ -128,6 +128,7 @@ def test_restore_requires_remap_and_preserves_associations(setup,tmp_path):
     restored=restore_backup(backup,tmp_path/'restored')
     assert archive.entries(restored,ident)==[e]
     with pytest.raises(ValueError):archive.download(restored,ident,e['id'],0)
+    archive.disconnect(restored)
     archive.connect(restored,str(repo),False,True)
     assert archive.download(restored,ident,e['id'],0)[1]
     assert store.run(ident,False)==restored.run(ident,False)
@@ -539,7 +540,7 @@ def test_quick_reconnect_rejects_replacement_missing_changed_binding_and_initial
     monkeypatch.undo()
     other = {**saved, 'identity':uuid.uuid4().hex}
     archive.put(store, 'connection', other)
-    with pytest.raises(ValueError, match='connection changed'):
+    with pytest.raises(ValueError, match='Disconnect the current archive'):
         archive.connect(store, saved['path'], confirmed=True, expected_connection=saved)
     assert archive.get(store, 'connection') == other
 
@@ -554,7 +555,7 @@ def test_connection_write_failure_preserves_previous_state(setup, monkeypatch):
     original_put = archive.put
     def rejected(*args):
         raise ValueError('Connection change failed; refresh and retry.')
-    monkeypatch.setattr(archive, 'put', rejected)
+    monkeypatch.setattr(archive, 'save_connection', rejected)
     assert client.post('/api/workspace/archive/disconnect', headers=headers).status_code == 400
     assert archive.get(store, 'connection') == saved
     original_put(store, 'connection', None)
@@ -562,3 +563,75 @@ def test_connection_write_failure_preserves_previous_state(setup, monkeypatch):
                           json={'path':saved['path'],'confirmed':True,'expected_connection':saved})
     assert response.status_code == 400
     assert archive.get(store, 'connection') is None
+
+
+def test_connected_location_cannot_be_replaced_or_initialized_via_api(setup, tmp_path):
+    from fastapi.testclient import TestClient
+    from simshelf.api import create_app
+    store, repo, sims = setup
+    saved = archive.get(store, 'connection')
+    other = tmp_path / 'other'; other.mkdir()
+    client = TestClient(create_app(store.path))
+    headers = {'X-SimShelf-Token':client.get('/api/workspace').json()['token']}
+    for path, initialize in [(str(other), True), (str(repo), False), (str(other), False)]:
+        response = client.post('/api/workspace/archive/connect', headers=headers,
+                               json={'path':path,'initialize':initialize,'confirmed':True})
+        assert response.status_code == 400
+        assert 'Disconnect' in response.json()['detail']
+        assert archive.get(store, 'connection') == saved
+        assert archive.get(store, 'last_connection') == saved
+        assert list(other.iterdir()) == []
+    assert client.post('/api/workspace/archive/disconnect', headers=headers).status_code == 200
+    assert client.post('/api/workspace/archive/connect', headers=headers,
+                       json={'path':str(other),'initialize':True,'confirmed':True}).status_code == 200
+    assert archive.get(store, 'connection')['path'] == str(other)
+
+
+def test_remembered_connection_restart_failure_and_old_library_compatibility(setup):
+    from fastapi.testclient import TestClient
+    from simshelf.api import create_app
+    store, repo, sims = setup
+    saved = archive.get(store, 'connection')
+    consent = [archive.get(store, 'settings:'+s['id']) for s in sims]
+    with store.connection() as db:
+        schema = db.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()[0]
+    # Simulate a library from before the preference existed.
+    with store.connection() as db:
+        db.execute('DELETE FROM metadata WHERE key=?', (archive.PREFIX+'last_connection',))
+    archive.disconnect(store)
+    reloaded = Store(store.path)
+    client = TestClient(create_app(reloaded.path))
+    response = client.get('/api/workspace/archive').json()
+    assert response['connection'] is None
+    assert response['remembered_connection'] == saved
+    assert response['status']['state'] == 'disconnected'
+    with reloaded.connection() as db:
+        assert db.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()[0] == schema
+    marker = repo/'simshelf-archive-id'; marker.write_text(uuid.uuid4().hex)
+    for expected in (None, saved):
+        with pytest.raises(ValueError, match='identity changed'):
+            archive.connect(reloaded, saved['path'], confirmed=True, expected_connection=expected)
+        assert archive.get(reloaded,'connection') is None
+        assert archive.get(reloaded,'last_connection') == saved
+    with pytest.raises(ValueError):
+        archive.connect(reloaded, saved['path'], initialize=True, confirmed=True)
+    marker.write_text(saved['identity'])
+    archive.connect(reloaded, saved['path'], confirmed=True, expected_connection=saved)
+    assert [archive.get(reloaded,'settings:'+s['id']) for s in sims] == consent
+
+
+def test_connection_preference_write_is_atomic(setup):
+    import sqlite3
+    store, repo, sims = setup
+    saved = archive.get(store, 'connection')
+    with store.connection() as db:
+        db.execute("CREATE TRIGGER reject_preference BEFORE INSERT ON metadata WHEN NEW.key = 'archive_v1:last_connection' BEGIN SELECT RAISE(ABORT, 'test failure'); END")
+    with pytest.raises(sqlite3.IntegrityError, match='test failure'):
+        archive.disconnect(store)
+    assert archive.get(store, 'connection') == saved
+    assert archive.get(store, 'last_connection') == saved
+    archive.put(store, 'connection', None)
+    with pytest.raises(sqlite3.IntegrityError, match='test failure'):
+        archive.connect(store, saved['path'], confirmed=True, expected_connection=saved)
+    assert archive.get(store, 'connection') is None
+    assert archive.get(store, 'last_connection') == saved

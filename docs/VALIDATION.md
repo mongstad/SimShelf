@@ -205,3 +205,7 @@ running-plan isolation and focused installed-browser/package checks.
 The [master connection toggle revision](validation/issue-56-master-toggle-revision.md)
 records explicit identity-checked reconnection, collapsed setup, independent
 consent, failure/restart checks and all-theme desktop/narrow validation.
+
+The [location lock and remembered directory revision](validation/issue-56-location-lock-revision.md)
+records backend replacement rejection, atomic connection preferences, restart
+persistence, unchanged schema and focused browser/download regressions.

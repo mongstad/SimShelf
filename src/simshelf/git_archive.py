@@ -57,6 +57,19 @@ def put(store, key, value):
         conn.execute('INSERT OR REPLACE INTO metadata VALUES (?,?)', (PREFIX + key, json_text(value)))
 
 
+def save_connection(store, active, remembered):
+    """Commit connection and its last successful identity together, or neither."""
+    with store.connection() as conn:
+        for key, value in (('connection', active), ('last_connection', remembered)):
+            conn.execute('INSERT OR REPLACE INTO metadata VALUES (?,?)', (PREFIX + key, json_text(value)))
+
+
+@locked_store
+def disconnect(store):
+    saved = get(store, 'connection') or get(store, 'last_connection')
+    save_connection(store, None, saved)
+
+
 def hash_bytes(data):
     return hashlib.sha256(data).hexdigest()
 
@@ -186,7 +199,15 @@ def repo_lock(store, saved):
 def connect(store, path, initialize=False, confirmed=False, expected_connection=None):
     if confirmed is not True:
         raise ValueError('Explicitly confirm local archive setup.')
+    if get(store, 'connection') is not None:
+        raise ValueError('Disconnect the current archive before confirming another connection.')
     root = boundaries(store, path)
+    remembered = get(store, 'last_connection')
+    if remembered and remembered.get('path') == str(root):
+        if initialize:
+            raise ValueError('The remembered archive cannot be reinitialized. Restore it or choose another empty directory.')
+        # Manual path confirmation must not bypass the remembered identity.
+        validate_repo(store, remembered)
     if expected_connection is not None:
         # A quick reconnect must never adopt a replacement repository or move
         # an old library binding. Deliberate setup remains a separate action.
@@ -221,7 +242,7 @@ def connect(store, path, initialize=False, confirmed=False, expected_connection=
     validate_repo(store, saved)
     if expected_connection is not None and saved != expected_connection:
         raise ValueError('Archive identity changed. Restore the original archive or review archive location and setup.')
-    put(store, 'connection', saved)
+    save_connection(store, saved, saved)
     return saved
 
 

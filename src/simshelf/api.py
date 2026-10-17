@@ -211,7 +211,8 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
 
     @app.get("/api/workspace/archive")
     def archive_connection():
-        return {"connection": archive.get(store, 'connection'), "status": archive.connection_status(store)}
+        return {"connection": archive.get(store, 'connection'), "remembered_connection": archive.get(store, 'last_connection'),
+                "status": archive.connection_status(store)}
 
     @app.post("/api/workspace/archive/connect")
     def archive_connect(body: ArchiveRequest):
@@ -222,7 +223,7 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
 
     @app.post("/api/workspace/archive/disconnect")
     def archive_disconnect():
-        archive.put(store, 'connection', None)
+        archive.disconnect(store)
         return {"disconnected": True}
 
     @app.get("/api/simulations/{ident}/archive")

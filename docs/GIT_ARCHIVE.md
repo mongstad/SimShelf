@@ -190,18 +190,30 @@ rewritten. New publication and Git downloads require a valid connection;
 workspace-managed downloads remain independent. Existing publication/recovery
 safeguards continue to govern work already in progress.
 
-Switching ON explicitly reconnects the remembered original path and identity when
-available in the current Git history panel. It never initializes a repository or
-runs at startup. Missing/replaced repositories are rejected; check the original
-location or deliberately use **Archive location and setup**. The backend verifies
-the expected path, repository identity and library binding before reconnecting,
-and rejects a conflicting connection changed elsewhere.
+While connected, **Dedicated archive directory** is read-only and location
+confirmation/initialization are disabled. Disconnect before changing repositories;
+the backend also rejects connection replacement before touching either directory.
+The active path is labeled verified only when backend availability checks pass.
+A configured repository that becomes unavailable remains explicitly disconnectable.
 
-Disconnect removes the existing active connection record. No new persistent
-reconnection preference is introduced: after reloading or leaving the panel,
-ON opens setup if the prior path/identity is no longer available. Enter the known
-archive path and **Confirm archive location**, or explicitly select initialization
-for an existing empty dedicated directory. Changing location never moves files.
+Switching ON explicitly reconnects the last successful path and identity. These
+are remembered across reloads and application restarts, but never automatically
+reconnected or initialized. Disconnected setup labels the remembered path as a
+preference, not an active connection. Edited paths are labeled proposed until
+successfully confirmed. Failed attempts do not replace the active or remembered
+connection. Even manual confirmation of the remembered path verifies its original
+repository identity and cannot initialize over it.
+
+Only path, repository identity and library binding are retained in the existing
+metadata store. Connection and preference updates commit atomically. No schema
+migration or scientific-record change occurs. Libraries without the preference
+acquire it on explicit successful connection or disconnection. Restored libraries
+still require explicit remapping; remembered paths confer no new consent.
+
+To choose a different archive, disconnect, edit the path under **Archive location
+and setup**, then **Confirm archive location**. Initialization remains an explicit
+checkbox and action for an existing empty dedicated directory. Changing location
+never moves files. If no previous connection is known, ON opens this setup form.
 
 Reconnecting the exact original archive can make previously granted consent
 usable again; it does not grant new consent. A different archive or changed

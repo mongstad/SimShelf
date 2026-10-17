@@ -37,11 +37,12 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
     const c = await api<Review>("/workspace/archive");
     const s = await api<Review>(`/simulations/${simulation.id}/archive`);
     setConnection(c.connection);
-    if (c.connection) rememberedConnection.current = c.connection;
+    rememberedConnection.current =
+      c.connection || c.remembered_connection || null;
     setStatus(c.status);
     setAutomatic(s.automatic_status);
     setRuns(s.runs);
-    if (refreshDraft)
+    if (refreshDraft || c.connection)
       setPath(c.connection?.path || rememberedConnection.current?.path || "");
     if (refreshDraft) setFuture(s.settings?.future.join("\n") || "");
   }
@@ -103,11 +104,12 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
       <h2>Shared master Git archive</h2>
       <MasterArchiveStatus
         status={status}
+        configured={!!connection}
         busy={busy || !!review}
         onChange={(trigger) => {
           returnFocus.current = trigger;
           restoreFocus.current = true;
-          if (status?.state === "connected") {
+          if (connection) {
             void action(async () => {
               await post("/workspace/archive/disconnect");
               setReview(null);
@@ -144,7 +146,10 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
       />
       {connection && (
         <p className="path">
-          Configured archive: <code>{connection.path}</code>
+          {status?.state === "connected"
+            ? "Verified archive:"
+            : "Configured path (unavailable):"}{" "}
+          <code>{connection.path}</code>
         </p>
       )}
       <AutomaticArchiveToggle
@@ -185,16 +190,27 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
           Dedicated archive directory
           <input
             ref={setupPath}
-            value={path}
+            value={connection?.path || path}
+            readOnly={!!connection}
             disabled={busy}
+            aria-describedby="archive-location-help"
             onChange={(e) => setPath(e.target.value)}
           />
         </label>
+        <p id="archive-location-help" className="muted">
+          {connection
+            ? "Disconnect the master archive before changing its location."
+            : rememberedConnection.current
+              ? path === rememberedConnection.current.path
+                ? "Last connected directory, remembered only. Switch ON or confirm the location to verify and reconnect."
+                : `Proposed directory, not connected. Last connected: ${rememberedConnection.current.path}`
+              : "Choose a dedicated archive directory. Nothing connects automatically."}
+        </p>
         <label className="archive-choice">
           <input
             type="checkbox"
             checked={initialize}
-            disabled={busy}
+            disabled={busy || !!connection}
             onChange={(e) => setInitialize(e.target.checked)}
           />
           Initialize this existing empty directory as a dedicated archive
@@ -206,7 +222,7 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
           repositories cannot be used.
         </p>
         <button
-          disabled={busy || !!review || !path.trim()}
+          disabled={busy || !!review || !!connection || !path.trim()}
           onClick={(e) => {
             returnFocus.current = e.currentTarget;
             restoreFocus.current = true;
@@ -603,10 +619,12 @@ export function RunArchive({
 export function MasterArchiveStatus({
   status,
   busy = false,
+  configured = false,
   onChange,
 }: {
   status?: Review | null;
   busy?: boolean;
+  configured?: boolean;
   onChange?: (trigger: HTMLButtonElement) => void;
 }) {
   const connected = status?.state === "connected";
@@ -624,21 +642,23 @@ export function MasterArchiveStatus({
             ? "Connected"
             : status?.state === "disconnected"
               ? "Disconnected"
-              : "Unavailable"}
+              : configured
+                ? "Unavailable — configured"
+                : "Unavailable"}
         </span>
         {onChange && (
           <button
             type="button"
             role="switch"
             aria-label="Master simulation archive connection"
-            aria-checked={connected}
+            aria-checked={connected || configured}
             aria-describedby="master-archive-help"
             className="archive-toggle"
             disabled={busy || !status}
             onClick={(e) => onChange(e.currentTarget)}
           >
             <span className="archive-toggle-knob" aria-hidden="true" />
-            {connected ? "ON" : "OFF"}
+            {connected || configured ? "ON" : "OFF"}
           </button>
         )}
       </div>

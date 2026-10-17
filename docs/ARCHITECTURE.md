@@ -349,3 +349,10 @@ archive events keep their historical download addresses. The source Git section
 retains its independent connection. Publication, recovery, storage and scientific
 records are unchanged; portable manifests/notes remain design-only. See the
 [approved Stage A design](MASTER_ARCHIVE_UX_DESIGN.md).
+
+Archive connection changes require explicit disconnection first. A location-bound
+last-successful connection preference (path, repository identity and workspace
+binding) uses the existing versioned metadata namespace, without a schema change.
+Connection and preference updates share one SQLite transaction under the workspace
+lock. This preference never triggers startup connection, changes scientific run
+records or grants archival consent; reconnection still validates repository identity.
