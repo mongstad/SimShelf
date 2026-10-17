@@ -332,3 +332,12 @@ source folder's `.gitignore`, using descriptor checks and advisory locking. No
 Git index/history/network mutation is exposed. External editor concurrency and
 partial-write limitations are documented; #45 must independently review and
 authorize any future staging/commit.
+
+## Explicit shared archive
+
+[Archive design](GIT_ARCHIVE_DESIGN.md) adds versioned metadata and an optional
+post-finalization publisher, independent of scientific run records. Frozen
+consent and capture-relative future rules feed verified managed copies; an isolated
+Git index and atomic ref transaction publish immutable per-run events. Post-run
+attachments use separate approved additions. Historical downloads verify the
+recorded commit/path/hash. No storage schema migration or source Git writes occur.

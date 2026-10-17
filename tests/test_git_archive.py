@@ -1,0 +1,346 @@
+import json
+import os
+import uuid
+from pathlib import Path
+
+import pytest
+from simshelf import git_archive as archive
+from simshelf.store import Store
+from simshelf.recording import Run, record_command
+from simshelf.capture import save_file
+from simshelf.git_selection import inventory, selection_preview, save_selection
+from simshelf.backup import create_backup, restore_backup
+
+
+@pytest.fixture
+def setup(tmp_path):
+    store = Store(tmp_path / 'library')
+    repo = tmp_path / 'archive'; repo.mkdir()
+    archive.connect(store, str(repo), True, True)
+    sims = []
+    for name in ('alpha', 'beta'):
+        root = tmp_path / name; root.mkdir()
+        (root / 'sim.py').write_text('SIMSHELF_VERSION = "1"\n')
+        (root / 'outputs').mkdir()
+        sim = store.add_simulation(root, name=name, entrypoint='sim.py')
+        inv = inventory(store, sim['id'])
+        save_selection(store, sim['id'], selection_preview(store, sim['id'], inv['revision'], [{'kind':'file','value':'sim.py'}]))
+        review = archive.settings_preview(store, sim['id'], ['result.csv','logs/*.csv'])
+        archive.enable(store, sim['id'], review, True)
+        sims.append(sim)
+    return store, repo, sims
+
+
+def run_output(store, sim, text='one', fail=False):
+    r = Run(sim['id'], workspace=store.path, capture_console=False)
+    r.__enter__()
+    (Path(sim['root']) / 'outputs/result.csv').write_text(text)
+    r.finish(1 if fail else 0)
+    return r.id
+
+
+def test_shared_history_original_source_failure_and_overwritten_outputs(setup):
+    store, repo, (a,b) = setup
+    first = run_output(store,a)
+    middle = run_output(store,b,'beta')
+    last = run_output(store,a,'second',True)
+    commits=[]
+    for ident, expected in ((first,b'one'),(middle,b'beta'),(last,b'second')):
+        v=archive.view(store,ident)
+        assert not v['error'], v
+        e,=v['events']; commits.append(e['commit'])
+        assert e['simulation']==store.run(ident)['simulation_id']
+        i=next(i for i,f in enumerate(e['files']) if f['category']=='result')
+        assert archive.download(store,ident,e['id'],i)[1]==expected
+    assert len(set(commits))==3
+    assert store.run(last)['status']=='failed'
+    r=Run(a['id'],workspace=store.path,capture_console=False);r.__enter__()
+    (Path(a['root'])/'sim.py').write_text('# modified live source\n')
+    r.finish()
+    e,=archive.entries(store,r.id)
+    assert archive.download(store,r.id,e['id'],0)[1]==b'SIMSHELF_VERSION = "1"\n'
+    assert any(s['reason'].startswith('Unchanged') for s in e['skipped'])
+
+
+def test_additions_revisions_idempotency_and_scientific_records_unchanged(setup,tmp_path):
+    store,repo,(a,b)=setup
+    ident=run_output(store,a)
+    before=store.run(ident,False)
+    source=tmp_path/'analysis.csv';source.write_bytes(b'analysis one')
+    attachment=save_file(store,ident,source)
+    review=archive.additions_preview(store,ident,[attachment['id']])
+    op=uuid.uuid4().hex
+    with pytest.raises(ValueError):archive.additions(store,ident,review,op,False)
+    event=archive.additions(store,ident,review,op,True)
+    assert archive.additions(store,ident,review,op,True)==event
+    source.write_bytes(b'analysis two')
+    other=save_file(store,ident,source)
+    second=archive.additions(store,ident,archive.additions_preview(store,ident,[other['id']]),uuid.uuid4().hex,True)
+    assert archive.download(store,ident,event['id'],0)[1]==b'analysis one'
+    assert archive.download(store,ident,second['id'],0)[1]==b'analysis two'
+    assert store.run(ident,False)==before
+    assert len(archive.entries(store,ident))==3
+    other_run=run_output(store,b)
+    with pytest.raises(ValueError):archive.download(store,other_run,event['id'],0)
+    with pytest.raises(ValueError):archive.additions_preview(store,other_run,[other['id']])
+
+
+def test_future_first_run_missing_outside_and_limits(setup,monkeypatch):
+    store,repo,(a,b)=setup
+    r=Run(a['id'],workspace=store.path,capture_console=False);r.__enter__()
+    root=Path(a['root'])
+    (root/'outside.csv').write_text('not eligible')
+    (root/'outputs/logs').mkdir();(root/'outputs/logs/first.csv').write_text('eligible')
+    r.finish()
+    event,=archive.entries(store,r.id)
+    assert {f['name'] for f in event['files']}=={'sim.py','logs/first.csv'}
+    assert any(f['name']=='result.csv' and f['reason'].startswith('Missing') for f in event['skipped'])
+    for bad in ('../result.csv','/tmp/x.csv','**/*.csv','logs/../x','*/x','x?',''):
+        with pytest.raises(ValueError):archive.future_rules([bad])
+    monkeypatch.setattr(archive,'RUN_LIMIT',1)
+    with pytest.raises(ValueError):archive.budget(store,r.id,[])
+
+
+def test_pending_crash_recovery_after_commit(setup,monkeypatch):
+    store,repo,(a,b)=setup
+    original=archive.git
+    def crash(root,*args,**kw):
+        if args[0]=='show':raise ValueError('injected crash after ref publication')
+        return original(root,*args,**kw)
+    monkeypatch.setattr(archive,'git',crash)
+    ident=run_output(store,a)
+    assert store.run(ident)['status']=='completed'
+    assert archive.view(store,ident)['pending'] and not archive.entries(store,ident)
+    head=original(repo,'rev-parse','refs/heads/main')
+    monkeypatch.setattr(archive,'git',original)
+    archive.publish(store,ident)
+    assert archive.git(repo,'rev-parse','refs/heads/main')==head
+    assert len(archive.entries(store,ident))==1
+    archive.publish(store,ident)
+    assert len(archive.entries(store,ident))==1
+
+
+def test_restore_requires_remap_and_preserves_associations(setup,tmp_path):
+    store,repo,(a,b)=setup
+    ident=run_output(store,a)
+    e,=archive.entries(store,ident)
+    backup=create_backup(store,tmp_path/'backup.zip')
+    restored=restore_backup(backup,tmp_path/'restored')
+    assert archive.entries(restored,ident)==[e]
+    with pytest.raises(ValueError):archive.download(restored,ident,e['id'],0)
+    archive.connect(restored,str(repo),False,True)
+    assert archive.download(restored,ident,e['id'],0)[1]
+    assert store.run(ident,False)==restored.run(ident,False)
+
+
+def test_optout_unsafe_config_and_missing_git_do_not_fail_recording(setup,monkeypatch):
+    store,repo,(a,b)=setup
+    archive.put(store,'settings:'+a['id'],None)
+    ident=run_output(store,a)
+    assert not archive.entries(store,ident)
+    (repo/'config').write_bytes(archive.CONFIG+b'[core]\n hooksPath = /tmp/evil\n')
+    ident=run_output(store,b)
+    assert store.run(ident)['status']=='completed'
+    assert archive.view(store,ident)['error']
+    (repo/'config').write_bytes(archive.CONFIG)
+    monkeypatch.setenv('PATH','/nonexistent')
+    ident=run_output(store,b,'third')
+    assert store.run(ident)['status']=='completed'
+    assert archive.view(store,ident)['pending']
+
+
+def test_consent_stale_paths_and_links(setup,tmp_path):
+    store,repo,(a,b)=setup
+    with pytest.raises(ValueError):archive.connect(store,a['root'],False,True)
+    with pytest.raises(ValueError):archive.connect(store,str(store.path),True,True)
+    link=tmp_path/'link';link.symlink_to(repo,target_is_directory=True)
+    with pytest.raises((ValueError,OSError)):archive.connect(store,str(link),False,True)
+    preview=archive.settings_preview(store,a['id'],[])
+    (Path(a['root'])/'new.py').write_text('x')
+    with pytest.raises(ValueError):archive.enable(store,a['id'],preview,True)
+    with pytest.raises(ValueError):archive.enable(store,b['id'],preview,True)
+
+
+def test_api_token_confirmation_download_and_attachment_flow(setup):
+    from fastapi.testclient import TestClient
+    from simshelf.api import create_app
+    store,repo,(a,b)=setup
+    ident=run_output(store,a)
+    client=TestClient(create_app(store.path))
+    headers={'X-SimShelf-Token':client.get('/api/workspace').json()['token']}
+    assert client.post('/api/workspace/archive/disconnect').status_code==403
+    uploaded=client.post(f'/api/runs/{ident}/attachments',headers=headers,files={'file':('analysis.csv',b'new analysis')}).json()
+    review=client.post(f'/api/runs/{ident}/archive/preview',headers=headers,json={'artifact_ids':[uploaded['id']]}).json()
+    op=uuid.uuid4().hex
+    body={'review':review,'operation':op}
+    assert client.post(f'/api/runs/{ident}/archive/add',headers=headers,json=body).status_code==400
+    result=client.post(f'/api/runs/{ident}/archive/add',headers=headers,json={**body,'confirmed':True})
+    assert result.status_code==200,result.text
+    e=result.json()
+    response=client.get(f'/api/runs/{ident}/archive/{e["id"]}/0/file')
+    assert response.content==b'new analysis'
+    assert response.headers['content-disposition'].startswith('attachment;')
+    assert client.get(f'/api/runs/{ident}/archive/{e["id"]}/99/file').status_code==400
+    assert client.post(f'/api/runs/{ident}/archive/add',headers=headers,json={**body,'confirmed':True}).json()==e
+
+
+def test_overlap_and_archive_lock_contention(setup):
+    store,repo,(a,b)=setup
+    r=Run(a['id'],workspace=store.path,capture_console=False);r.__enter__()
+    with pytest.raises(ValueError):
+        Run(a['id'],workspace=store.path,capture_console=False).__enter__()
+    import fcntl
+    with (repo/'simshelf.lock').open('a') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        r.finish()
+        assert store.run(r.id)['status']=='completed'
+        assert archive.view(store,r.id)['pending']
+    archive.publish(store,r.id)
+    assert len(archive.entries(store,r.id))==1
+
+
+def test_corrupt_missing_objects_and_modified_inputs_fail_closed(setup,tmp_path):
+    store,repo,(a,b)=setup
+    ident=run_output(store,a)
+    e,=archive.entries(store,ident)
+    oid=archive.git(repo,'rev-parse',f"{e['commit']}:{e['files'][0]['path']}").decode().strip()
+    (repo/'objects'/oid[:2]/oid[2:]).unlink()
+    with pytest.raises(ValueError):archive.download(store,ident,e['id'],0)
+    output=Path(a['root'])/'outputs/result.csv'
+    output.unlink();output.symlink_to(tmp_path/'external.csv')
+    (tmp_path/'external.csv').write_text('external')
+    r=Run(a['id'],workspace=store.path,capture_console=False);r.__enter__();r.finish()
+    events=archive.entries(store,r.id)
+    assert not any(f['category']=='result' for e in events for f in e['files'])
+    assert (tmp_path/'external.csv').read_text()=='external'
+
+
+def test_real_cli_failed_exit_logs_and_cancellation(setup):
+    import sys
+    store,repo,(a,b)=setup
+    code="from pathlib import Path; import sys; Path('outputs/result.csv').write_text('partial'); print('scientific log'); sys.exit(7)"
+    ident,rc=record_command(store,a['id'],[sys.executable,'-c',code],cwd=a['root'],quiet=True)
+    assert rc==7 and store.run(ident)['status']=='failed'
+    assert (store.path/'logs'/ident/'stdout.log').read_text()=='scientific log\n'
+    assert len(archive.entries(store,ident))==1
+    import threading
+    cancel=threading.Event();cancel.set()
+    ident,rc=record_command(store,b['id'],[sys.executable,'-c','import time;time.sleep(30)'],cwd=b['root'],quiet=True,cancel=cancel)
+    assert store.run(ident)['status']=='interrupted'
+    assert rc!=0
+
+
+def test_cumulative_addition_limits_and_removed_run_retains_git(setup,tmp_path,monkeypatch):
+    store,repo,(a,b)=setup
+    ident=run_output(store,a)
+    original=archive.entries(store,ident)
+    used=sum(f['size'] for e in original for f in e['files'])
+    file=tmp_path/'attachment';file.write_bytes(b'12345')
+    attachment=save_file(store,ident,file)
+    monkeypatch.setattr(archive,'RUN_LIMIT',used+4)
+    with pytest.raises(ValueError):archive.additions_preview(store,ident,[attachment['id']])
+    head=archive.git(repo,'rev-parse','refs/heads/main')
+    store.remove_runs([ident],confirmed=True)
+    assert archive.git(repo,'rev-parse','refs/heads/main')==head
+    with pytest.raises((KeyError,ValueError)):archive.view(store,ident)
+
+
+def test_future_patterns_do_not_capture_nested_or_outside_files(setup):
+    store,repo,(a,b)=setup
+    sim=store.simulation(a['id']); config=sim['config']; config['rules']=[{'pattern':'**/*','action':'reference'}]
+    store.update_simulation(a['id'],config=config)
+    archive.enable(store,a['id'],archive.settings_preview(store,a['id'],['logs/*.csv']),True)
+    r=Run(a['id'],workspace=store.path,capture_console=False);r.__enter__()
+    root=Path(a['root'])/'outputs';(root/'logs/nested').mkdir(parents=True)
+    (root/'logs/yes.csv').write_text('yes');(root/'logs/nested/no.csv').write_text('no')
+    r.finish()
+    policies={f['name']:f['policy'] for f in store.run(r.id)['artifacts']}
+    assert policies=={'logs/yes.csv':'copy','logs/nested/no.csv':'reference'}
+    e,=archive.entries(store,r.id)
+    assert {f['name'] for f in e['files']}=={'sim.py','logs/yes.csv'}
+
+
+def test_boundary_dotdot_and_hardlinks(setup,tmp_path):
+    store,repo,(a,b)=setup
+    with pytest.raises(ValueError):archive.connect(store,str(repo/'..'/'alpha'),True,True)
+    f=tmp_path/'a';f.write_bytes(b'secret');os.link(f,tmp_path/'b')
+    with pytest.raises(ValueError):archive.safe_read(f)
+
+
+def test_concurrent_simulations_get_distinct_commits(setup):
+    from concurrent.futures import ThreadPoolExecutor
+    store,repo,(a,b)=setup
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures=[pool.submit(run_output,store,s,s['name']) for s in (a,b)]
+        ids=[f.result(timeout=30) for f in futures]
+    assert len({archive.entries(store,i)[0]['commit'] for i in ids})==2
+    for ident,sim in zip(ids,(a,b)):
+        e,=archive.entries(store,ident)
+        assert e['simulation']==sim['id']
+        n=next(n for n,f in enumerate(e['files']) if f['category']=='result')
+        assert archive.download(store,ident,e['id'],n)[1]==sim['name'].encode()
+
+
+def test_changed_after_capture_not_archived(setup,monkeypatch):
+    store,repo,(a,b)=setup
+    original=archive.fingerprint_outputs
+    count=0
+    def changing(sim,plan):
+        nonlocal count
+        count+=1
+        if count==2:(Path(sim['root'])/'outputs/result.csv').write_text('changed by another writer')
+        return original(sim,plan)
+    monkeypatch.setattr(archive,'fingerprint_outputs',changing)
+    ident=run_output(store,a)
+    e,=archive.entries(store,ident)
+    assert not any(f['category']=='result' for f in e['files'])
+    assert any('No verified matching' in f['reason'] for f in e['skipped'])
+    assert store.run(ident)['status']=='completed'
+
+
+def test_source_git_index_and_history_unchanged(setup):
+    import subprocess
+    store,repo,(a,b)=setup
+    root=Path(a['root'])
+    def git(*args):return subprocess.check_output(['git','-C',str(root),*args],stderr=subprocess.DEVNULL)
+    git('init','--template=');git('add','sim.py')
+    git('-c','user.name=Test','-c','user.email=test@localhost','-c','commit.gpgSign=false','commit','-m','source')
+    # Source repo changed binding: explicitly save preferences and consent again.
+    inv=inventory(store,a['id']);save_selection(store,a['id'],selection_preview(store,a['id'],inv['revision'],[{'kind':'file','value':'sim.py'}]))
+    archive.enable(store,a['id'],archive.settings_preview(store,a['id'],['result.csv']),True)
+    before_index=(root/'.git/index').read_bytes();before_head=git('rev-parse','HEAD')
+    ident=run_output(store,a)
+    assert archive.entries(store,ident)
+    assert (root/'.git/index').read_bytes()==before_index
+    assert git('rev-parse','HEAD')==before_head
+
+
+def test_prepared_crash_does_not_recapture_live_files(setup):
+    store,repo,(a,b)=setup
+    r=Run(a['id'],workspace=store.path,capture_console=False);r.__enter__()
+    store.emit(r.id,'finish',{'status':'interrupted','ended_at':'2026-10-17T00:00:00Z','capture_status':'incomplete'})
+    (Path(a['root'])/'outputs/result.csv').write_text('later unrelated bytes')
+    store.reconcile()
+    assert archive.publish(store,r.id)=={'status':'nothing pending'}
+    assert not archive.entries(store,r.id)
+    assert archive.view(store,r.id)['initial']['state']=='prepared'
+
+
+def test_unavailable_repository_and_invalid_payload_errors(setup):
+    store,repo,(a,b)=setup
+    ident=run_output(store,a);e,=archive.entries(store,ident)
+    for ids in ([{}],['../bad'],[None]):
+        with pytest.raises(ValueError):archive.additions_preview(store,ident,ids)
+    (repo/'simshelf-archive-id').unlink()
+    with pytest.raises(ValueError,match='unavailable or unsafe'):
+        archive.download(store,ident,e['id'],0)
+
+
+def test_corrupt_optional_archive_settings_do_not_block_recording(setup):
+    store,repo,(a,b)=setup
+    with store.connection() as conn:
+        conn.execute('UPDATE metadata SET value=? WHERE key=?', ('invalid json',archive.PREFIX+'settings:'+a['id']))
+    ident=run_output(store,a)
+    assert store.run(ident)['status']=='completed'
+    assert not archive.entries(store,ident)
+    assert archive.view(store,ident)['error']

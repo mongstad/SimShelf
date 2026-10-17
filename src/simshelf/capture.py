@@ -100,7 +100,7 @@ def save_file(store, run_id: str, path: Path, *, policy="copy", name=None, capti
     return artifact
 
 
-def capture_outputs(store, run_id: str, simulation: dict, before: dict | None = None) -> dict:
+def capture_outputs(store, run_id: str, simulation: dict, before: dict | None = None, *, archive_copy_rules=None) -> dict:
     inventory, errors = output_inventory(simulation)
     root = contained(Path(simulation["root"]), simulation["config"]["output_dir"])
     counts = {"copied": 0, "referenced": 0, "ignored": 0, "unchanged": 0, "skipped": 0}
@@ -110,6 +110,10 @@ def capture_outputs(store, run_id: str, simulation: dict, before: dict | None = 
             counts["unchanged"] += 1
             continue
         action = capture_action(name, simulation["config"])
+        if archive_copy_rules:
+            from .git_archive import future_match
+            if future_match(name, archive_copy_rules):
+                action = "copy"
         if action == "ignore":
             counts["ignored"] += 1
             continue

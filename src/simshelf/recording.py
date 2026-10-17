@@ -122,6 +122,8 @@ class Run:
                 self.log_parameters(self.parameters)
             self.started = True
             return self
+        from .git_archive import prepare
+        prepare(self)
         snapshot = source_snapshot(self.store.path, self.simulation)
         version_file = self.simulation.get("version_file")
         captured_version = next((f for f in snapshot["files"] if f["path"] == version_file), None)
@@ -131,6 +133,8 @@ class Run:
         self.started_clock = time.monotonic()
         data = {"id": self.id, "simulation_id": self.simulation["id"], "name": self.name or time.strftime("Run %b %d · %H:%M:%S"), "status": "running", "started_at": now(), "ended_at": None, "duration": None, "exit_code": None, "version": version, "snapshot_id": snapshot["id"], "structure_id": snapshot["structure_id"], "source_warnings": snapshot["warnings"], "command": self.command, "cwd": self.cwd, "parameters": self.parameters, "parameter_sources": {key: "python" for key in self.parameters}, "tags": self.tags, "notes": "", "version_note": "", "cover_id": None, "git": observe_git(self.store, self.simulation, snapshot), "environment": environment(), "capture_config": self.simulation["config"], "capture_status": "pending", "capture_errors": initial_errors, "owner": {"pid": os.getpid(), "host": socket.gethostname(), "identity": process_identity(os.getpid())}}
         data["progress_mode"] = self.progress_mode
+        if getattr(self, "archive_plan", None):
+            data["archive_capture_rules"] = self.archive_plan["future"]
         if self.launch:
             if self.simulation["entrypoint"] not in {file["path"] for file in snapshot["files"]}:
                 raise ValueError("The entry file must be included in source capture before portal launch")
@@ -192,7 +196,7 @@ class Run:
             return
         status = status or ("completed" if exit_code == 0 else "failed")
         try:
-            capture = capture_outputs(self.store, self.id, self.simulation, self.before)
+            capture = capture_outputs(self.store, self.id, self.simulation, self.before, archive_copy_rules=getattr(self, "archive_plan", {}).get("future"))
             capture["capture_errors"] = getattr(self, "initial_capture_errors", []) + capture["capture_errors"]
             if capture["capture_errors"]:
                 capture["capture_status"] = "partial"
@@ -200,6 +204,8 @@ class Run:
             capture = {"capture_status": "incomplete", "capture_errors": [str(exc)]}
         self.store.emit(self.id, "finish", {"status": status, "ended_at": now(), "duration": time.monotonic() - self.started_clock, "exit_code": exit_code, "error": error, "progress_error": self.progress_writer.error, **capture})
         self.finished = True
+        from .git_archive import finish_safely
+        finish_safely(self.store, self.id)
 
     def __exit__(self, exc_type, exc, tb):
         for stream, original, tee in self.console_streams:

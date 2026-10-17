@@ -2070,3 +2070,14 @@ details label {
 .git-files details { margin-block: .65rem; }
 .git-files button { margin-block: .25rem; }
 .git-file-warning { font-weight: 600; }
+
+.git-archive { border-top: 1px solid var(--border); margin-top: 1.25rem; padding-top: 1rem; overflow-wrap: anywhere; min-width: 0; }
+.git-archive input:not([type=checkbox]), .git-archive textarea { max-width: 100%; }
+.git-archive .archive-choice { display: flex; flex-direction: row; align-items: center; gap: .5rem; }
+.git-archive .archive-choice input { flex: 0 0 auto; width: auto; }
+.git-archive fieldset { min-width: 0; }
+.git-archive li { margin-block: .4rem; }
+.git-archive button { margin-block: .3rem; }
+.git-archive h3 { margin-top: 1rem; }
+.git-archive p { margin-block: .55rem; }
+.git-archive fieldset { border: 1px solid var(--border); border-radius: 8px; padding: .75rem; margin-block: .75rem; }
