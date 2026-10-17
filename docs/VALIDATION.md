@@ -121,3 +121,10 @@ See [issue #15 run removal](validation/issue-15-run-removal.md) for transactiona
 removal, retained baseline semantics, cleanup recovery/concurrency tests,
 source/installed browser checks, compatibility limits and owner verification.
 Earlier evidence is unchanged.
+
+
+## Later screenshot deletion validation
+
+See [issue #24 screenshot deletion](validation/issue-24-screenshot-deletion.md)
+for ownership boundaries, schema-3 audit/replay behavior, focused tests and
+source/installed browser checks. Earlier reports remain unchanged.

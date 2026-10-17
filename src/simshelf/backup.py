@@ -112,7 +112,7 @@ def restore_backup(archive_path: Path, target: Path) -> Store:
             if conn.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                 raise ValueError("Backup database failed its integrity check")
             version = conn.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()
-            if not version or version[0] not in {"1", "2"}:
+            if not version or version[0] not in {"1", "2", "3"}:
                 raise ValueError("Unsupported backup database schema")
             for ident, raw in conn.execute("SELECT id,data FROM runs WHERE status='running'").fetchall():
                 run = json.loads(raw)

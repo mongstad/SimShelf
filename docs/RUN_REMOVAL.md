@@ -27,7 +27,7 @@ eligible for cleanup. Future runs use the earliest surviving run as their baseli
 with no surviving runs they establish a new baseline. Version counts, favorites
 and comparison selection include surviving records only.
 
-The first explicit deletion marks the workspace schema as version 2 in that same
+The first explicit run deletion marks a schema-1 workspace as version 2 in that same
 transaction. Opening/recording/backing up schema-1 libraries remains supported;
 there is no startup data migration. Older SimShelf versions reject version 2 on
 open. Stop other older application/recorder versions before using deletion.
@@ -39,3 +39,6 @@ This design is Linux/local-filesystem only. Locking is bounded to data operation
 not a simulation's lifetime; long captures or backups can delay removal. No
 individual screenshot removal, simulation removal, retention policy or automatic
 age/failure deletion is introduced.
+
+Libraries already on schema 3 after [screenshot deletion](SCREENSHOT_DELETION.md)
+remain on schema 3; run removal never downgrades their replay protections.

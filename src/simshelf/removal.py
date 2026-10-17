@@ -134,7 +134,7 @@ def remove_runs(store, identifiers, *, confirmed=False):
                 raise ValueError("Invalid managed cleanup path; no runs removed")
             conn.execute("INSERT OR IGNORE INTO metadata VALUES (?,?)", ("cleanup:" + relative, "pending"))
         if runs:
-            conn.execute("UPDATE metadata SET value='2' WHERE key='schema_version'")
+            conn.execute("UPDATE metadata SET value='2' WHERE key='schema_version' AND value='1'")
     # After commit failures mean removal succeeded but reclamation needs retry.
     try:
         errors = cleanup_removed(store)

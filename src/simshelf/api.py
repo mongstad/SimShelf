@@ -6,6 +6,7 @@ import json
 import os
 import ipaddress
 import secrets
+import sqlite3
 import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -24,6 +25,7 @@ from .capture import preview, save_file
 from .common import clean_name
 from .source import blob_path, read_snapshot
 from .removal import deleted_run
+from .screenshots import delete_screenshot
 from .workspace_lock import workspace_lock
 from .store import Store
 from .portal import PortalJobs, execution_settings
@@ -92,6 +94,11 @@ class QuitInput(BaseModel):
 class RemovalInput(BaseModel):
     model_config = {"extra": "forbid"}
     run_ids: list[str] = Field(min_length=1, max_length=1000)
+    confirmed: bool = False
+
+
+class ScreenshotDeletionInput(BaseModel):
+    model_config = {"extra": "forbid"}
     confirmed: bool = False
 
 
@@ -261,12 +268,19 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
                 images = [json.loads(r[0]) for r in conn.execute("SELECT data FROM artifacts WHERE run_id=?", (run["id"],))]
                 images = [a for a in images if a["policy"] == "copy" and a.get("media_type", "") in {"image/png", "image/jpeg", "image/webp", "image/gif"}]
                 run["image_count"] = len(images)
-                run["cover_id"] = run.get("cover_id") or (images[0]["id"] if images else None)
+                run["cover_id"] = run.get("cover_id") if any(a["id"] == run.get("cover_id") for a in images) else (images[0]["id"] if images else None)
         return result
 
     @app.post("/api/runs/remove")
     def remove_runs(body: RemovalInput):
         return store.remove_runs(body.run_ids, confirmed=body.confirmed)
+
+    @app.post("/api/runs/{ident}/screenshots/{artifact_id}/delete")
+    def remove_screenshot(ident: str, artifact_id: str, body: ScreenshotDeletionInput):
+        try:
+            return delete_screenshot(store, ident, artifact_id, confirmed=body.confirmed)
+        except (OSError, sqlite3.Error) as exc:
+            raise HTTPException(409, "Screenshot deletion could not be saved. Check workspace write permissions and storage, then refresh before retrying.") from exc
 
     @app.get("/api/runs/{ident}")
     def run_detail(ident: str):
@@ -274,18 +288,19 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
 
     @app.patch("/api/runs/{ident}")
     def annotate(ident: str, body: RunUpdate):
-        store.run(ident, False)
-        data = body.model_dump(exclude_unset=True)
-        if any(value is None for key, value in data.items() if key != "cover_id"):
-            raise ValueError("Use empty text or an empty tag list to clear annotations")
-        if data.get("tags") is not None and (len(data["tags"]) > 50 or any(not t or len(t) > 80 for t in data["tags"])):
-            raise ValueError("Use up to 50 tags, each containing 1–80 characters")
-        if data.get("cover_id"):
-            artifact = store.artifact(data["cover_id"])
-            if artifact["run_id"] != ident or artifact["policy"] != "copy" or artifact.get("media_type") not in {"image/png", "image/jpeg", "image/webp", "image/gif"}:
-                raise ValueError("Choose a saved image from this run")
-        store.emit(ident, "annotation", data)
-        return store.run(ident)
+        with workspace_lock(store.path):
+            store.run(ident, False)
+            data = body.model_dump(exclude_unset=True)
+            if any(value is None for key, value in data.items() if key != "cover_id"):
+                raise ValueError("Use empty text or an empty tag list to clear annotations")
+            if data.get("tags") is not None and (len(data["tags"]) > 50 or any(not t or len(t) > 80 for t in data["tags"])):
+                raise ValueError("Use up to 50 tags, each containing 1–80 characters")
+            if data.get("cover_id"):
+                artifact = store.artifact(data["cover_id"])
+                if artifact["run_id"] != ident or artifact["policy"] != "copy" or artifact.get("media_type") not in {"image/png", "image/jpeg", "image/webp", "image/gif"}:
+                    raise ValueError("Choose a saved image from this run")
+            store.emit(ident, "annotation", data)
+            return store.run(ident)
 
     @app.get("/api/runs/{ident}/logs")
     def logs(ident: str, stream: str = "stdout"):

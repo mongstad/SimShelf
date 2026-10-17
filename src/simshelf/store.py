@@ -14,6 +14,7 @@ from .config import read_project, validate_config
 from .source import blob_path, read_snapshot
 from .workspace_lock import locked_store
 from .removal import deleted_run, cleanup_removed, remove_runs
+from .screenshots import deleted_screenshot, deletion_reason
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -39,7 +40,7 @@ class Store:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.executescript(SCHEMA)
             row = conn.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()
-            if row and row[0] not in {"1", "2"}:
+            if row and row[0] not in {"1", "2", "3"}:
                 raise ValueError("This workspace uses a newer database schema. Upgrade SimShelf.")
             conn.execute("INSERT OR IGNORE INTO metadata VALUES ('schema_version', '1')")
             conn.execute("INSERT OR IGNORE INTO metadata VALUES ('workspace_id', ?)", (uuid.uuid4().hex,))
@@ -197,13 +198,17 @@ class Store:
                     if run["status"] == "running":
                         run.update(data)
                 elif kind == "artifact":
-                    conn.execute("INSERT OR IGNORE INTO artifacts VALUES (?,?,?)", (data["id"], run_id, json_text(data)))
+                    if not deleted_screenshot(conn, data["id"]):
+                        conn.execute("INSERT OR IGNORE INTO artifacts VALUES (?,?,?)", (data["id"], run_id, json_text(data)))
                 elif kind == "annotation":
                     for key in ("notes", "tags", "name", "cover_id", "version_note"):
                         if key in data:
                             run[key] = data[key]
                     conn.execute("INSERT OR IGNORE INTO annotations VALUES (?,?,?)", (event["id"], run_id, json_text({**data, "at": event["at"]})))
                 elif kind == "artifact_annotation":
+                    if deleted_screenshot(conn, data["id"]):
+                        conn.execute("INSERT INTO applied_events VALUES (?)", (event["id"],))
+                        return
                     artifact = conn.execute("SELECT data FROM artifacts WHERE id=? AND run_id=?", (data["id"], run_id)).fetchone()
                     if not artifact:
                         raise ValueError("Attachment not found")
@@ -268,6 +273,8 @@ class Store:
             result["baseline_deleted"] = deleted_run(conn, result.get("baseline_run_id", "")) is not None
             if detail:
                 result["artifacts"] = [self.artifact_state(json.loads(r[0])) for r in conn.execute("SELECT data FROM artifacts WHERE run_id=? ORDER BY rowid", (ident,))]
+                for artifact in result["artifacts"]:
+                    artifact["screenshot_deletion_reason"] = deletion_reason(artifact, result)
                 result["metrics"] = [json.loads(r[0]) for r in conn.execute("SELECT data FROM metrics WHERE run_id=? ORDER BY event_id LIMIT 5000", (ident,))]
                 result["metric_count"] = conn.execute("SELECT count(*) FROM metrics WHERE run_id=?", (ident,)).fetchone()[0]
                 result["annotation_history"] = [json.loads(r[0]) for r in conn.execute("SELECT data FROM annotations WHERE run_id=? ORDER BY event_id DESC LIMIT 100", (ident,))]

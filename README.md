@@ -425,6 +425,14 @@ Open a run's **Screenshots** tab to upload, drag, or paste PNG/JPEG/WebP/GIF ima
 Add captions and choose a cover. Other saved files can be downloaded from **Files**.
 HTML and SVG attachments are offered as downloads rather than executed in the app.
 
+On a finished run, **Delete screenshot** removes a manually attached managed image
+with confirmation. Captured outputs and external references are protected. Shared
+image/source bytes remain while needed; original files and execution evidence stay
+intact. There is no undo, and existing backups keep their old contents. The first
+explicit screenshot deletion enables schema 3; stop older servers/recorders first,
+as older builds cannot reopen that library. See [screenshot deletion](docs/SCREENSHOT_DELETION.md)
+for ownership, recovery, missing files and cleanup limitations.
+
 ## Remove obsolete runs
 
 Open a finalized run and choose **Remove run…**, or select several runs in the
