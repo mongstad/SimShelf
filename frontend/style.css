@@ -2094,3 +2094,12 @@ details label {
 .run-file-download details { margin-top: 8px; }
 .run-file-download code { overflow-wrap: anywhere; white-space: normal; }
 @media (max-width: 700px) { .run-file-row { grid-template-columns: minmax(0, 1fr); gap: 8px; } }
+
+.automatic-archive-control { margin: 12px 0; }
+.automatic-archive-line { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; }
+.archive-toggle { display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px; border-radius: 20px; border: 1px solid var(--muted); background: var(--surface); color: var(--text); font-size: 12px; font-weight: 600; }
+.archive-toggle[aria-checked="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.archive-toggle-knob { width: 12px; height: 12px; border-radius: 50%; background: currentColor; }
+.archive-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.archive-toggle:disabled { opacity: .55; cursor: not-allowed; }
+.archive-toggle:not(:disabled):hover { box-shadow: 0 0 0 2px var(--soft); }

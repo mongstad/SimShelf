@@ -418,3 +418,61 @@ def test_api_availability_disconnect_reload_and_workspace_copy(setup):
     reloaded = TestClient(create_app(store.path))
     assert reloaded.get('/api/workspace/archive').json()['status']['state'] == 'connected'
     assert reloaded.get(f'/api/runs/{ident}/archive/{event["id"]}/0/file').status_code == 200
+
+
+def test_toggle_disable_preserves_running_consent_other_simulations_and_history(setup):
+    from fastapi.testclient import TestClient
+    from simshelf.api import create_app
+    store, repo, (a, b) = setup
+    old = run_output(store, a)
+    old_record = store.run(old, False)
+    old_events = archive.entries(store, old)
+    other_settings = archive.get(store, 'settings:' + b['id'])
+    running = Run(a['id'], workspace=store.path, capture_console=False)
+    running.__enter__()
+    frozen = archive.get(store, 'initial:' + running.id)
+    client = TestClient(create_app(store.path))
+    headers = {'X-SimShelf-Token': client.get('/api/workspace').json()['token']}
+    assert client.post(f'/api/simulations/{a["id"]}/archive/disable', headers=headers).status_code == 200
+    assert archive.automatic_status(store, a['id'])['state'] == 'disabled'
+    assert archive.get(store, 'settings:' + b['id']) == other_settings
+    assert archive.get(store, 'initial:' + running.id) == frozen
+    assert store.run(running.id)['status'] == 'running'
+    # Requesting a preview (then canceling it) grants no consent.
+    review = client.post(f'/api/simulations/{a["id"]}/archive/preview', headers=headers, json={'future':['later.csv']}).json()
+    assert archive.automatic_status(store, a['id'])['state'] == 'disabled'
+    assert client.post(f'/api/simulations/{a["id"]}/archive/enable', headers=headers, json={'review':review}).status_code == 400
+    assert archive.automatic_status(store, a['id'])['state'] == 'disabled'
+    # Explicitly change future-run settings while the original run is still active.
+    assert client.post(f'/api/simulations/{a["id"]}/archive/enable', headers=headers, json={'review':review,'confirmed':True}).status_code == 200
+    assert archive.get(store, 'initial:' + running.id) == frozen
+    (Path(a['root'])/'outputs/result.csv').write_text('frozen result')
+    (Path(a['root'])/'outputs/later.csv').write_text('future rule')
+    running.finish()
+    event, = archive.entries(store, running.id)
+    assert any(f['name']=='result.csv' for f in event['files'])
+    assert not any(f['name']=='later.csv' for f in event['files'])
+    reloaded = Store(store.path)
+    assert archive.automatic_status(reloaded, a['id'])['state'] == 'enabled'
+    assert archive.get(reloaded, 'settings:' + a['id'])['future'] == ['later.csv']
+    assert archive.get(reloaded, 'settings:' + b['id']) == other_settings
+    assert reloaded.run(old, False) == old_record
+    assert archive.entries(reloaded, old) == old_events
+    assert archive.download(reloaded, old, old_events[0]['id'], 0)
+
+
+def test_activation_rejects_stale_capture_and_selection_reviews(setup):
+    store, repo, (a, b) = setup
+    archive.put(store, 'settings:' + a['id'], None)
+    review = archive.settings_preview(store, a['id'], ['result.csv'])
+    store.update_simulation(a['id'], config={**a['config'], 'max_file_mb': 10})
+    with pytest.raises(ValueError, match='Settings changed'):
+        archive.enable(store, a['id'], review, True)
+    assert archive.automatic_status(store, a['id'])['state'] == 'disabled'
+    review = archive.settings_preview(store, a['id'], ['result.csv'])
+    inv = inventory(store, a['id'])
+    save_selection(store, a['id'], selection_preview(store, a['id'], inv['revision'], []))
+    with pytest.raises(ValueError, match='Settings changed'):
+        archive.enable(store, a['id'], review, True)
+    assert archive.automatic_status(Store(store.path), a['id'])['state'] == 'disabled'
+    assert archive.automatic_status(store, b['id'])['state'] == 'enabled'

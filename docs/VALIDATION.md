@@ -197,3 +197,7 @@ downloads, failure/recovery checks and installed-browser/package evidence.
 See [issue #56 Stage A](validation/issue-56-master-archive-ux.md) for independent
 connection/consent states, coherent file revisions, focused regressions and
 all-theme installed-browser/package evidence. Earlier reports remain unchanged.
+
+The [automatic archival toggle revision](validation/issue-56-archival-toggle-revision.md)
+records the single-control workflow, explicit consent, state/focus handling,
+running-plan isolation and focused installed-browser/package checks.

@@ -250,3 +250,59 @@ test("archived source identifies its exact matching workspace snapshot", () => {
     /Matching workspace source snapshot/,
   );
 });
+
+test("automatic archival has one accessible authoritative switch", async () => {
+  const { AutomaticArchiveToggle, ArchiveSettings } =
+    await import("./GitArchive.tsx");
+  for (const state of ["enabled", "disabled", "review_required"]) {
+    const html = render(AutomaticArchiveToggle, {
+      name: "Alpha",
+      automatic: { state },
+      busy: false,
+      available: true,
+      onChange: () => {},
+    });
+    assert.equal((html.match(/role="switch"/g) || []).length, 1);
+    assert.match(html, new RegExp(`aria-checked="${state === "enabled"}"`));
+    assert.match(html, /Automatic archival for Alpha/);
+    assert.match(html, /role="status"/);
+    assert.doesNotMatch(
+      html,
+      /Disable for future runs|Enable automatic archive for this simulation/,
+    );
+  }
+  const props = {
+    name: "Alpha",
+    automatic: { state: "disabled" },
+    busy: false,
+    available: false,
+    onChange: () => {},
+  };
+  assert.match(render(AutomaticArchiveToggle, props), /disabled/);
+  assert.match(
+    render(AutomaticArchiveToggle, {
+      ...props,
+      automatic: { state: "enabled" },
+    }),
+    /aria-checked="true"/,
+  );
+  assert.doesNotMatch(
+    render(AutomaticArchiveToggle, {
+      ...props,
+      automatic: { state: "enabled" },
+    }),
+    / disabled=/,
+  );
+  assert.match(
+    render(AutomaticArchiveToggle, { ...props, available: true, busy: true }),
+    / disabled=/,
+  );
+  const html = render(ArchiveSettings, {
+    simulation: { id: "a", name: "Alpha", config: { output_dir: "outputs" } },
+  });
+  assert.doesNotMatch(
+    html,
+    /Automatic archive consent|Confirm archival settings|Disable for future runs|Enable automatic archive for this simulation/,
+  );
+  assert.match(html, /<details><summary>Automatic archival settings/);
+});

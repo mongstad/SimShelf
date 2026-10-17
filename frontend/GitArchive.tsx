@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { api, uploadFile } from "./api";
 import type { Artifact, Run, Simulation } from "./types";
 
@@ -20,7 +20,9 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
   const [connection, setConnection] = useState<Review | null>(null);
   const [status, setStatus] = useState<Review | null>(null);
   const [automatic, setAutomatic] = useState<Review | null>(null);
-  const [settings, setSettings] = useState<Review | null>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  const cancelReview = useRef<HTMLButtonElement | null>(null);
+  const restoreFocus = useRef(false);
   const [runs, setRuns] = useState<Review[]>([]);
   const [path, setPath] = useState("");
   const [initialize, setInitialize] = useState(false);
@@ -28,16 +30,15 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
   const [review, setReview] = useState<Review | null>(null);
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
-  async function load() {
+  async function load(refreshDraft = true) {
     const c = await api<Review>("/workspace/archive");
     const s = await api<Review>(`/simulations/${simulation.id}/archive`);
     setConnection(c.connection);
     setStatus(c.status);
     setAutomatic(s.automatic_status);
-    setSettings(s.settings);
     setRuns(s.runs);
     setPath(c.connection?.path || "");
-    setFuture(s.settings?.future.join("\n") || "");
+    if (refreshDraft) setFuture(s.settings?.future.join("\n") || "");
   }
   useEffect(() => {
     void load().catch((e) => {
@@ -46,15 +47,30 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
       setMessage(e.message);
     });
   }, [simulation.id]);
+  useEffect(() => {
+    if (review) {
+      cancelReview.current?.focus();
+      restoreFocus.current = true;
+    } else if (!busy && restoreFocus.current) {
+      returnFocus.current?.focus();
+      restoreFocus.current = false;
+    }
+  }, [review, busy]);
   async function action(work: () => Promise<void>) {
     setBusy(true);
     setMessage("");
     try {
       await work();
     } catch (e) {
-      setStatus(null);
-      setAutomatic(null);
       setReview(null);
+      // Refresh authoritative state after rejection or a lost response. Never
+      // infer enablement from an attempted request; keep editable rules intact.
+      try {
+        await load(false);
+      } catch {
+        setStatus(null);
+        setAutomatic(null);
+      }
       setMessage((e as Error).message);
     } finally {
       setBusy(false);
@@ -62,29 +78,49 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
   }
   const post = (path: string, body: Review = {}) =>
     api<Review>(path, { method: "POST", body: JSON.stringify(body) });
+  const enabled = automatic?.state === "enabled";
+  async function requestReview(trigger: HTMLElement) {
+    returnFocus.current = trigger;
+    restoreFocus.current = true;
+    await action(async () => {
+      setReview(
+        await post(`/simulations/${simulation.id}/archive/preview`, {
+          future: future
+            .split("\n")
+            .map((s) => s.trim())
+            .filter(Boolean),
+        }),
+      );
+    });
+  }
   return (
     <section className="git-archive">
       <h2>Shared master Git archive</h2>
       <MasterArchiveStatus status={status} />
-      {automatic && (
-        <p role="status">
-          Automatic archival for {simulation.name}:{" "}
-          <strong>
-            {automatic.state === "enabled"
-              ? "Enabled"
-              : automatic.state === "disabled"
-                ? "Disabled"
-                : "Review required / unavailable"}
-          </strong>
-          {automatic.reason && (
-            <small className="path">{automatic.reason}</small>
-          )}
-        </p>
-      )}
-      {!automatic && (
-        <p>Automatic archival status unavailable until refreshed.</p>
-      )}
-      <button disabled={busy} onClick={() => void action(load)}>
+      <AutomaticArchiveToggle
+        name={simulation.name}
+        automatic={automatic}
+        busy={busy || !!review}
+        available={status?.state === "connected"}
+        onChange={(trigger) => {
+          returnFocus.current = trigger;
+          restoreFocus.current = true;
+          if (!enabled) void requestReview(trigger);
+          else
+            void action(async () => {
+              await post(`/simulations/${simulation.id}/archive/disable`);
+              setReview(null);
+              await load();
+            });
+        }}
+      />
+      <button
+        disabled={busy}
+        onClick={() => {
+          setReview(null);
+          void action(() => load());
+        }}
+      >
         Refresh archive status
       </button>
       {connection && (
@@ -152,7 +188,7 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
               });
               await load();
               setMessage(
-                "Archive connected. Review per-simulation consent below.",
+                "Archive connected. Automatic archival requires separate consent.",
               );
             })
           }
@@ -162,71 +198,46 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
             : "Connect archive locally"}
         </button>{" "}
       </details>
-      <h3>Automatic archive settings</h3>
-      <p>
-        {settings
-          ? "Consent saved. Changed locations or capture settings require review again."
-          : "Automatic archival is off."}{" "}
-        Existing file choices come from Manage Git files in the Source Git
-        section; saving those choices alone never enables archival.
+      <p className="muted">
+        Workspace backups do not include the external Git archive.
       </p>
-      <label>
-        Future outputs — one filename or pattern per line
-        <textarea
-          value={future}
-          disabled={busy}
-          onChange={(e) => {
-            setFuture(e.target.value);
-            setReview(null);
-          }}
-          placeholder={"result.csv\nlogs/*.csv"}
-        />
-      </label>
-      <FutureOutputHelp directory={simulation.config.output_dir} />
-      <p>
-        <strong>
-          Workspace backups do not include the external Git archive.
-        </strong>
-      </p>
-      <p>
-        {archiveLimits} Git retains earlier versions even after a run or
-        attachment is deleted. Back up this repository separately from your
-        library.
-      </p>
-      <button
-        disabled={busy || status?.state !== "connected"}
-        onClick={() =>
-          void action(async () =>
-            setReview(
-              await post(`/simulations/${simulation.id}/archive/preview`, {
-                future: future
-                  .split("\n")
-                  .map((s) => s.trim())
-                  .filter(Boolean),
-              }),
-            ),
-          )
-        }
-      >
-        Review automatic archive
-      </button>{" "}
-      {settings && (
-        <button
-          disabled={busy}
-          onClick={() =>
-            void action(async () => {
-              await post(`/simulations/${simulation.id}/archive/disable`);
+      <details>
+        <summary>Automatic archival settings</summary>
+        <p>
+          File choices come from Manage Git files in the Source Git section.
+          Changing settings requires a fresh review; saving file choices alone
+          never enables archival.
+        </p>
+        <label>
+          Future outputs — one filename or pattern per line
+          <textarea
+            value={future}
+            disabled={busy}
+            onChange={(e) => {
+              setFuture(e.target.value);
               setReview(null);
-              await load();
-            })
-          }
+            }}
+            placeholder={"result.csv\nlogs/*.csv"}
+          />
+        </label>
+        <FutureOutputHelp directory={simulation.config.output_dir} />
+        <p>
+          {archiveLimits} Git retains earlier versions even after a run or
+          attachment is deleted. Back up this repository separately from your
+          library.
+        </p>
+        <button
+          disabled={busy || !!review || status?.state !== "connected"}
+          onClick={(e) => void requestReview(e.currentTarget)}
         >
-          Disable for future runs
+          Review archival settings
         </button>
-      )}
+      </details>
       {review && (
         <section aria-label="Automatic archive consent">
-          <h3>Review and enable</h3>
+          <h3>
+            {enabled ? "Review archival changes" : "Review automatic archival"}
+          </h3>
           <p>
             Future runs will automatically create local commits from selected
             run-start source snapshots and verified managed output copies.
@@ -269,13 +280,17 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
                 });
                 setReview(null);
                 await load();
-                setMessage("Automatic archive enabled for future runs.");
+                setMessage("Archival settings saved for future runs.");
               })
             }
           >
-            Enable automatic archive for this simulation
+            Confirm archival settings
           </button>{" "}
-          <button disabled={busy} onClick={() => setReview(null)}>
+          <button
+            ref={cancelReview}
+            disabled={busy}
+            onClick={() => setReview(null)}
+          >
             Cancel
           </button>
         </section>
@@ -814,6 +829,57 @@ export function RunFilesTable({
           </article>
         );
       })}
+    </div>
+  );
+}
+
+export function AutomaticArchiveToggle({
+  name,
+  automatic,
+  busy,
+  available,
+  onChange,
+}: {
+  name: string;
+  automatic: Review | null;
+  busy: boolean;
+  available: boolean;
+  onChange: (trigger: HTMLButtonElement) => void;
+}) {
+  const enabled = automatic?.state === "enabled";
+  const label = enabled
+    ? "Enabled"
+    : automatic?.state === "disabled"
+      ? "Disabled"
+      : automatic
+        ? "Disabled — review required"
+        : "Status unavailable";
+  return (
+    <div className="automatic-archive-control">
+      <div className="automatic-archive-line">
+        <span role="status" aria-live="polite">
+          Automatic archival — {name} — <strong>{label}</strong>
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          aria-label={`Automatic archival for ${name}`}
+          aria-describedby="automatic-archive-help"
+          className="archive-toggle"
+          disabled={busy || !automatic || (!enabled && !available)}
+          onClick={(e) => onChange(e.currentTarget)}
+        >
+          <span className="archive-toggle-knob" aria-hidden="true" />
+          {enabled ? "ON" : "OFF"}
+        </button>
+      </div>
+      <small id="automatic-archive-help">
+        {automatic?.reason ||
+          (!available
+            ? "Connect an available master archive to request activation."
+            : "Future runs only. Turning on requires review and confirmation.")}
+      </small>
     </div>
   );
 }

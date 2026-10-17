@@ -18,13 +18,14 @@ revision, exact source snapshot and archive commit are different records.
    preferences alone do not authorize automatic commits. Select source files
    that are also included in SimShelf's source snapshot. Other selected outputs
    need **Keep a copy** capture coverage.
-3. Optionally enter **Future outputs**, one filename or pattern per line. These
+3. Expand **Automatic archival settings**. Optionally enter **Future outputs**, one filename or pattern per line. These
    are relative to the configured **capture directory**, not the source root.
    `result.csv` matches that directory's file; `logs/*.csv` matches CSV filenames
    immediately inside its `logs` subdirectory. No recursive `**`, directory
    wildcard, traversal or absolute path is accepted. Edit/remove lines to revise.
-4. Choose **Review automatic archive**, inspect the selection and copy overrides,
-   then **Enable automatic archive for this simulation**. Future-output matches
+4. Switch **Automatic archival** on beside the simulation status (or choose
+   **Review archival settings**). Inspect the selection and copy overrides, then
+   choose **Confirm archival settings**. The switch stays off until confirmation. Future-output matches
    request Keep a copy ahead of ordinary capture policy for new opted-in runs;
    configured capture size limits still apply. Global saved capture rules are
    not rewritten. Each run freezes its consent and effective copy overrides.
@@ -152,3 +153,25 @@ Notes remain in the workspace and workspace backups, not in current Git archive
 manifests. Image attachments can already be explicitly archived, but this does not
 export their captions. Portable notes/manifests and remote publishing remain
 separate future work. See the [Stage A design](MASTER_ARCHIVE_UX_DESIGN.md).
+
+
+### Automatic archival toggle
+
+One switch beside **Automatic archival — simulation name — Enabled/Disabled**
+controls future runs of that simulation only. Switching off uses the existing
+consent-disabling operation without an extra confirmation. Earlier commits and
+consent frozen for active runs remain unchanged; other simulations are unaffected.
+Disabling clears saved consent, so review/re-enter future-output rules before
+reactivation. Existing file-selection preferences are retained independently.
+
+Switching on requests a fresh preview; it does not itself enable commits. Cancel
+leaves the previous state intact. Confirm only after reviewing current selection,
+source/capture settings and capture-relative rules. Stale or invalid reviews are
+rejected, and errors refresh the displayed state from the server. If the server
+cannot confirm state, the control reports unavailable instead of claiming success.
+
+**Automatic archival settings** is collapsed by default. It keeps future rules
+and **Review archival settings** available for deliberate changes while enabled.
+Closing a review or completing an operation returns keyboard focus to its trigger;
+Cancel receives initial review focus. The switch exposes its checked state to
+assistive technology. Status is distinct from the master archive connection.
