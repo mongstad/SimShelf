@@ -8,8 +8,8 @@ revision, exact source snapshot and archive commit are different records.
 ## Set up and enable
 
 1. Create an empty directory outside the SimShelf application, library and all
-   simulation source folders. In **Git history → Shared master Git archive → Set
-   up archive repository**, enter its absolute path, select initialization and
+   simulation source folders. In **Git history → Shared master Git archive →
+   Archive location and setup**, enter its absolute path, select initialization and
    choose **Initialize and connect archive**. No remote is contacted. This is a
    dedicated **bare** Git repository: files are viewed through SimShelf, not a
    working-tree checkout. Existing arbitrary/source repositories are refused.
@@ -18,13 +18,14 @@ revision, exact source snapshot and archive commit are different records.
    preferences alone do not authorize automatic commits. Select source files
    that are also included in SimShelf's source snapshot. Other selected outputs
    need **Keep a copy** capture coverage.
-3. Optionally enter **Future outputs**, one filename or pattern per line. These
+3. Expand **Automatic archival settings**. Optionally enter **Future outputs**, one filename or pattern per line. These
    are relative to the configured **capture directory**, not the source root.
    `result.csv` matches that directory's file; `logs/*.csv` matches CSV filenames
    immediately inside its `logs` subdirectory. No recursive `**`, directory
    wildcard, traversal or absolute path is accepted. Edit/remove lines to revise.
-4. Choose **Review automatic archive**, inspect the selection and copy overrides,
-   then **Enable automatic archive for this simulation**. Future-output matches
+4. Switch **Automatic archival** on beside the simulation status (or choose
+   **Review archival settings**). Inspect the selection and copy overrides, then
+   choose **Confirm changes**. The switch stays off until confirmation. Future-output matches
    request Keep a copy ahead of ordinary capture policy for new opted-in runs;
    configured capture size limits still apply. Global saved capture rules are
    not rewritten. Each run freezes its consent and effective copy overrides.
@@ -68,7 +69,7 @@ scientific version, source snapshot, logs or the child exit code.
 
 Open **Run → Files → Add files after execution**. Attach a screenshot or analysis
 file using the existing managed attachment mechanism; the existing Screenshots
-upload works too. No rerun is needed. Select managed manual attachments, choose
+upload works too. No rerun is needed. In the Run files list, select managed manual attachments, choose
 **Review archive additions**, then **Archive selected attachments**, or cancel.
 Uploading alone does not create a Git commit. References and automatic captured
 artifacts cannot be reclassified as manual additions.
@@ -116,3 +117,112 @@ edit the dedicated repository with external tools. Advisory locks serialize
 SimShelf writers, not arbitrary same-user filesystem modifications. Conditional
 ref updates detect conflicting Git publications; no general filesystem
 transaction or protection against a hostile local account is promised.
+
+
+## Understand the connection and Run files states
+
+The master archive is independent of **Source Git history**. Its green connected
+indicator means its local binding and repository checks passed, not that every
+historical object was read. Source Git status appears directly under its own
+heading. Source Git can stay disconnected while the master archive works.
+**Automatic archival** is separate per-simulation consent: Enabled, Disabled, or
+Review required / unavailable. Refresh status after changing paths or preferences.
+Changing the set of files matching an approved folder/type rule does not itself
+invalidate that consent. Viewing status never grants consent or creates commits.
+
+**Run → Files** lists workspace attachments and archived revisions together. An
+attachment that matches an archive entry by identity, hash and size has one row
+with both storage labels. Different historical revisions remain separate even
+when their filenames match. Use **Archived in Git** to filter, or expand
+**Revision details** for the exact commit and alternate Git download.
+
+**Download workspace copy** does not need either Git connection. **Download Git
+revision** needs the original master archive and verifies the recorded commit,
+path, size and hash. It never substitutes HEAD or a live source file. Errors leave
+the run unchanged. Missing/disconnected Git does not hide the historical metadata.
+References retain their original path; SimShelf does not serve external bytes.
+Source entries with a matching workspace snapshot offer **View in Source**; this
+is the existing bounded text preview, not a new source export feature.
+
+A connection check is a point-in-time hint; download verifies the object again.
+If a configured archive becomes unavailable, its path remains visible for recovery.
+Choose **Refresh archive status**, or explicitly reconnect it. Archive initialization
+is collapsed by default; the master connection switch remains visible.
+
+Notes remain in the workspace and workspace backups, not in current Git archive
+manifests. Image attachments can already be explicitly archived, but this does not
+export their captions. Portable notes/manifests and remote publishing remain
+separate future work. See the [Stage A design](MASTER_ARCHIVE_UX_DESIGN.md).
+
+
+### Automatic archival toggle
+
+One switch beside **Automatic archival — simulation name — Enabled/Disabled**
+controls future runs of that simulation only. Switching off uses the existing
+consent-disabling operation without an extra confirmation. Earlier commits and
+consent frozen for active runs remain unchanged; other simulations are unaffected.
+Disabling clears saved consent, so review/re-enter future-output rules before
+reactivation. Existing file-selection preferences are retained independently.
+
+Switching on requests a fresh preview; it does not itself enable commits. Cancel
+leaves the previous state intact. Confirm only after reviewing current selection,
+source/capture settings and capture-relative rules. Stale or invalid reviews are
+rejected, and errors refresh the displayed state from the server. If the server
+cannot confirm state, the control reports unavailable instead of claiming success.
+
+**Automatic archival settings** is collapsed by default. It keeps future rules
+and **Review archival settings** available for deliberate changes while enabled.
+Closing a review or completing an operation returns keyboard focus to its trigger;
+Cancel receives initial review focus. The switch exposes its checked state to
+assistive technology. Status is distinct from the master archive connection.
+
+
+### Master archive connection toggle
+
+The **Master simulation archive** switch controls shared repository access, not
+per-simulation consent. Its green Connected status and path describe the master
+archive; the separately labeled Automatic archival switch describes future-run
+consent for the selected simulation.
+
+Switching OFF disconnects without deleting the repository, historical events,
+managed copies or saved simulation consent. Existing frozen run plans are not
+rewritten. New publication and Git downloads require a valid connection;
+workspace-managed downloads remain independent. Existing publication/recovery
+safeguards continue to govern work already in progress.
+
+While connected, **Dedicated archive directory** is read-only and location
+confirmation/initialization are disabled. Disconnect before changing repositories;
+the backend also rejects connection replacement before touching either directory.
+The active path is labeled verified only when backend availability checks pass.
+A configured repository that becomes unavailable remains explicitly disconnectable.
+
+Switching ON explicitly reconnects the last successful path and identity. These
+are remembered across reloads and application restarts, but never automatically
+reconnected or initialized. Disconnected setup labels the remembered path as a
+preference, not an active connection. Edited paths are labeled proposed until
+successfully confirmed. Failed attempts do not replace the active or remembered
+connection. Even manual confirmation of the remembered path verifies its original
+repository identity and cannot initialize over it.
+
+Only path, repository identity and library binding are retained in the existing
+metadata store. Connection and preference updates commit atomically. No schema
+migration or scientific-record change occurs. Libraries without the preference
+acquire it on explicit successful connection or disconnection. Restored libraries
+still require explicit remapping; remembered paths confer no new consent.
+
+To choose a different archive, disconnect, edit the path under **Archive location
+and setup**, then **Confirm archive location**. Initialization remains an explicit
+checkbox and action for an existing empty dedicated directory. Changing location
+never moves files. If no previous connection is known, ON opens this setup form.
+
+Reconnecting the exact original archive can make previously granted consent
+usable again; it does not grant new consent. A different archive or changed
+source/capture selections still requires the separate automatic-archival review.
+
+
+During automatic archival review, the normal **Review archival settings** action
+is hidden. Inspect the displayed rules, then choose **Confirm changes** or
+**Cancel**. Future-output editing is locked while that review is open; cancel to
+edit again. Both paths restore the normal action and keyboard focus. The automatic
+archival toggle uses this same review when turning ON; server-side stale-review
+checks still apply.

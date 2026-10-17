@@ -55,6 +55,7 @@ class ArchiveRequest(BaseModel):
     artifact_ids: list[str] = Field(default_factory=list, max_length=1000)
     review: dict = Field(default_factory=dict)
     operation: str = Field('', max_length=32)
+    expected_connection: dict | None = None
 
 
 class SimulationInput(BaseModel):
@@ -210,24 +211,25 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
 
     @app.get("/api/workspace/archive")
     def archive_connection():
-        return {"connection": archive.get(store, 'connection')}
+        return {"connection": archive.get(store, 'connection'), "remembered_connection": archive.get(store, 'last_connection'),
+                "status": archive.connection_status(store)}
 
     @app.post("/api/workspace/archive/connect")
     def archive_connect(body: ArchiveRequest):
         try:
-            return archive.connect(store, body.path, body.initialize, body.confirmed)
+            return archive.connect(store, body.path, body.initialize, body.confirmed, body.expected_connection)
         except OSError as exc:
             raise ValueError('Archive folder unavailable. Inspect any partially initialized directory before retrying.') from exc
 
     @app.post("/api/workspace/archive/disconnect")
     def archive_disconnect():
-        archive.put(store, 'connection', None)
+        archive.disconnect(store)
         return {"disconnected": True}
 
     @app.get("/api/simulations/{ident}/archive")
     def archive_settings(ident: str):
         store.simulation(ident)
-        return {"settings": archive.get(store, 'settings:' + ident),
+        return {"settings": archive.get(store, 'settings:' + ident), "automatic_status": archive.automatic_status(store, ident),
                 "runs": [{"run": r['id'], "name": r['name'], "events": archive.entries(store, r['id'])}
                          for r in store.runs(simulation=ident, limit=200)]}
 

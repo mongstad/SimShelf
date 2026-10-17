@@ -20,7 +20,7 @@ export type GitView = {
   history: { commit: string; timestamp: string; subject: string }[];
 };
 export function GitObservation({ value }: { value: GitView }) {
-  if (value.availability !== "available") return <p role="status">{value.reason || (value.availability === "disabled" ? "Git is disconnected. Recording and source snapshots work without it." : "This simulation is not mapped to the connected repository.")}</p>;
+  if (value.availability !== "available") return <p role="status">{value.reason || (value.availability === "disabled" ? "Source Git history — Not connected" : "This simulation is not mapped to the connected repository.")}</p>;
   return <>
     <dl className="facts">
       <dt>Source folder</dt><dd>{value.subdirectory}</dd>
@@ -72,7 +72,11 @@ export function GitHistory({ simulation, simulations }: { simulation: Simulation
     try { await work(); } catch (e) {setError((e as Error).message);} finally {setBusy(false);}
   }
   return <section className="surface run-facts git-history">
-    <h2>Local Git history</h2>
+    <ArchiveSettings key={"archive:" + simulation.id} simulation={simulation} />
+    <section aria-label="Source Git history" className="source-git-section">
+    <h2>Source Git history</h2>
+    {ready && <p role="status">{saved ? <>Source Git history — {view?.availability === "unavailable" || error ? "Connection unavailable" : "Connected"}<br/><code>{saved.root}</code></> : "Source Git history — Not connected"}</p>}
+
     <p className="muted">Optionally connect one existing source repository. Files stay where they are. No Git account or remote is required.</p>
     {error && <p role="alert">{error}</p>}
     {!ready && !error && <p role="status">Loading Git connection…</p>}
@@ -92,12 +96,12 @@ export function GitHistory({ simulation, simulations }: { simulation: Simulation
       <button disabled={busy} onClick={()=>void action(async()=>{await api("/workspace/git/connect",{method:"POST",body:JSON.stringify({preview,confirmed:true})});setPreview(null);await refresh();})}>Connect locally</button>{" "}
       <button disabled={busy} onClick={()=>setPreview(null)}>Cancel</button>
     </section>}
-    {saved && <><p>Connected repository: <code>{saved.root}</code></p><div className="git-actions">
+    {saved && <><div className="git-actions">
       <button disabled={busy} onClick={()=>void action(refresh)}>Refresh history</button>
-      <button disabled={busy} onClick={()=>void action(async()=>{await api("/workspace/git/disconnect",{method:"POST"});await refresh();})}>Disconnect Git</button>
+      <button disabled={busy} onClick={()=>void action(async()=>{await api("/workspace/git/disconnect",{method:"POST"});await refresh();})}>Disconnect source Git</button>
     </div><p className="muted">Disconnecting preserves sources, Git history and recorded provenance. To change mappings, disconnect and preview a new connection.</p></>}
+    {view && view.availability !== "disabled" && <GitObservation value={view} />}
     <GitFiles key={simulation.id} simulationId={simulation.id} />
-    <ArchiveSettings key={"archive:" + simulation.id} simulation={simulation} />
-    {view && <GitObservation value={view} />}
+    </section>
   </section>;
 }

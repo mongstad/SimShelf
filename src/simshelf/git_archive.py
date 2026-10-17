@@ -57,6 +57,19 @@ def put(store, key, value):
         conn.execute('INSERT OR REPLACE INTO metadata VALUES (?,?)', (PREFIX + key, json_text(value)))
 
 
+def save_connection(store, active, remembered):
+    """Commit connection and its last successful identity together, or neither."""
+    with store.connection() as conn:
+        for key, value in (('connection', active), ('last_connection', remembered)):
+            conn.execute('INSERT OR REPLACE INTO metadata VALUES (?,?)', (PREFIX + key, json_text(value)))
+
+
+@locked_store
+def disconnect(store):
+    saved = get(store, 'connection') or get(store, 'last_connection')
+    save_connection(store, None, saved)
+
+
 def hash_bytes(data):
     return hashlib.sha256(data).hexdigest()
 
@@ -183,10 +196,32 @@ def repo_lock(store, saved):
 
 @unavailable_errors
 @locked_store
-def connect(store, path, initialize=False, confirmed=False):
+def connect(store, path, initialize=False, confirmed=False, expected_connection=None):
     if confirmed is not True:
         raise ValueError('Explicitly confirm local archive setup.')
+    if get(store, 'connection') is not None:
+        raise ValueError('Disconnect the current archive before confirming another connection.')
     root = boundaries(store, path)
+    remembered = get(store, 'last_connection')
+    if remembered and remembered.get('path') == str(root):
+        if initialize:
+            raise ValueError('The remembered archive cannot be reinitialized. Restore it or choose another empty directory.')
+        # Manual path confirmation must not bypass the remembered identity.
+        validate_repo(store, remembered)
+    if expected_connection is not None:
+        # A quick reconnect must never adopt a replacement repository or move
+        # an old library binding. Deliberate setup remains a separate action.
+        if (not isinstance(expected_connection, dict)
+                or set(expected_connection) != {'path', 'identity', 'workspace'}
+                or initialize or expected_connection.get('workspace') != workspace_identity(store)):
+            raise ValueError('Review the archive location and setup for this library.')
+        if not shutil.which('git'):
+            raise ValueError('Git unavailable. Install or restore Git before reconnecting.')
+        if get(store, 'connection') not in (None, expected_connection):
+            raise ValueError('Archive connection changed. Refresh before reconnecting.')
+        if str(root) != expected_connection.get('path'):
+            raise ValueError('Archive location changed. Review archive location and setup.')
+        validate_repo(store, expected_connection)
     if initialize:
         if any(root.iterdir()):
             raise ValueError('Initialize only an existing empty dedicated directory.')
@@ -205,7 +240,9 @@ def connect(store, path, initialize=False, confirmed=False):
     if not re.fullmatch('[0-9a-f]{32}', saved['identity']):
         raise ValueError('Invalid archive identity.')
     validate_repo(store, saved)
-    put(store, 'connection', saved)
+    if expected_connection is not None and saved != expected_connection:
+        raise ValueError('Archive identity changed. Restore the original archive or review archive location and setup.')
+    save_connection(store, saved, saved)
     return saved
 
 
@@ -214,6 +251,44 @@ def connection(store):
     if not saved or saved['workspace'] != workspace_identity(store):
         raise ValueError('Connect or explicitly remap the master archive for this library first.')
     return saved
+
+
+def connection_status(store):
+    """Read-only availability hint; downloads still verify exact objects."""
+    saved = get(store, 'connection')
+    if not saved:
+        return {'state': 'disconnected', 'reason': None, 'identity': None}
+    try:
+        saved = connection(store)
+        validate_repo(store, saved)
+        if not shutil.which('git'):
+            raise ValueError('Git unavailable. Workspace copies remain downloadable.')
+        return {'state': 'connected', 'reason': None, 'identity': saved['identity']}
+    except (ValueError, OSError, KeyError, TypeError) as exc:
+        return {'state': 'unavailable', 'reason': str(exc), 'identity': None}
+
+
+@locked_store
+def automatic_status(store, ident):
+    """Mirror start-time consent checks without creating a plan or writing data."""
+    plan = get(store, 'settings:' + ident)
+    if not plan:
+        return {'state': 'disabled', 'reason': None}
+    try:
+        saved = connection(store)
+        sim = store.simulation(ident)
+        if (plan['workspace'] != workspace_identity(store) or plan['repository'] != saved
+                or plan['capture_config'] != sim['config'] or plan['source'] != sim['root']):
+            raise ValueError('Source, capture settings or archive connection changed. Review consent again.')
+        inv = inventory(store, ident)
+        if inv['rules'] != plan['rules'] or inv['binding'] != plan['binding']:
+            raise ValueError('File selection changed. Review consent again.')
+        status = connection_status(store)
+        if status['state'] != 'connected':
+            raise ValueError(status['reason'] or 'Connect the master archive first.')
+        return {'state': 'enabled', 'reason': None}
+    except (ValueError, OSError, KeyError, TypeError) as exc:
+        return {'state': 'review_required', 'reason': str(exc)}
 
 
 def future_rules(values):
@@ -263,7 +338,7 @@ def entries(store, run_id):
 
 def view(store, run_id):
     events = entries(store, run_id)
-    return {'events': events, 'initial': get(store, 'initial:' + run_id),
+    return {'events': events, 'connection_status': connection_status(store), 'initial': get(store, 'initial:' + run_id),
             'pending': get(store, 'pending:' + run_id), 'error': get(store, 'error:' + run_id)}
 
 

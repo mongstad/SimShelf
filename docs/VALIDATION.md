@@ -191,3 +191,25 @@ inspection and focused installed-browser/package checks.
 See [issue #47 shared archive](validation/issue-47-shared-archive.md) for explicit
 consent, capture-relative future rules, immutable post-run additions, historical
 downloads, failure/recovery checks and installed-browser/package evidence.
+
+## Unified master archive presentation
+
+See [issue #56 Stage A](validation/issue-56-master-archive-ux.md) for independent
+connection/consent states, coherent file revisions, focused regressions and
+all-theme installed-browser/package evidence. Earlier reports remain unchanged.
+
+The [automatic archival toggle revision](validation/issue-56-archival-toggle-revision.md)
+records the single-control workflow, explicit consent, state/focus handling,
+running-plan isolation and focused installed-browser/package checks.
+
+The [master connection toggle revision](validation/issue-56-master-toggle-revision.md)
+records explicit identity-checked reconnection, collapsed setup, independent
+consent, failure/restart checks and all-theme desktop/narrow validation.
+
+The [location lock and remembered directory revision](validation/issue-56-location-lock-revision.md)
+records backend replacement rejection, atomic connection preferences, restart
+persistence, unchanged schema and focused browser/download regressions.
+
+The [review-action revision](validation/issue-56-review-actions-revision.md)
+records mutually exclusive actions, locked reviewed inputs, focus restoration,
+unchanged consent safeguards and focused installed-browser/package validation.

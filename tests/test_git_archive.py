@@ -128,6 +128,7 @@ def test_restore_requires_remap_and_preserves_associations(setup,tmp_path):
     restored=restore_backup(backup,tmp_path/'restored')
     assert archive.entries(restored,ident)==[e]
     with pytest.raises(ValueError):archive.download(restored,ident,e['id'],0)
+    archive.disconnect(restored)
     archive.connect(restored,str(repo),False,True)
     assert archive.download(restored,ident,e['id'],0)[1]
     assert store.run(ident,False)==restored.run(ident,False)
@@ -344,3 +345,293 @@ def test_corrupt_optional_archive_settings_do_not_block_recording(setup):
     assert store.run(ident)['status']=='completed'
     assert not archive.entries(store,ident)
     assert archive.view(store,ident)['error']
+
+
+def test_read_only_status_and_downloads_independent_of_source_git(setup, monkeypatch):
+    store, repo, (a, b) = setup
+    ident = run_output(store, a)
+    event, = archive.entries(store, ident)
+    before_run = store.run(ident)
+    with store.connection() as conn:
+        before = [tuple(row) for row in conn.execute('SELECT * FROM metadata ORDER BY key')]
+    files = {str(p.relative_to(repo)): p.read_bytes() for p in repo.rglob('*') if p.is_file()}
+    assert archive.connection_status(store)['state'] == 'connected'
+    assert archive.automatic_status(store, a['id'])['state'] == 'enabled'
+    assert archive.view(store, ident)['connection_status']['identity'] == event['repository']['identity']
+    with store.connection() as conn:
+        assert before == [tuple(row) for row in conn.execute('SELECT * FROM metadata ORDER BY key')]
+    assert files == {str(p.relative_to(repo)): p.read_bytes() for p in repo.rglob('*') if p.is_file()}
+    assert before_run == store.run(ident)
+    saved = archive.get(store, 'connection')
+    archive.put(store, 'connection', None)
+    assert archive.connection_status(store)['state'] == 'disconnected'
+    assert archive.automatic_status(store, a['id'])['state'] == 'review_required'
+    assert archive.view(store, ident)['events'] == [event]
+    artifact = next(x for x in store.run(ident)['artifacts'] if x['policy'] == 'copy')
+    assert store.artifact_file(artifact['id']).read_bytes() == b'one'
+    with pytest.raises(ValueError): archive.download(store, ident, event['id'], 0)
+    archive.put(store, 'connection', saved)
+    assert archive.download(store, ident, event['id'], 0)
+    monkeypatch.setattr(archive.shutil, 'which', lambda name: None)
+    assert archive.connection_status(store)['state'] == 'unavailable'
+    assert archive.automatic_status(store, a['id'])['state'] == 'review_required'
+    assert store.artifact_file(artifact['id']).read_bytes() == b'one'
+
+
+def test_consent_projection_disabled_stale_and_future_matches(setup):
+    store, repo, (a, b) = setup
+    # New matching filenames are allowed by existing consent, not a stale revision.
+    (Path(a['root']) / 'outputs/new.csv').write_text('new')
+    assert archive.automatic_status(store, a['id'])['state'] == 'enabled'
+    inv = inventory(store, a['id'])
+    save_selection(store, a['id'], selection_preview(store, a['id'], inv['revision'], []))
+    assert archive.automatic_status(store, a['id'])['state'] == 'review_required'
+    assert archive.automatic_status(store, b['id'])['state'] == 'enabled'
+    archive.put(store, 'settings:' + a['id'], None)
+    assert archive.automatic_status(store, a['id'])['state'] == 'disabled'
+    saved = archive.get(store, 'connection')
+    archive.put(store, 'connection', {**saved, 'workspace': 'different'})
+    assert archive.connection_status(store)['state'] == 'unavailable'
+    archive.put(store, 'connection', saved)
+    (repo / 'simshelf-archive-id').write_text('wrong')
+    assert archive.connection_status(store)['state'] == 'unavailable'
+    assert archive.automatic_status(store, b['id'])['state'] == 'review_required'
+
+
+def test_api_availability_disconnect_reload_and_workspace_copy(setup):
+    from fastapi.testclient import TestClient
+    from simshelf.api import create_app
+    store, repo, (a, b) = setup
+    ident = run_output(store, a)
+    client = TestClient(create_app(store.path))
+    assert client.get('/api/workspace/archive').json()['status']['state'] == 'connected'
+    assert client.get(f'/api/simulations/{a["id"]}/archive').json()['automatic_status']['state'] == 'enabled'
+    assert client.get('/api/workspace/git').json()['connection'] is None
+    saved = archive.get(store, 'connection')
+    archive.put(store, 'connection', None)
+    response = client.get(f'/api/runs/{ident}/archive').json()
+    assert response['connection_status']['state'] == 'disconnected'
+    event, = response['events']
+    item = next(x for x in store.run(ident)['artifacts'] if x['policy'] == 'copy')
+    assert client.get(f'/api/artifacts/{item["id"]}/file?download=true').content == b'one'
+    assert client.get(f'/api/runs/{ident}/archive/{event["id"]}/0/file').status_code == 400
+    archive.connect(store, saved['path'], False, True)
+    reloaded = TestClient(create_app(store.path))
+    assert reloaded.get('/api/workspace/archive').json()['status']['state'] == 'connected'
+    assert reloaded.get(f'/api/runs/{ident}/archive/{event["id"]}/0/file').status_code == 200
+
+
+def test_toggle_disable_preserves_running_consent_other_simulations_and_history(setup):
+    from fastapi.testclient import TestClient
+    from simshelf.api import create_app
+    store, repo, (a, b) = setup
+    old = run_output(store, a)
+    old_record = store.run(old, False)
+    old_events = archive.entries(store, old)
+    other_settings = archive.get(store, 'settings:' + b['id'])
+    running = Run(a['id'], workspace=store.path, capture_console=False)
+    running.__enter__()
+    frozen = archive.get(store, 'initial:' + running.id)
+    client = TestClient(create_app(store.path))
+    headers = {'X-SimShelf-Token': client.get('/api/workspace').json()['token']}
+    assert client.post(f'/api/simulations/{a["id"]}/archive/disable', headers=headers).status_code == 200
+    assert archive.automatic_status(store, a['id'])['state'] == 'disabled'
+    assert archive.get(store, 'settings:' + b['id']) == other_settings
+    assert archive.get(store, 'initial:' + running.id) == frozen
+    assert store.run(running.id)['status'] == 'running'
+    # Requesting a preview (then canceling it) grants no consent.
+    review = client.post(f'/api/simulations/{a["id"]}/archive/preview', headers=headers, json={'future':['later.csv']}).json()
+    assert archive.automatic_status(store, a['id'])['state'] == 'disabled'
+    assert client.post(f'/api/simulations/{a["id"]}/archive/enable', headers=headers, json={'review':review}).status_code == 400
+    assert archive.automatic_status(store, a['id'])['state'] == 'disabled'
+    # Explicitly change future-run settings while the original run is still active.
+    assert client.post(f'/api/simulations/{a["id"]}/archive/enable', headers=headers, json={'review':review,'confirmed':True}).status_code == 200
+    assert archive.get(store, 'initial:' + running.id) == frozen
+    (Path(a['root'])/'outputs/result.csv').write_text('frozen result')
+    (Path(a['root'])/'outputs/later.csv').write_text('future rule')
+    running.finish()
+    event, = archive.entries(store, running.id)
+    assert any(f['name']=='result.csv' for f in event['files'])
+    assert not any(f['name']=='later.csv' for f in event['files'])
+    reloaded = Store(store.path)
+    assert archive.automatic_status(reloaded, a['id'])['state'] == 'enabled'
+    assert archive.get(reloaded, 'settings:' + a['id'])['future'] == ['later.csv']
+    assert archive.get(reloaded, 'settings:' + b['id']) == other_settings
+    assert reloaded.run(old, False) == old_record
+    assert archive.entries(reloaded, old) == old_events
+    assert archive.download(reloaded, old, old_events[0]['id'], 0)
+
+
+def test_activation_rejects_stale_capture_and_selection_reviews(setup):
+    store, repo, (a, b) = setup
+    archive.put(store, 'settings:' + a['id'], None)
+    review = archive.settings_preview(store, a['id'], ['result.csv'])
+    store.update_simulation(a['id'], config={**a['config'], 'max_file_mb': 10})
+    with pytest.raises(ValueError, match='Settings changed'):
+        archive.enable(store, a['id'], review, True)
+    assert archive.automatic_status(store, a['id'])['state'] == 'disabled'
+    review = archive.settings_preview(store, a['id'], ['result.csv'])
+    inv = inventory(store, a['id'])
+    save_selection(store, a['id'], selection_preview(store, a['id'], inv['revision'], []))
+    with pytest.raises(ValueError, match='Settings changed'):
+        archive.enable(store, a['id'], review, True)
+    assert archive.automatic_status(Store(store.path), a['id'])['state'] == 'disabled'
+    assert archive.automatic_status(store, b['id'])['state'] == 'enabled'
+
+
+def test_verified_reconnect_preserves_consent_history_and_running_plan(setup):
+    from fastapi.testclient import TestClient
+    from simshelf.api import create_app
+    store, repo, (a, b) = setup
+    ident = run_output(store, a)
+    record = store.run(ident, False)
+    events = archive.entries(store, ident)
+    saved = archive.get(store, 'connection')
+    consent = [archive.get(store, 'settings:' + s['id']) for s in (a, b)]
+    running = Run(a['id'], workspace=store.path, capture_console=False)
+    running.__enter__()
+    plan = archive.get(store, 'initial:' + running.id)
+    client = TestClient(create_app(store.path))
+    headers = {'X-SimShelf-Token': client.get('/api/workspace').json()['token']}
+    assert client.post('/api/workspace/archive/disconnect', headers=headers).status_code == 200
+    assert archive.connection_status(Store(store.path))['state'] == 'disconnected'
+    assert [archive.get(store, 'settings:' + s['id']) for s in (a, b)] == consent
+    assert archive.get(store, 'initial:' + running.id) == plan
+    assert archive.automatic_status(store, a['id'])['state'] == 'review_required'
+    with pytest.raises(ValueError):
+        archive.settings_preview(store, a['id'], [])
+    file = next(f for f in store.run(ident)['artifacts'] if f['policy'] == 'copy')
+    assert client.get(f'/api/artifacts/{file["id"]}/file?download=true').content == b'one'
+    route = f'/api/runs/{ident}/archive/{events[0]["id"]}/0/file'
+    assert client.get(route).status_code == 400
+    body = {'path': saved['path'], 'expected_connection': saved, 'confirmed': True}
+    assert client.post('/api/workspace/archive/connect', headers=headers, json=body).status_code == 200
+    assert client.get(route).status_code == 200
+    assert archive.connection_status(Store(store.path))['state'] == 'connected'
+    assert [archive.get(store, 'settings:' + s['id']) for s in (a, b)] == consent
+    assert archive.get(store, 'initial:' + running.id) == plan
+    running.finish()
+    assert store.run(ident, False) == record
+    assert archive.entries(store, ident) == events
+
+
+def test_quick_reconnect_rejects_replacement_missing_changed_binding_and_initialization(setup, monkeypatch):
+    store, repo, (a, b) = setup
+    saved = archive.get(store, 'connection')
+    archive.put(store, 'connection', None)
+    marker = repo / 'simshelf-archive-id'
+    marker.write_text(uuid.uuid4().hex)
+    with pytest.raises(ValueError, match='identity changed'):
+        archive.connect(store, saved['path'], confirmed=True, expected_connection=saved)
+    assert archive.get(store, 'connection') is None
+    marker.write_text(saved['identity'])
+    moved = repo.with_name('moved'); repo.rename(moved)
+    with pytest.raises(ValueError):
+        archive.connect(store, saved['path'], confirmed=True, expected_connection=saved)
+    moved.rename(repo)
+    for expected, initialize in [({**saved, 'workspace':'other'}, False), (saved, True), ({}, False)]:
+        with pytest.raises(ValueError):
+            archive.connect(store, saved['path'], initialize, True, expected)
+        assert archive.get(store, 'connection') is None
+    monkeypatch.setattr(archive.shutil, 'which', lambda _: None)
+    with pytest.raises(ValueError, match='Git unavailable'):
+        archive.connect(store, saved['path'], confirmed=True, expected_connection=saved)
+    assert archive.get(store, 'connection') is None
+    monkeypatch.undo()
+    other = {**saved, 'identity':uuid.uuid4().hex}
+    archive.put(store, 'connection', other)
+    with pytest.raises(ValueError, match='Disconnect the current archive'):
+        archive.connect(store, saved['path'], confirmed=True, expected_connection=saved)
+    assert archive.get(store, 'connection') == other
+
+
+def test_connection_write_failure_preserves_previous_state(setup, monkeypatch):
+    from fastapi.testclient import TestClient
+    from simshelf.api import create_app
+    store, repo, sims = setup
+    saved = archive.get(store, 'connection')
+    client = TestClient(create_app(store.path))
+    headers = {'X-SimShelf-Token': client.get('/api/workspace').json()['token']}
+    original_put = archive.put
+    def rejected(*args):
+        raise ValueError('Connection change failed; refresh and retry.')
+    monkeypatch.setattr(archive, 'save_connection', rejected)
+    assert client.post('/api/workspace/archive/disconnect', headers=headers).status_code == 400
+    assert archive.get(store, 'connection') == saved
+    original_put(store, 'connection', None)
+    response = client.post('/api/workspace/archive/connect', headers=headers,
+                          json={'path':saved['path'],'confirmed':True,'expected_connection':saved})
+    assert response.status_code == 400
+    assert archive.get(store, 'connection') is None
+
+
+def test_connected_location_cannot_be_replaced_or_initialized_via_api(setup, tmp_path):
+    from fastapi.testclient import TestClient
+    from simshelf.api import create_app
+    store, repo, sims = setup
+    saved = archive.get(store, 'connection')
+    other = tmp_path / 'other'; other.mkdir()
+    client = TestClient(create_app(store.path))
+    headers = {'X-SimShelf-Token':client.get('/api/workspace').json()['token']}
+    for path, initialize in [(str(other), True), (str(repo), False), (str(other), False)]:
+        response = client.post('/api/workspace/archive/connect', headers=headers,
+                               json={'path':path,'initialize':initialize,'confirmed':True})
+        assert response.status_code == 400
+        assert 'Disconnect' in response.json()['detail']
+        assert archive.get(store, 'connection') == saved
+        assert archive.get(store, 'last_connection') == saved
+        assert list(other.iterdir()) == []
+    assert client.post('/api/workspace/archive/disconnect', headers=headers).status_code == 200
+    assert client.post('/api/workspace/archive/connect', headers=headers,
+                       json={'path':str(other),'initialize':True,'confirmed':True}).status_code == 200
+    assert archive.get(store, 'connection')['path'] == str(other)
+
+
+def test_remembered_connection_restart_failure_and_old_library_compatibility(setup):
+    from fastapi.testclient import TestClient
+    from simshelf.api import create_app
+    store, repo, sims = setup
+    saved = archive.get(store, 'connection')
+    consent = [archive.get(store, 'settings:'+s['id']) for s in sims]
+    with store.connection() as db:
+        schema = db.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()[0]
+    # Simulate a library from before the preference existed.
+    with store.connection() as db:
+        db.execute('DELETE FROM metadata WHERE key=?', (archive.PREFIX+'last_connection',))
+    archive.disconnect(store)
+    reloaded = Store(store.path)
+    client = TestClient(create_app(reloaded.path))
+    response = client.get('/api/workspace/archive').json()
+    assert response['connection'] is None
+    assert response['remembered_connection'] == saved
+    assert response['status']['state'] == 'disconnected'
+    with reloaded.connection() as db:
+        assert db.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()[0] == schema
+    marker = repo/'simshelf-archive-id'; marker.write_text(uuid.uuid4().hex)
+    for expected in (None, saved):
+        with pytest.raises(ValueError, match='identity changed'):
+            archive.connect(reloaded, saved['path'], confirmed=True, expected_connection=expected)
+        assert archive.get(reloaded,'connection') is None
+        assert archive.get(reloaded,'last_connection') == saved
+    with pytest.raises(ValueError):
+        archive.connect(reloaded, saved['path'], initialize=True, confirmed=True)
+    marker.write_text(saved['identity'])
+    archive.connect(reloaded, saved['path'], confirmed=True, expected_connection=saved)
+    assert [archive.get(reloaded,'settings:'+s['id']) for s in sims] == consent
+
+
+def test_connection_preference_write_is_atomic(setup):
+    import sqlite3
+    store, repo, sims = setup
+    saved = archive.get(store, 'connection')
+    with store.connection() as db:
+        db.execute("CREATE TRIGGER reject_preference BEFORE INSERT ON metadata WHEN NEW.key = 'archive_v1:last_connection' BEGIN SELECT RAISE(ABORT, 'test failure'); END")
+    with pytest.raises(sqlite3.IntegrityError, match='test failure'):
+        archive.disconnect(store)
+    assert archive.get(store, 'connection') == saved
+    assert archive.get(store, 'last_connection') == saved
+    archive.put(store, 'connection', None)
+    with pytest.raises(sqlite3.IntegrityError, match='test failure'):
+        archive.connect(store, saved['path'], confirmed=True, expected_connection=saved)
+    assert archive.get(store, 'connection') is None
+    assert archive.get(store, 'last_connection') == saved

@@ -814,9 +814,7 @@ function RunDetails({
     [tags, setTags] = useState(""),
     [name, setName] = useState(""),
     [versionNote, setVersionNote] = useState("");
-  const [fileFilter, setFileFilter] = useState("all"),
-    [fileSearch, setFileSearch] = useState(""),
-    [sourcePath, setSourcePath] = useState(""),
+  const [sourcePath, setSourcePath] = useState(""),
     [sourceText, setSourceText] = useState(""),
     [diff, setDiff] = useState(false),
     [logStream, setLogStream] = useState("stdout"),
@@ -1401,90 +1399,7 @@ function RunDetails({
       )}
       {tab === "files" && (
         <section className="surface">
-          <RunArchive key={run.id} run={run} reload={() => void refresh()} />
-          <h2>Recorded outputs</h2>
-          <p className="muted">
-            These filters only change the list. Originals and retained copies
-            stay untouched.
-          </p>
-          <div className="toolbar">
-            <input
-              placeholder="Filter filenames…"
-              aria-label="Filter filenames"
-              value={fileSearch}
-              onChange={(e) => setFileSearch(e.target.value)}
-            />
-            <select
-              aria-label="File policy filter"
-              value={fileFilter}
-              onChange={(e) => setFileFilter(e.target.value)}
-            >
-              <option value="all">All recorded files</option>
-              <option value="copy">Saved copies</option>
-              <option value="reference">References</option>
-              <option value="skipped">Skipped</option>
-            </select>
-          </div>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>File</th>
-                  <th>Size</th>
-                  <th>Storage</th>
-                  <th>Availability</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {artifacts
-                  .filter(
-                    (a) =>
-                      (fileFilter === "all" || a.policy === fileFilter) &&
-                      a.name.toLowerCase().includes(fileSearch.toLowerCase()),
-                  )
-                  .map((a) => (
-                    <tr key={a.id}>
-                      <td>
-                        <code>{a.name}</code>
-                        {a.original_path && a.policy === "reference" && (
-                          <small className="path">{a.original_path}</small>
-                        )}
-                        {a.reason && (
-                          <small className="text-amber">{a.reason}</small>
-                        )}
-                      </td>
-                      <td>{formatBytes(a.size)}</td>
-                      <td>
-                        {a.policy === "copy"
-                          ? "Saved copy"
-                          : a.policy === "reference"
-                            ? "Reference"
-                            : a.policy}
-                      </td>
-                      <td>{a.availability.replaceAll("-", " ")}</td>
-                      <td>
-                        {a.policy === "copy" &&
-                          a.availability === "available" && (
-                            <a
-                              className="download-link"
-                              href={`/api/artifacts/${a.id}/file?download=true`}
-                              aria-label={`Download ${a.name}`}
-                            >
-                              <Icon name="download" />
-                            </a>
-                          )}
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-          {!artifacts.length && (
-            <div className="empty-inline">
-              No files were captured for this run.
-            </div>
-          )}
+          <RunArchive key={run.id} run={run} reload={() => void refresh()} openSource={path => {setSourcePath(path); setTab("source");}} />
           <CaptureSummary run={run} />
         </section>
       )}
@@ -1561,6 +1476,7 @@ function RunDetails({
       {tab === "notes" && (
         <section className="surface notes-surface">
           <h2>Keep the context</h2>
+          <p className="muted">Notes are preserved in this workspace; they are not exported to the Git archive.</p>
           <label>
             Run name
             <input value={name} onChange={(e) => setName(e.target.value)} />
