@@ -334,7 +334,8 @@ charts are planned for Stage 2; Stage 1 shows the latest retained measurements.
 ## Optional local Git history
 
 Select a simulation's **Git history** tab to preview and explicitly connect its
-existing source repository. Several simulation folders can share one repository.
+existing source repository. Its containing repository is discovered automatically;
+connection still requires confirmation. Several simulation folders can share one repository.
 Inspect local branch/commit, raw-byte changes and recent folder history without
 an account or network. Recording and snapshots still work with Git disconnected
 or absent. See [local Git history](docs/GIT_PROVENANCE.md) for mapping, provenance,

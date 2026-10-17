@@ -8,15 +8,27 @@ of Git. Existing recorded Git fields are retained as historical observations.
 
 1. Register each simulation using its existing source folder. Prefer a folder per
    simulation project, with all its Python/configuration files together.
-2. Select a simulation and open **Git history**. Enter the existing repository
-   folder and select the registered simulations inside it.
-3. Choose **Preview connection**. Review the resolved repository and each relative
-   simulation folder. Nested independent repositories and library/source overlap
-   are rejected. Nothing is moved or imported.
+2. Select a simulation and open **Git history**. SimShelf discovers its containing
+   local repository from the registered source folder, including parent repositories
+   and standard linked worktrees. **Repository found** shows the resolved root.
+   An independent nested repository is proposed instead of its parent.
+3. Review the mapping. The current simulation is selected by default; other
+   registered simulations in that same repository are optional. Changing selection
+   requires **Preview connection** again. Discovery never connects anything.
 4. Choose **Connect locally** explicitly, or Cancel. One repository can map several
-   registered simulations. To change mappings, disconnect and preview again.
-5. **Refresh history** reads the current branch, commit, changes and up to 20
+   registered simulations. To change mappings, disconnect and review again.
+5. **No Git repository found** means no repository was discovered; nothing is
+   initialized. Missing Git, inaccessible sources or unsafe configurations show
+   an unavailable state without affecting recording. **Enter repository path
+   manually** remains an optional fallback, with the same preview safeguards.
+6. **Refresh history** reads the current branch, commit, changes and up to 20
    commits affecting the simulation folder. Detached HEAD and conflicts are shown.
+
+Discovery is a read-only suggestion endpoint, separate from the provenance
+contract. It never writes settings, source or Git. To bound large registration
+lists, eligibility checks stop after 100 additional registrations or ten seconds
+between candidates (an in-flight bounded Git inspection may finish afterward).
+A partial-results notice recommends manual mapping for unchecked simulations.
 
 Disconnect Git preserves all files, commits and recorded provenance. New runs no
 longer inspect Git. Missing Git, inaccessible folders or unavailable objects do

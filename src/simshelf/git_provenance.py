@@ -119,6 +119,44 @@ def preview(store, path: str, simulation_ids: list[str]) -> dict:
     return {**repo, 'mappings': mappings, 'workspace': str(store.path), 'workspace_identity': workspace_identity(store), 'format': 1}
 
 
+def discover(store, ident: str):
+    """Read-only suggestions; never persist a connection or change provenance."""
+    simulation = store.simulation(ident)
+    empty = {'status': 'unavailable', 'reason': None, 'preview': None,
+             'eligible': [], 'partial': False}
+    try:
+        if not shutil.which('git'):
+            raise Unavailable('Git is not installed. Recording remains available.')
+        source = Path(simulation['root']).resolve(strict=True)
+        if not source.is_dir():
+            raise Unavailable('The registered source folder is unavailable.')
+        if not any(os.path.lexists(parent / '.git') for parent in (source, *source.parents)):
+            return {**empty, 'status': 'not_found'}
+        proposed = preview(store, str(source), [ident])
+        root = Path(proposed['root'])
+        eligible = [{'id': ident, 'subdirectory': proposed['mappings'][ident]}]
+        deadline = time.monotonic() + 10
+        partial = False
+        checked = 0
+        for other in store.simulations():
+            if other['id'] == ident:
+                continue
+            if checked >= 100 or time.monotonic() >= deadline:
+                partial = True
+                break
+            checked += 1
+            try:
+                candidate = Path(other['root']).resolve(strict=True)
+                if candidate.is_relative_to(root) and repository(candidate) == {k: proposed[k] for k in ('root', 'identity')}:
+                    eligible.append({'id': other['id'], 'subdirectory': candidate.relative_to(root).as_posix()})
+            except (OSError, ValueError):
+                continue
+        return {'status': 'found', 'reason': None, 'preview': proposed,
+                'eligible': eligible, 'partial': partial}
+    except (OSError, ValueError) as exc:
+        return {**empty, 'reason': str(exc) if isinstance(exc, ValueError) else 'The registered source folder is unavailable.'}
+
+
 @locked_store
 def connect_repository(store, proposed: dict):
     if not isinstance(proposed, dict) or not isinstance(proposed.get('root'), str) or not isinstance(proposed.get('mappings'), dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in proposed['mappings'].items()):

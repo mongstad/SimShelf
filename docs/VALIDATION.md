@@ -170,3 +170,7 @@ all-theme installed browser checks and focused lifecycle validation.
 See [issue #9 local Git](validation/issue-9-local-git.md) for the owner-approved
 staged scope, nullable provenance contract, Git safety/recording/restore tests,
 portal connection/history checks, package evidence and deferred remote operations.
+
+The [issue #9 discovery revision](validation/issue-9-discovery-revision.md) records
+automatic read-only repository detection, explicit mapping consent, fallback and
+installed-browser checks. Original foundation evidence is preserved.

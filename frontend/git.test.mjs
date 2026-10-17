@@ -19,3 +19,13 @@ test('raw-byte changes, detached state and source history are distinct from scie
   assert.match(html,/not a clean-checkout guarantee/);assert.match(html,/&lt;script&gt;/);
   assert.match(html,/separate from scientific versions/);assert.deepEqual(view,before);
 });
+
+test('discovery reports found, missing and unavailable without implying connection', async()=>{
+  const {DiscoverySummary}=await import('./GitHistory.tsx');
+  const show=discovery=>renderToStaticMarkup(React.createElement(DiscoverySummary,{discovery}));
+  assert.match(show({status:'found',preview:{root:'/models/<science>'},partial:false}),/Repository found/);
+  assert.match(show({status:'found',preview:{root:'/models/<science>'},partial:false}),/&lt;science&gt;/);
+  assert.match(show({status:'not_found',preview:null}),/No Git repository found/);
+  assert.match(show({status:'unavailable',reason:'Git unavailable',preview:null}),/Repository discovery unavailable/);
+  assert.doesNotMatch(show({status:'found',preview:{root:'/models'},partial:false}),/Connected repository/);
+});

@@ -238,6 +238,11 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
         from .git_provenance import disconnect_repository
         return disconnect_repository(store)
 
+    @app.get("/api/simulations/{ident}/git/discovery")
+    def simulation_git_discovery(ident: str):
+        from .git_provenance import discover
+        return discover(store, ident)
+
     @app.get("/api/simulations/{ident}/git")
     def simulation_git(ident: str):
         from .git_provenance import observe

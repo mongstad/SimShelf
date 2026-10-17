@@ -240,3 +240,86 @@ def test_sha256_repository_snapshot_relation(tmp_path):
     connect_repository(store,preview(store,str(root),[sim['id']]))
     result=observe(store,sim,source_snapshot(store.path,sim))
     assert len(result['commit'])==64 and result['snapshot_relation']=='captured_files_match_commit'
+
+
+def test_discovery_parent_shared_nested_and_no_connection(project):
+    from simshelf.git_provenance import discover
+    store,root,sims=project
+    result=discover(store,sims[0]['id'])
+    assert result['status']=='found' and result['preview']['root']==str(root)
+    assert set(result['preview']['mappings'])=={sims[0]['id']}
+    assert {item['id'] for item in result['eligible']}=={s['id'] for s in sims}
+    assert connection(store) is None  # Discovery/preview/cancellation never opt in.
+    command(root/'alpha','init')
+    nested=discover(store,sims[0]['id'])
+    assert nested['preview']['root']==str(root/'alpha')
+    assert nested['eligible']==[{'id':sims[0]['id'],'subdirectory':'.'}]
+    assert {item['id'] for item in discover(store,sims[1]['id'])['eligible']}=={sims[1]['id']}
+    connect_repository(store,nested['preview']);disconnect_repository(store)
+    assert discover(store,sims[0]['id'])['status']=='found' and connection(store) is None
+
+
+def test_discovery_absent_git_missing_sources_and_boundaries(project,tmp_path,monkeypatch):
+    from simshelf.git_provenance import discover
+    store,root,sims=project
+    outside=tmp_path/'plain';outside.mkdir();(outside/'sim.py').write_text('x=1')
+    plain=store.add_simulation(outside,entrypoint='sim.py')
+    # The host may have a repository marker above pytest's temp root. Model an
+    # isolated no-repository ancestry without altering host files/configuration.
+    real_lexists = os.path.lexists
+    with monkeypatch.context() as isolated:
+        isolated.setattr(os.path, 'lexists', lambda p: real_lexists(p) if Path(p).is_relative_to(tmp_path) else False)
+        assert discover(store,plain['id'])['status']=='not_found'
+    assert not (outside/'.git').exists()
+    monkeypatch.setenv('PATH','')
+    assert discover(store,sims[0]['id'])['status']=='unavailable'
+    monkeypatch.undo()
+    (root/'alpha').rename(root/'gone')
+    assert discover(store,sims[0]['id'])['status']=='unavailable'
+    # A local repository that contains the library must still be rejected.
+    command(tmp_path,'init')
+    assert discover(store,plain['id'])['status']=='unavailable'
+    assert connection(store) is None
+
+
+def test_discovery_worktree_and_frozen_provenance(project,tmp_path):
+    from simshelf.git_provenance import discover
+    store,root,sims=project;link(project)
+    with Run(sims[0]['id'],workspace=store.path,capture_console=False) as r:pass
+    before=store.run(r.id)
+    disconnect_repository(store)
+    discover(store,sims[0]['id'])
+    assert store.run(r.id)==before
+    worktree=tmp_path/'linked';command(root,'worktree','add',str(worktree),'-b','discovery')
+    sim=store.add_simulation(worktree/'alpha',entrypoint='sim.py')
+    result=discover(store,sim['id'])
+    assert result['status']=='found' and result['preview']['root']==str(worktree)
+    assert result['eligible']==[{'id':sim['id'],'subdirectory':'alpha'}]
+
+
+def test_discovery_api_is_read_only_and_manual_preview_still_works(project):
+    from simshelf.api import create_app
+    from fastapi.testclient import TestClient
+    store,root,sims=project
+    with TestClient(create_app(store.path)) as client:
+        result=client.get(f"/api/simulations/{sims[0]['id']}/git/discovery").json()
+        assert result['status']=='found' and connection(store) is None
+        headers={'x-simshelf-token':client.get('/api/workspace').json()['token']}
+        manual=client.post('/api/workspace/git/preview',headers=headers,json={'path':str(root),'simulation_ids':[sims[1]['id']]}).json()
+        assert set(manual['mappings'])=={sims[1]['id']}
+        assert client.post('/api/workspace/git/connect',headers=headers,json={'preview':manual}).status_code==400
+        assert connection(store) is None
+        assert client.post('/api/workspace/git/connect',headers=headers,json={'preview':manual,'confirmed':True}).status_code==200
+
+
+def test_discovery_is_read_only_and_bad_config_does_not_affect_recording(project):
+    from simshelf.git_provenance import discover
+    store,root,sims=project
+    def contents():return {str(p.relative_to(root)):p.read_bytes() for p in root.rglob('*') if p.is_file()}
+    before=contents()
+    assert discover(store,sims[0]['id'])['status']=='found'
+    assert contents()==before and connection(store) is None
+    (root/'.git/config').write_text('[invalid syntax\n')
+    assert discover(store,sims[0]['id'])['status']=='unavailable'
+    with Run(sims[0]['id'],workspace=store.path,capture_console=False) as r:pass
+    assert store.run(r.id)['status']=='completed' and store.run(r.id)['git']['availability']=='disabled'
