@@ -143,3 +143,9 @@ installed-browser/package evidence.
 The later [compact progress panel revision](validation/issue-17-panel-revision.md)
 records frontend-only rendering, theme contrast, grouped counts and installed
 desktop/narrow browser validation. Earlier reports remain unchanged.
+
+## Later optional palette validation
+
+See [issue #35 color themes](validation/issue-35-themes.md) for Onyx, Slate and
+Linen, unchanged original-theme comparisons, contrast tests, desktop/narrow
+browser evidence, package checks and the existing schema-4 dialog limitation.

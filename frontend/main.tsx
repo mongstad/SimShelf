@@ -1894,6 +1894,9 @@ function App() {
               <option value="system">System</option>
               <option value="light">Light</option>
               <option value="dark">Dark</option>
+              <option value="onyx">Onyx</option>
+              <option value="slate">Slate</option>
+              <option value="linen">Linen</option>
             </select>
           </label>
           <div className="local-indicator">
