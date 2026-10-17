@@ -20,6 +20,8 @@
   --amber: light-dark(#946326, #e4ba78);
   --red: light-dark(#b54c49, #f59b96);
   --blue: light-dark(#4a6f8b, #92b9d7);
+  --progress-fill: light-dark(#147d70, #249e8b);
+  --progress-track: light-dark(#dde8e5, #233b3a);
   font-size: 14px;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -29,6 +31,61 @@
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
+}
+/* Optional palettes override colors only; System, Light and Dark stay unchanged. */
+:root[data-theme="onyx"] {
+  color-scheme: dark;
+  --bg: #0c0f12;
+  --surface: #151a1e;
+  --sidebar: #101418;
+  --text: #e5ebed;
+  --muted: #a2afb5;
+  --line: #38444c;
+  --accent: #7fc5b5;
+  --accent-text: #102c26;
+  --soft: #203830;
+  --hover: #242e34;
+  --amber: #e0b775;
+  --red: #f09b96;
+  --blue: #9cb9d3;
+  --progress-fill: #34a48f;
+  --progress-track: #243a36;
+}
+:root[data-theme="slate"] {
+  color-scheme: dark;
+  --bg: #18212c;
+  --surface: #222f3e;
+  --sidebar: #1d2835;
+  --text: #e6edf5;
+  --muted: #b0bdcc;
+  --line: #4a5c70;
+  --accent: #9cc9cf;
+  --accent-text: #19353b;
+  --soft: #2c434e;
+  --hover: #2c3d50;
+  --amber: #edc186;
+  --red: #f3a5a6;
+  --blue: #adc5e5;
+  --progress-fill: #51b5b0;
+  --progress-track: #344c5f;
+}
+:root[data-theme="linen"] {
+  color-scheme: light;
+  --bg: #f5f2eb;
+  --surface: #fffdf8;
+  --sidebar: #ede9df;
+  --text: #333b34;
+  --muted: #5d665b;
+  --line: #c8cdbf;
+  --accent: #47664d;
+  --accent-text: #ffffff;
+  --soft: #e1e9dc;
+  --hover: #eaece1;
+  --amber: #80591e;
+  --red: #a54440;
+  --blue: #456b82;
+  --progress-fill: #527b5a;
+  --progress-track: #dee5d6;
 }
 * {
   box-sizing: border-box;
@@ -1958,8 +2015,6 @@ details label {
 
 /* Progress is telemetry, separate from execution status and scientific metrics. */
 .run-progress {
-  --progress-fill: light-dark(#147d70, #249e8b);
-  --progress-track: light-dark(#dde8e5, #233b3a);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 14px 16px;

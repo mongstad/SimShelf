@@ -58,6 +58,14 @@ SIMSHELF_HOME=/path/to/my-library ./start.sh
 The workspace contains the database and retained files, not your source project.
 Keep it on a local disk. Register simulation source folders separately.
 
+## Choose an appearance
+
+Use **Appearance** in the sidebar to choose System, Light, Dark, Onyx,
+Slate or Linen. System follows your operating system; the other palettes
+keep their chosen light/dark appearance. The browser remembers your selection
+on this local portal address. Themes change colors only, including subtle logo
+colors; they do not change layout or simulation data.
+
 ## Start a simulation in the browser
 
 Once SimShelf is running, no terminal recording command is needed:
