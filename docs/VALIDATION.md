@@ -185,3 +185,9 @@ remain unchanged.
 The [direct-save revision](validation/issue-44-direct-save-revision.md) records
 simplified selection saving, preserved server validation, optional grouped-match
 inspection and focused installed-browser/package checks.
+
+## Shared per-run Git archive
+
+See [issue #47 shared archive](validation/issue-47-shared-archive.md) for explicit
+consent, capture-relative future rules, immutable post-run additions, historical
+downloads, failure/recovery checks and installed-browser/package evidence.

@@ -47,6 +47,16 @@ class OpenFileResponse(FileResponse):
             self.stream.close()
 
 
+class ArchiveRequest(BaseModel):
+    path: str = Field('', max_length=4096)
+    initialize: bool = False
+    confirmed: bool = False
+    future: list[str] = Field(default_factory=list, max_length=100)
+    artifact_ids: list[str] = Field(default_factory=list, max_length=1000)
+    review: dict = Field(default_factory=dict)
+    operation: str = Field('', max_length=32)
+
+
 class SimulationInput(BaseModel):
     root: str
     name: str | None = None
@@ -195,6 +205,70 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
     def enable_progress_endpoint(body: ProgressEnableInput):
         from .progress import enable_progress
         return enable_progress(store, confirmed=body.confirmed)
+
+    from . import git_archive as archive
+
+    @app.get("/api/workspace/archive")
+    def archive_connection():
+        return {"connection": archive.get(store, 'connection')}
+
+    @app.post("/api/workspace/archive/connect")
+    def archive_connect(body: ArchiveRequest):
+        try:
+            return archive.connect(store, body.path, body.initialize, body.confirmed)
+        except OSError as exc:
+            raise ValueError('Archive folder unavailable. Inspect any partially initialized directory before retrying.') from exc
+
+    @app.post("/api/workspace/archive/disconnect")
+    def archive_disconnect():
+        archive.put(store, 'connection', None)
+        return {"disconnected": True}
+
+    @app.get("/api/simulations/{ident}/archive")
+    def archive_settings(ident: str):
+        store.simulation(ident)
+        return {"settings": archive.get(store, 'settings:' + ident),
+                "runs": [{"run": r['id'], "name": r['name'], "events": archive.entries(store, r['id'])}
+                         for r in store.runs(simulation=ident, limit=200)]}
+
+    @app.post("/api/simulations/{ident}/archive/preview")
+    def archive_settings_preview(ident: str, body: ArchiveRequest):
+        return archive.settings_preview(store, ident, body.future)
+
+    @app.post("/api/simulations/{ident}/archive/enable")
+    def archive_enable(ident: str, body: ArchiveRequest):
+        return archive.enable(store, ident, body.review, body.confirmed)
+
+    @app.post("/api/simulations/{ident}/archive/disable")
+    def archive_disable(ident: str):
+        store.simulation(ident)
+        archive.put(store, 'settings:' + ident, None)
+        return {"disabled": True}
+
+    @app.get("/api/runs/{ident}/archive")
+    def run_archive(ident: str):
+        return archive.view(store, ident)
+
+    @app.post("/api/runs/{ident}/archive/preview")
+    def additions_preview(ident: str, body: ArchiveRequest):
+        return archive.additions_preview(store, ident, body.artifact_ids)
+
+    @app.post("/api/runs/{ident}/archive/add")
+    def archive_add(ident: str, body: ArchiveRequest):
+        return archive.additions(store, ident, body.review, body.operation, body.confirmed)
+
+    @app.post("/api/runs/{ident}/archive/retry")
+    def archive_retry(ident: str, body: ArchiveRequest):
+        if body.confirmed is not True:
+            raise ValueError('Confirm retry of the previously approved archive operation.')
+        return archive.publish(store, ident)
+
+    @app.get("/api/runs/{ident}/archive/{event_id}/{index}/file")
+    def archive_download(ident: str, event_id: str, index: int):
+        from urllib.parse import quote
+        name, data = archive.download(store, ident, event_id, index)
+        return Response(data, media_type='application/octet-stream', headers={
+            'Content-Disposition': "attachment; filename*=UTF-8''" + quote(clean_name(name), safe='')})
 
     @app.get("/api/workspace")
     def workspace_info():
@@ -370,6 +444,7 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
                 images = [json.loads(r[0]) for r in conn.execute("SELECT data FROM artifacts WHERE run_id=?", (run["id"],))]
                 images = [a for a in images if a["policy"] == "copy" and a.get("media_type", "") in {"image/png", "image/jpeg", "image/webp", "image/gif"}]
                 run["image_count"] = len(images)
+                run["archive_commits"] = conn.execute("SELECT count(*) FROM metadata WHERE key LIKE ?", (archive.PREFIX + "event:" + run["id"] + ":%",)).fetchone()[0]
                 run["cover_id"] = run.get("cover_id") if any(a["id"] == run.get("cover_id") for a in images) else (images[0]["id"] if images else None)
         return result
 

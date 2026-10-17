@@ -44,6 +44,7 @@ export type Simulation = {
   last_run: string | null;
 };
 export type Artifact = {
+  automatic?: boolean;
   screenshot_deletion_reason?: string | null;
   id: string;
   name: string;
@@ -63,6 +64,7 @@ export type Measurement = {
   unit?: string;
 };
 export type Run = {
+  archive_commits?: number;
   progress?: {current: number | null; total: number | null; stage: string | null; source: string; reported_at: string} | null;
   progress_error?: string | null;
   launch?: {

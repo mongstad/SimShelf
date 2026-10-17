@@ -15,6 +15,7 @@ import type {
   Version,
 } from "./types";
 import "./style.css";
+import { RunArchive } from "./GitArchive";
 import { GitHistory } from "./GitHistory";
 import { LaunchSimulation } from "./LaunchSimulation";
 
@@ -1400,6 +1401,7 @@ function RunDetails({
       )}
       {tab === "files" && (
         <section className="surface">
+          <RunArchive key={run.id} run={run} reload={() => void refresh()} />
           <h2>Recorded outputs</h2>
           <p className="muted">
             These filters only change the list. Originals and retained copies
@@ -1790,6 +1792,7 @@ function App() {
     ...new Set(runs.flatMap((r) => Object.keys(r.parameters))),
   ].sort();
   const visible = runs.filter((r) => {
+    if (simulation && r.simulation_id !== simulation.id) return false;
     if (imagesOnly && !r.image_count) return false;
     if (!param || paramValue === "") return true;
     const v = r.parameters[param];
@@ -2277,6 +2280,7 @@ function App() {
                                       onClick={() => showRun(r.id)}
                                     >
                                       {r.name}
+                                      {!!r.archive_commits && <small>{r.archive_commits} archive commits</small>}
                                       {r.tags.includes("favorite") && (
                                         <span className="favorite-star">★</span>
                                       )}
@@ -2351,6 +2355,7 @@ function App() {
                                   onClick={() => showRun(r.id)}
                                 >
                                   {r.name}
+                                  {!!r.archive_commits && <small>{r.archive_commits} archive commits</small>}
                                 </button>
                                 <div className="gallery-meta">
                                   <code>{r.version}</code>

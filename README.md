@@ -331,6 +331,20 @@ Log measurements at a useful interval rather than on every cell update. This
 initial implementation journals each measurement synchronously. Full time-series
 charts are planned for Stage 2; Stage 1 shows the latest retained measurements.
 
+## Optional shared Git archive
+
+Keep selected run-start source and verified managed results in one local archive,
+with separate commits and historical downloads for each run. Later screenshots
+and analysis files can be attached and explicitly archived without rerunning.
+[Set up the shared archive](docs/GIT_ARCHIVE.md) for consent, future-output rules,
+limits and recovery. Future-output rules are **capture-directory-relative**;
+CSVs beside the Python source need manual attachment if outside that directory.
+
+Use Git primarily for source, configuration and modest text results such as CSV.
+Repeated large binary outputs can rapidly grow permanent history. Keep large
+NPZ/WVZ files in appropriate external storage or normal copy/reference workflows.
+A local archive does not upload anything, and library backups do not include it.
+
 ## Optional local Git history
 
 Select a simulation's **Git history** tab to preview and explicitly connect its
