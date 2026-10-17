@@ -114,6 +114,19 @@ class GitPreviewInput(BaseModel):
     simulation_ids: list[str] = Field(max_length=1000)
 
 
+class GitSelectionInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    revision: str = Field(max_length=64)
+    rules: list[dict] = Field(default_factory=list, max_length=100)
+    paths: list[str] = Field(default_factory=list, max_length=100)
+
+
+class GitReviewInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    review: dict
+    confirmed: bool = False
+
+
 class GitConnectInput(BaseModel):
     model_config = {"extra": "forbid"}
     preview: dict
@@ -237,6 +250,35 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
     def git_disconnect():
         from .git_provenance import disconnect_repository
         return disconnect_repository(store)
+
+    @app.get("/api/simulations/{ident}/git/files")
+    def git_files(ident: str):
+        from .git_selection import inventory
+        return inventory(store, ident)
+
+    @app.post("/api/simulations/{ident}/git/files/preview")
+    def git_files_preview(ident: str, body: GitSelectionInput):
+        from .git_selection import selection_preview
+        return selection_preview(store, ident, body.revision, body.rules)
+
+    @app.post("/api/simulations/{ident}/git/files/save")
+    def git_files_save(ident: str, body: GitReviewInput):
+        from .git_selection import save_selection
+        if not body.confirmed:
+            raise ValueError("Review and confirm inclusion preferences explicitly.")
+        return save_selection(store, ident, body.review)
+
+    @app.post("/api/simulations/{ident}/git/ignore/preview")
+    def git_ignore_preview(ident: str, body: GitSelectionInput):
+        from .git_selection import ignore_preview
+        return ignore_preview(store, ident, body.revision, body.paths)
+
+    @app.post("/api/simulations/{ident}/git/ignore/apply")
+    def git_ignore_apply(ident: str, body: GitReviewInput):
+        from .git_selection import apply_ignore
+        if not body.confirmed:
+            raise ValueError("Review and confirm the .gitignore additions explicitly.")
+        return apply_ignore(store, ident, body.review)
 
     @app.get("/api/simulations/{ident}/git/discovery")
     def simulation_git_discovery(ident: str):

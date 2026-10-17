@@ -339,7 +339,9 @@ connection still requires confirmation. Several simulation folders can share one
 Inspect local branch/commit, raw-byte changes and recent folder history without
 an account or network. Recording and snapshots still work with Git disconnected
 or absent. See [local Git history](docs/GIT_PROVENANCE.md) for mapping, provenance,
-backup behavior and limits. Commits and remote synchronization are not exposed.
+backup behavior and limits. **Manage Git files** offers include-first preferences
+and separately confirmed exact `.gitignore` additions; see [file selection](docs/GIT_FILE_SELECTION.md).
+Commits and remote synchronization are not exposed.
 
 ## Versions: you decide what counts as a new simulation
 

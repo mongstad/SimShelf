@@ -174,3 +174,14 @@ portal connection/history checks, package evidence and deferred remote operation
 The [issue #9 discovery revision](validation/issue-9-discovery-revision.md) records
 automatic read-only repository detection, explicit mapping consent, fallback and
 installed-browser checks. Original foundation evidence is preserved.
+
+## Include-first Git file selection
+
+See [issue #44 Git file selection](validation/issue-44-git-file-selection.md) for
+explicit preferences, separately approved ignore additions, safety tests, package
+and installed-browser evidence, limitations and owner checks. Earlier reports
+remain unchanged.
+
+The [direct-save revision](validation/issue-44-direct-save-revision.md) records
+simplified selection saving, preserved server validation, optional grouped-match
+inspection and focused installed-browser/package checks.

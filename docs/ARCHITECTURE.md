@@ -319,3 +319,16 @@ with their exact snapshot ID; old records stay unchanged. Inspections are bounde
 and read-only, compare raw bytes without filters, and never invoke transports.
 Restored/moved library bindings require reconnection. No-Git recording remains
 independent; local commits and remote synchronization are deferred follow-ups.
+
+
+## Reviewed Git file preferences
+
+[Git file selection](GIT_FILE_SELECTION.md) is separate from recorder provenance:
+bounded metadata inventories and typed file/folder/extension rules produce exact
+current-path previews. Explicit saves use additive, location-bound metadata; no
+schema migration or completed-record write occurs. Optional exact-path ignore
+additions require a separate refreshed review and append only to the registered
+source folder's `.gitignore`, using descriptor checks and advisory locking. No
+Git index/history/network mutation is exposed. External editor concurrency and
+partial-write limitations are documented; #45 must independently review and
+authorize any future staging/commit.
