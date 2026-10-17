@@ -18,6 +18,7 @@ from pathlib import Path
 from .capture import capture_outputs, output_inventory, save_file
 from .common import json_text, now, process_identity
 from .source import blob_path, git_context, read_version, source_snapshot
+from .workspace_lock import locked_recorder
 from .store import Store
 
 
@@ -104,6 +105,7 @@ class Run:
         from .common import contained
         return contained(Path(self.simulation["root"]), self.simulation["config"]["output_dir"])
 
+    @locked_recorder
     def __enter__(self):
         if self.joined:
             parent = self.store.run(self.id, detail=False)

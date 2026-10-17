@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import difflib
 import json
+import os
 import ipaddress
 import secrets
 import tempfile
@@ -21,12 +22,27 @@ from . import __version__
 from .backup import create_backup
 from .capture import preview, save_file
 from .common import clean_name
-from .source import blob_path
+from .source import blob_path, read_snapshot
+from .removal import deleted_run
+from .workspace_lock import workspace_lock
 from .store import Store
 from .portal import PortalJobs, execution_settings
 from .output_paths import output_review
 from .parameters import discover_parameters
 from .interpreters import discovery, probe_interpreter, check_dependencies
+
+
+class OpenFileResponse(FileResponse):
+    """Keep the opened inode alive across removal, preserving range responses."""
+    def __init__(self, stream, **kwargs):
+        self.stream = stream
+        super().__init__(f"/proc/self/fd/{stream.fileno()}", stat_result=os.fstat(stream.fileno()), **kwargs)
+
+    async def __call__(self, scope, receive, send):
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            self.stream.close()
 
 
 class SimulationInput(BaseModel):
@@ -71,6 +87,12 @@ class QuitInput(BaseModel):
     confirmed: bool = False
     generation: int
     stop_runs: bool = False
+
+
+class RemovalInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    run_ids: list[str] = Field(min_length=1, max_length=1000)
+    confirmed: bool = False
 
 
 class RunUpdate(BaseModel):
@@ -242,6 +264,10 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
                 run["cover_id"] = run.get("cover_id") or (images[0]["id"] if images else None)
         return result
 
+    @app.post("/api/runs/remove")
+    def remove_runs(body: RemovalInput):
+        return store.remove_runs(body.run_ids, confirmed=body.confirmed)
+
     @app.get("/api/runs/{ident}")
     def run_detail(ident: str):
         return {**store.run(ident), **jobs.control(ident)}
@@ -263,37 +289,44 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
 
     @app.get("/api/runs/{ident}/logs")
     def logs(ident: str, stream: str = "stdout"):
-        store.run(ident, False)
-        if stream not in {"stdout", "stderr"}:
-            raise ValueError("Choose stdout or stderr")
-        path = store.path / "logs" / ident / (stream + ".log")
-        if not path.is_file():
-            return {"text": "", "truncated": False}
-        with path.open("rb") as file:
-            length = path.stat().st_size
-            file.seek(max(0, length - 200000))
-            text = file.read(200000).decode(errors="replace")
-        return {"text": text, "truncated": length > 200000}
+        with workspace_lock(store.path):
+            store.run(ident, False)
+            if stream not in {"stdout", "stderr"}:
+                raise ValueError("Choose stdout or stderr")
+            path = store.path / "logs" / ident / (stream + ".log")
+            if not path.is_file():
+                return {"text": "", "truncated": False}
+            with path.open("rb") as file:
+                length = path.stat().st_size
+                file.seek(max(0, length - 200000))
+                text = file.read(200000).decode(errors="replace")
+            return {"text": text, "truncated": length > 200000}
 
     @app.get("/api/runs/{ident}/source")
     def source(ident: str, path: str, compare: str | None = None):
-        run = store.run(ident)
-        entry = next((f for f in run["snapshot"]["files"] if f["path"] == path), None)
-        if not entry:
-            raise ValueError("Source file not found in this snapshot")
-        if entry["size"] > 1024 * 1024:
-            raise ValueError("Source preview is limited to 1 MB per file")
-        text = blob_path(store.path, entry["blob"]).read_bytes().decode(errors="replace")
-        if compare:
-            other = store.run(compare)
-            previous = next((f for f in other["snapshot"]["files"] if f["path"] == path), None)
-            old = blob_path(store.path, previous["blob"]).read_text(errors="replace") if previous and previous["size"] <= 1024 * 1024 else ""
-            return {"text": "".join(difflib.unified_diff(old.splitlines(True), text.splitlines(True), fromfile=f"{compare[:8]}/{path}", tofile=f"{ident[:8]}/{path}")) or "No changes in this file."}
-        return {"text": text}
+        with workspace_lock(store.path):
+            run = store.run(ident)
+            entry = next((f for f in run["snapshot"]["files"] if f["path"] == path), None)
+            if not entry:
+                raise ValueError("Source file not found in this snapshot")
+            if entry["size"] > 1024 * 1024:
+                raise ValueError("Source preview is limited to 1 MB per file")
+            text = blob_path(store.path, entry["blob"]).read_bytes().decode(errors="replace")
+            if compare:
+                with store.connection() as conn:
+                    removed = deleted_run(conn, compare)
+                if removed and compare == run["baseline_run_id"]:
+                    other_snapshot = read_snapshot(store.path, removed["snapshot_id"])
+                else:
+                    other_snapshot = store.run(compare)["snapshot"]
+                previous = next((f for f in other_snapshot["files"] if f["path"] == path), None)
+                old = blob_path(store.path, previous["blob"]).read_text(errors="replace") if previous and previous["size"] <= 1024 * 1024 else ""
+                return {"text": "".join(difflib.unified_diff(old.splitlines(True), text.splitlines(True), fromfile=f"{compare[:8]}/{path}", tofile=f"{ident[:8]}/{path}")) or "No changes in this file."}
+            return {"text": text}
 
     @app.post("/api/runs/{ident}/attachments", status_code=201)
     async def upload(ident: str, file: UploadFile):
-        store.run(ident, False)
+        await asyncio.to_thread(store.run, ident, False)
         name = clean_name(file.filename or "attachment")
         staging = store.path / "staging"
         staging.mkdir(exist_ok=True)
@@ -320,16 +353,23 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
         caption = body.get("caption", "")
         if not isinstance(caption, str) or len(caption) > 5000:
             raise ValueError("Caption must be at most 5000 characters")
-        artifact = store.artifact(ident)
-        store.emit(artifact["run_id"], "artifact_annotation", {"id": ident, "caption": caption})
-        return store.artifact(ident)
+        def save_caption():
+            with workspace_lock(store.path):
+                artifact = store.artifact(ident)
+                store.emit(artifact["run_id"], "artifact_annotation", {"id": ident, "caption": caption})
+                return store.artifact(ident)
+        return await asyncio.to_thread(save_caption)
 
     @app.get("/api/artifacts/{ident}/file")
     def artifact_file(ident: str, download: bool = False):
-        artifact = store.artifact(ident)
-        safe_inline = {"image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "text/plain", "text/csv", "application/json"}
-        media = artifact.get("media_type", "application/octet-stream")
-        return FileResponse(store.artifact_file(ident), media_type=media if media in safe_inline else "application/octet-stream", filename=clean_name(artifact["name"]), content_disposition_type="attachment" if download or media not in safe_inline else "inline")
+        with workspace_lock(store.path):
+            artifact = store.artifact(ident)
+            safe_inline = {"image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "text/plain", "text/csv", "application/json"}
+            media = artifact.get("media_type", "application/octet-stream")
+            path = store.artifact_file(ident)
+            # Open under the lock; unlinking later cannot invalidate this stream.
+            stream = path.open("rb")
+            return OpenFileResponse(stream, media_type=media if media in safe_inline else "application/octet-stream", filename=clean_name(artifact["name"]), content_disposition_type="attachment" if download or media not in safe_inline else "inline")
 
     @app.post("/api/backup")
     async def backup():

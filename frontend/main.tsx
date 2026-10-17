@@ -1,3 +1,4 @@
+import { RemoveRuns, type RemovalResult } from "./RemoveRuns";
 import { QuitServer } from "./QuitServer";
 import { CaptureSummary } from "./CaptureSummary";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -791,11 +792,13 @@ function RunDetails({
   simulation,
   close,
   changed,
+  requestRemoval,
 }: {
   id: string;
   simulation?: Simulation;
   close: () => void;
   changed: () => void;
+  requestRemoval: (run: Run) => void;
 }) {
   const [run, setRun] = useState<Run | null>(null),
     [tab, setTab] = useState("overview"),
@@ -825,7 +828,7 @@ function RunDetails({
       if (activeRunId.current === id) setRun(r);
       return r;
     } catch (e) {
-      setError((e as Error).message);
+      if (activeRunId.current === id) { setRun(null); setError((e as Error).message); }
       return null;
     }
   }, [id]);
@@ -942,7 +945,7 @@ function RunDetails({
           ← Back to runs
         </button>
         <ErrorMessage message={error} />
-        <div className="empty-inline">Loading run…</div>
+        <div className="empty-inline">{error ? "This run is unavailable. Return to the run list to refresh." : "Loading run…"}</div>
       </div>
     );
   const artifacts = run.artifacts || [];
@@ -1014,6 +1017,7 @@ function RunDetails({
         >
           {run.tags.includes("favorite") ? "★ Favorited" : "☆ Favorite"}
         </button>
+        <button disabled={busy || run.status === "running" || run.capture_status === "pending"} onClick={() => requestRemoval(run)}>Remove run…</button>
       </header>
       <nav className="tabs" aria-label="Run detail sections">
         {[
@@ -1485,7 +1489,7 @@ function RunDetails({
                 disabled={run.baseline_run_id === id}
                 onChange={(e) => setDiff(e.target.checked)}
               />
-              Compare with version baseline
+              Compare with version baseline{run.baseline_deleted ? " (run removed; snapshot retained)" : ""}
             </label>
           </div>
           <pre className="source-block">
@@ -1624,6 +1628,8 @@ function App() {
     [limit, setLimit] = useState(200),
     [backingUp, setBackingUp] = useState(false),
     [notice, setNotice] = useState("");
+  const [removalRuns, setRemovalRuns] = useState<Run[] | null>(null);
+  const removedIds = useRef(new Set<string>());
   const [quitting, setQuitting] = useState(false);
   const [theme, setTheme] = useState(
     localStorage.getItem("simshelf-theme") || "system",
@@ -1655,7 +1661,9 @@ function App() {
       if (search) query.set("q", search);
       const nextRuns = await api<Run[]>(`/runs?${query}`);
       if (activeQuery.current !== requestKey) return;
-      setRuns(nextRuns);
+      const retained = nextRuns.filter(r => !removedIds.current.has(r.id));
+      setRuns(retained);
+      setSelected(previous => previous.filter(id => retained.some(r => r.id === id)));
       setError("");
     } catch (e) {
       setError((e as Error).message);
@@ -1666,6 +1674,12 @@ function App() {
   useEffect(() => {
     setSelected([]);
   }, [simulationId, status, version, search]);
+  useEffect(() => {
+    if (modal === "compare" && selected.length < 2) {
+      setModal("");
+      setNotice("Comparison closed: fewer than two selected runs remain in this view.");
+    }
+  }, [modal, selected.length]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem("simshelf-theme", theme);
@@ -1704,6 +1718,16 @@ function App() {
     window.addEventListener("hashchange", handler);
     return () => window.removeEventListener("hashchange", handler);
   }, []);
+  function removed(result: RemovalResult) {
+    for (const id of result.removed_ids) removedIds.current.add(id);
+    setRuns(previous => previous.filter(r => !removedIds.current.has(r.id)));
+    setSelected([]);
+    setModal("");
+    setRemovalRuns(null);
+    if (removedIds.current.has(detail)) { location.hash = ""; setDetail(""); }
+    setNotice(`${result.removed_ids.length} run(s) removed. ${result.cleanup_errors.length ? "Managed file cleanup is pending; recovery will retry. " + result.cleanup_errors.join("; ") : "Eligible managed files reclaimed; shared files retained."}`);
+    refresh();
+  }
   function chooseSimulation(id: string) {
     setSimulationId(id);
     setPage("runs");
@@ -1879,6 +1903,7 @@ function App() {
                 setDetail("");
               }}
               changed={refresh}
+              requestRemoval={run => setRemovalRuns([run])}
             />
           ) : (
             <>
@@ -2148,6 +2173,7 @@ function App() {
                           >
                             Compare runs
                           </button>
+                          <button onClick={() => setRemovalRuns(runs.filter(r => selected.includes(r.id)))}>Remove selected…</button>
                           <button
                             className="text-button"
                             onClick={() => setSelected([])}
@@ -2407,6 +2433,9 @@ function App() {
           close={() => setModal("")}
         />
       )}{" "}
+      {removalRuns && <Modal title="Remove runs" close={() => setRemovalRuns(null)}>
+        <RemoveRuns runs={removalRuns} close={() => setRemovalRuns(null)} removed={removed} />
+      </Modal>}
       {modal === "compare" && (
         <Comparison
           runs={runs.filter((r) => selected.includes(r.id))}

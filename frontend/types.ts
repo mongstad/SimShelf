@@ -88,6 +88,7 @@ export type Run = {
   tags: string[];
   version_note: string;
   baseline_run_id: string;
+  baseline_deleted?: boolean;
   cover_id?: string | null;
   image_count?: number;
   exit_code: number | null;

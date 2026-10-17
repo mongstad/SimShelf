@@ -12,6 +12,8 @@ from pathlib import Path, PurePosixPath
 from .common import json_text, now
 from .source import blob_path, read_snapshot
 from .store import Store
+from .workspace_lock import locked_store
+from .removal import snapshot_ids
 
 
 def file_digest(path: Path) -> str:
@@ -19,6 +21,7 @@ def file_digest(path: Path) -> str:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
+@locked_store
 def create_backup(store: Store, destination: Path) -> Path:
     destination = destination.expanduser().resolve()
     if destination.exists():
@@ -35,12 +38,15 @@ def create_backup(store: Store, destination: Path) -> Path:
         with sqlite3.connect(snapshot_db) as conn:
             runs = [json.loads(r[0]) for r in conn.execute("SELECT data FROM runs")]
             artifacts = [json.loads(r[0]) for r in conn.execute("SELECT data FROM artifacts")]
+            retained_snapshots = snapshot_ids(conn)
+            conn.execute("DELETE FROM metadata WHERE key LIKE 'cleanup:%'")
         files = {"simshelf.sqlite3": snapshot_db}
         keys = {a["blob"] for a in artifacts if a.get("blob")}
-        for run in runs:
-            snapshot = read_snapshot(store.path, run["snapshot_id"])
+        for ident in retained_snapshots:
+            snapshot = read_snapshot(store.path, ident)
             files[f"snapshots/{snapshot['id']}.json"] = store.path / "snapshots" / f"{snapshot['id']}.json"
             keys.update(f["blob"] for f in snapshot["files"])
+        for run in runs:
             for name in ("stdout.log", "stderr.log"):
                 source = store.path / "logs" / run["id"] / name
                 if source.is_file():
@@ -106,7 +112,7 @@ def restore_backup(archive_path: Path, target: Path) -> Store:
             if conn.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
                 raise ValueError("Backup database failed its integrity check")
             version = conn.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()
-            if not version or version[0] != "1":
+            if not version or version[0] not in {"1", "2"}:
                 raise ValueError("Unsupported backup database schema")
             for ident, raw in conn.execute("SELECT id,data FROM runs WHERE status='running'").fetchall():
                 run = json.loads(raw)
