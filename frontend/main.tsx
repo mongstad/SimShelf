@@ -1944,7 +1944,7 @@ function App() {
               <header className="page-heading">
                 <div>
                   <div className="eyebrow">SIMULATION JOURNAL</div>
-                  <h1>{simulation?.name || "Your simulations, remembered."}</h1>
+                  <h1>{simulation?.name || "Your simulations, one library."}</h1>
                   <p>
                     {simulation?.description ||
                       (simulation
