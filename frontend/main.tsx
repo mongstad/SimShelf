@@ -1830,10 +1830,13 @@ function App() {
     <div className="app-shell">
       <aside className="sidebar">
         <a className="brand" href="#" onClick={() => chooseSimulation("")}>
-          <span className="brand-symbol">
-            <Icon name="wave" size={25} />
+          <span className="brand-row">
+            <span className="brand-symbol">
+              <Icon name="wave" size={25} />
+            </span>
+            SimShelf<span className="beta">local</span>
           </span>
-          SimShelf<span className="beta">local</span>
+          <span className="brand-tagline">Your simulations, one library.</span>
         </a>
         <div className="sidebar-section">
           <span className="nav-caption">WORKSPACE</span>
@@ -1946,13 +1949,8 @@ function App() {
               <header className="page-heading">
                 <div>
                   <div className="eyebrow">SIMULATION JOURNAL</div>
-                  <h1>{simulation?.name || "Your simulations, one library."}</h1>
-                  <p>
-                    {simulation?.description ||
-                      (simulation
-                        ? "Every run, its source, and the results worth keeping."
-                        : "Keep the context behind every experiment.")}
-                  </p>
+                  <h1>{simulation?.name || "All simulations"}</h1>
+                  {simulation?.description && <p>{simulation.description}</p>}
                 </div>
                 <div className="heading-actions">
                   <button onClick={() => setModal("add")}>
