@@ -7,7 +7,7 @@ import { ProgressSettings } from './ProgressSettings.tsx';
 const render = run => renderToStaticMarkup(React.createElement(RunProgress, {run}));
 const report = {current: 2, total: 5, stage: '<solve>', source: 'structured', reported_at: '2026-10-17T12:00:00Z'};
 test('unknown progress has no fabricated percentage, count or status', () => {
-  for (const status of ['running','completed','failed','interrupted']) {
+  for (const status of ['running','failed','cancelled','interrupted']) {
     for (const progress of [undefined,{...report,total:null},{...report,current:null}]) {
       const html = render({status,progress});
       assert.match(html,/Progress unavailable/);
@@ -29,13 +29,13 @@ test('known progress is minimal, grouped, accessible and does not mutate metadat
   assert.equal(JSON.stringify(run),before);
 });
 test('final statuses retain the same progress without duplicating execution status', () => {
-  for (const status of ['running','completed','failed','interrupted']) {
+  for (const status of ['running','failed','cancelled','interrupted']) {
     const html = render({status,progress:{...report,current:5}});
     assert.match(html,/100%/);
     assert.match(html,/5.* \/ .*5.* steps/);
     assert.doesNotMatch(html,/running|completed|failed|interrupted/i);
   }
-  assert.equal(render({status:'failed',progress:report}),render({status:'completed',progress:report}));
+  assert.equal(render({status:'failed',progress:report}),render({status:'interrupted',progress:report}));
 });
 test('optional stages and errors remain safe; malformed totals and rounding stay conservative', () => {
   for (const total of [0,-1,Infinity,NaN]) {
@@ -60,4 +60,84 @@ test('console examples follow the explicitly selected adapter', () => {
   assert.match(settings('percent'), /Progress: 25%/);
   assert.match(settings('percent'), /50% complete/);
   assert.match(settings('step'), /Reports never stop a run/);
+});
+
+
+test('completed presentation uses stored total without rewriting original telemetry', () => {
+  for (const source of ['structured', 'text:stdout', 'text:stderr']) {
+    for (const current of [0, 5000, 5463, null]) {
+      const run = {status:'completed',exit_code:0,progress:{...report,current,total:5463,source}};
+      const before = structuredClone(run);
+      const html = render(run);
+      assert.match(html, /<strong>Progress<\/strong>/);
+      assert.match(html, /<span>100%<\/span>/);
+      assert.match(html, /5,463.* \/ .*5,463.* steps/);
+      assert.match(html, /aria-label="Successful process completion"/);
+      assert.match(html, /100% process completion; 5,463 of 5,463 steps displayed from the stored total, not a measured progress report/);
+      assert.match(html, /value="100" max="100"/);
+      assert.doesNotMatch(html, /Last reported|Process completed successfully|91.5%|5,000/);
+      assert.deepEqual(run,before);
+    }
+  }
+});
+
+test('100 percent and unsuccessful or active lifecycle states never gain the partial-completion message', () => {
+  for (const status of ['running','failed','cancelled','interrupted']) {
+    const progress = {...report,current:5};
+    const run = {status,progress};
+    const before = JSON.stringify(run);
+    const html = render(run);
+    assert.match(html, /<strong>Progress<\/strong>/);
+    assert.match(html, /100%/);
+    assert.match(html, /value="5" max="5"/);
+    assert.doesNotMatch(html, /Last reported|Process completed successfully/);
+    assert.equal(JSON.stringify(run), before);
+  }
+  // Portal stop/cancellation is recorded as interrupted, never completed.
+  for (const status of ['running','failed','cancelled','interrupted']) {
+    const html = render({status,progress:{...report,current:4000,total:4123}});
+    assert.match(html,/97%/);
+    assert.match(html,/value="4000" max="4123"/);
+    assert.doesNotMatch(html,/Last reported|Process completed successfully/);
+  }
+});
+
+
+test('completed without a valid total shows completion without fabricated counts', () => {
+  for (const progress of [undefined, {stage:'Final phase'}, ...[null,0,-1,NaN,Infinity,'5463'].map(total=>({...report,total}))]) {
+    const run = {status:'completed',progress};
+    const before = structuredClone(run);
+    const html = render(run);
+    assert.match(html,/<strong>Progress<\/strong>/);
+    assert.match(html,/<span>100%<\/span>/);
+    assert.match(html,/value="100" max="100"/);
+    assert.match(html,/no valid step total available, not a measured progress report/);
+    assert.doesNotMatch(html,/ steps|Last reported|Progress unavailable|Process completed successfully/);
+    if (progress?.stage) assert.match(html,/progress-stage/);
+    assert.deepEqual(run,before);
+  }
+});
+
+test('all non-completed states retain the exact reviewed example and unknown totals', () => {
+  for (const status of ['running','failed','cancelled','interrupted']) {
+    const run = {status,progress:{...report,current:5000,total:5463}};
+    const before = structuredClone(run);
+    const html = render(run);
+    assert.match(html,/<span>91.5%<\/span>/);
+    assert.match(html,/5,000.* \/ .*5,463.* steps/);
+    assert.match(html,/value="5000" max="5463"/);
+    assert.doesNotMatch(html,/Successful process completion|100%|Last reported/);
+    assert.deepEqual(run,before);
+    for (const total of [null,0,-1,Infinity,NaN]) {
+      const unknown = render({status,progress:{...report,total}});
+      assert.match(unknown,/Progress unavailable/);
+      assert.doesNotMatch(unknown,/<progress|%| steps/);
+    }
+  }
+});
+
+test('completed accessible and visible display counts share fractional precision', () => {
+  const html = render({status:'completed',progress:{...report,current:1,total:2.34567}});
+  assert.match(html,/2.34567 of 2.34567 steps displayed from the stored total/);
+  assert.match(html,/2.34567.* \/ .*2.34567.* steps/);
 });

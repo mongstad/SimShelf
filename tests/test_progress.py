@@ -545,3 +545,24 @@ def test_restore_rejects_invalid_progress_before_install(project, tmp_path):
     with pytest.raises(ValueError, match='positive total'):
         restore_backup(archive, destination)
     assert not destination.exists()
+
+
+@pytest.mark.parametrize('last_step', [4000, 4123])
+def test_success_keeps_last_actual_periodic_report(project, last_step):
+    """Exit flushes a real final report, but cannot invent an unreported one."""
+    store, sim, root, source = project
+    enable_progress(store, confirmed=True)
+    output = f'  step 1,000/4,123 ( 24.3%)\n  step {last_step:,}/4,123 ({last_step / 4123 * 100:.1f}%)\n'
+    source.write_text(f'import sys\nsys.stdout.write({output!r})\n')
+    ident, code = record_command(store, sim['id'], [sys.executable, str(source)],
+                                 progress_mode='step', quiet=True)
+    record = store.run(ident)
+    assert code == record['exit_code'] == 0
+    assert record['status'] == 'completed'
+    assert not record['progress_error']
+    assert (record['progress']['current'], record['progress']['total']) == (last_step, 4123)
+    assert record['progress']['source'] == 'text:stdout'
+    assert (store.path/'logs'/ident/'stdout.log').read_bytes() == output.encode()
+    assert (store.path/'logs'/ident/'stderr.log').read_bytes() == b''
+    store.reconcile()
+    assert store.run(ident)['progress'] == record['progress']

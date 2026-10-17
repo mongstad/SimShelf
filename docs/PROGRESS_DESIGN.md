@@ -31,9 +31,14 @@ must therefore reject the opted-in library rather than appear fully compatible.
 - Last-reported progress is separate from run status. A 100% report is not success;
   finalized/interrupted runs retain the last accepted report without forcing 100%.
   Source and report time remain stored internally. The owner-requested compact
-  panel shows Progress, percentage, grouped counts and optional stage; execution
-  status remains in the existing run header. Unknown progress shows Progress
-  unavailable, without percentage, invented counts or ETA.
+  panel shows percentage, grouped counts and optional stage. For completed runs,
+  successful process completion fills the bar to 100%, independently of telemetry.
+  Completed runs display 100% and the stored finite positive total as both current
+  and total counts. Their accessible description identifies these as completion
+  display values, not measured telemetry. The original report stays unchanged.
+  Completed runs without a valid total show 100% without step counts. Other states
+  retain actual telemetry, or Progress unavailable without invented values.
+  Execution status remains in the run header.
 - Coalesce updates to at most one durable update per second per run, flushing the
   final pending update before finalization. Keep only latest telemetry and one
   bounded recovery checkpoint per run, not an unbounded stream of progress events.

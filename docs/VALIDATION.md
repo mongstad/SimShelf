@@ -149,3 +149,18 @@ desktop/narrow browser validation. Earlier reports remain unchanged.
 See [issue #35 color themes](validation/issue-35-themes.md) for Onyx, Slate and
 Linen, unchanged original-theme comparisons, contrast tests, desktop/narrow
 browser evidence, package checks and the existing schema-4 dialog limitation.
+
+## Later completed-progress clarification
+
+See [issue #40 completed progress](validation/issue-40-completed-progress.md) for
+last-reported labeling, read-only investigation, lifecycle regressions and
+all-theme desktop/narrow source and installed-package checks.
+
+The owner's follow-up is recorded separately in
+[issue #40 completed-bar revision](validation/issue-40-completion-bar-revision.md):
+full successful-completion bars, unchanged historical telemetry, accessible
+semantics, focused regressions and packaged browser checks.
+
+The subsequent [completion-label review](validation/issue-40-completion-labels-review.md)
+records owner-requested 100% and total/total presentation, preserved stored reports,
+all-theme installed browser checks and focused lifecycle validation.
