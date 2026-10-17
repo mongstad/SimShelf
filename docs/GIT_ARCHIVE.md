@@ -8,8 +8,8 @@ revision, exact source snapshot and archive commit are different records.
 ## Set up and enable
 
 1. Create an empty directory outside the SimShelf application, library and all
-   simulation source folders. In **Git history → Shared master Git archive → Set
-   up archive repository**, enter its absolute path, select initialization and
+   simulation source folders. In **Git history → Shared master Git archive →
+   Connect archive locally**, enter its absolute path, select initialization and
    choose **Initialize and connect archive**. No remote is contacted. This is a
    dedicated **bare** Git repository: files are viewed through SimShelf, not a
    working-tree checkout. Existing arbitrary/source repositories are refused.
@@ -68,7 +68,7 @@ scientific version, source snapshot, logs or the child exit code.
 
 Open **Run → Files → Add files after execution**. Attach a screenshot or analysis
 file using the existing managed attachment mechanism; the existing Screenshots
-upload works too. No rerun is needed. Select managed manual attachments, choose
+upload works too. No rerun is needed. In the Run files list, select managed manual attachments, choose
 **Review archive additions**, then **Archive selected attachments**, or cancel.
 Uploading alone does not create a Git commit. References and automatic captured
 artifacts cannot be reclassified as manual additions.
@@ -116,3 +116,39 @@ edit the dedicated repository with external tools. Advisory locks serialize
 SimShelf writers, not arbitrary same-user filesystem modifications. Conditional
 ref updates detect conflicting Git publications; no general filesystem
 transaction or protection against a hostile local account is promised.
+
+
+## Understand the connection and Run files states
+
+The master archive is independent of **Source Git history**. Its green connected
+indicator means its local binding and repository checks passed, not that every
+historical object was read. Source Git status appears directly under its own
+heading. Source Git can stay disconnected while the master archive works.
+**Automatic archival** is separate per-simulation consent: Enabled, Disabled, or
+Review required / unavailable. Refresh status after changing paths or preferences.
+Changing the set of files matching an approved folder/type rule does not itself
+invalidate that consent. Viewing status never grants consent or creates commits.
+
+**Run → Files** lists workspace attachments and archived revisions together. An
+attachment that matches an archive entry by identity, hash and size has one row
+with both storage labels. Different historical revisions remain separate even
+when their filenames match. Use **Archived in Git** to filter, or expand
+**Revision details** for the exact commit and alternate Git download.
+
+**Download workspace copy** does not need either Git connection. **Download Git
+revision** needs the original master archive and verifies the recorded commit,
+path, size and hash. It never substitutes HEAD or a live source file. Errors leave
+the run unchanged. Missing/disconnected Git does not hide the historical metadata.
+References retain their original path; SimShelf does not serve external bytes.
+Source entries with a matching workspace snapshot offer **View in Source**; this
+is the existing bounded text preview, not a new source export feature.
+
+A connection check is a point-in-time hint; download verifies the object again.
+If a configured archive becomes unavailable, its path remains visible for recovery.
+Choose **Refresh archive status**, or explicitly reconnect it. Archive initialization
+is collapsed by default when connected; **Disconnect archive** remains visible.
+
+Notes remain in the workspace and workspace backups, not in current Git archive
+manifests. Image attachments can already be explicitly archived, but this does not
+export their captions. Portable notes/manifests and remote publishing remain
+separate future work. See the [Stage A design](MASTER_ARCHIVE_UX_DESIGN.md).

@@ -341,3 +341,11 @@ consent and capture-relative future rules feed verified managed copies; an isola
 Git index and atomic ref transaction publish immutable per-run events. Post-run
 attachments use separate approved additions. Historical downloads verify the
 recorded commit/path/hash. No storage schema migration or source Git writes occur.
+
+
+Issue #56 adds read-only archive/consent status projections and a unified Run files
+presentation. Attachment associations require identity, size and hash; separate
+archive events keep their historical download addresses. The source Git section
+retains its independent connection. Publication, recovery, storage and scientific
+records are unchanged; portable manifests/notes remain design-only. See the
+[approved Stage A design](MASTER_ARCHIVE_UX_DESIGN.md).

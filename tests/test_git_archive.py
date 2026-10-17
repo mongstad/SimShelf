@@ -344,3 +344,77 @@ def test_corrupt_optional_archive_settings_do_not_block_recording(setup):
     assert store.run(ident)['status']=='completed'
     assert not archive.entries(store,ident)
     assert archive.view(store,ident)['error']
+
+
+def test_read_only_status_and_downloads_independent_of_source_git(setup, monkeypatch):
+    store, repo, (a, b) = setup
+    ident = run_output(store, a)
+    event, = archive.entries(store, ident)
+    before_run = store.run(ident)
+    with store.connection() as conn:
+        before = [tuple(row) for row in conn.execute('SELECT * FROM metadata ORDER BY key')]
+    files = {str(p.relative_to(repo)): p.read_bytes() for p in repo.rglob('*') if p.is_file()}
+    assert archive.connection_status(store)['state'] == 'connected'
+    assert archive.automatic_status(store, a['id'])['state'] == 'enabled'
+    assert archive.view(store, ident)['connection_status']['identity'] == event['repository']['identity']
+    with store.connection() as conn:
+        assert before == [tuple(row) for row in conn.execute('SELECT * FROM metadata ORDER BY key')]
+    assert files == {str(p.relative_to(repo)): p.read_bytes() for p in repo.rglob('*') if p.is_file()}
+    assert before_run == store.run(ident)
+    saved = archive.get(store, 'connection')
+    archive.put(store, 'connection', None)
+    assert archive.connection_status(store)['state'] == 'disconnected'
+    assert archive.automatic_status(store, a['id'])['state'] == 'review_required'
+    assert archive.view(store, ident)['events'] == [event]
+    artifact = next(x for x in store.run(ident)['artifacts'] if x['policy'] == 'copy')
+    assert store.artifact_file(artifact['id']).read_bytes() == b'one'
+    with pytest.raises(ValueError): archive.download(store, ident, event['id'], 0)
+    archive.put(store, 'connection', saved)
+    assert archive.download(store, ident, event['id'], 0)
+    monkeypatch.setattr(archive.shutil, 'which', lambda name: None)
+    assert archive.connection_status(store)['state'] == 'unavailable'
+    assert archive.automatic_status(store, a['id'])['state'] == 'review_required'
+    assert store.artifact_file(artifact['id']).read_bytes() == b'one'
+
+
+def test_consent_projection_disabled_stale_and_future_matches(setup):
+    store, repo, (a, b) = setup
+    # New matching filenames are allowed by existing consent, not a stale revision.
+    (Path(a['root']) / 'outputs/new.csv').write_text('new')
+    assert archive.automatic_status(store, a['id'])['state'] == 'enabled'
+    inv = inventory(store, a['id'])
+    save_selection(store, a['id'], selection_preview(store, a['id'], inv['revision'], []))
+    assert archive.automatic_status(store, a['id'])['state'] == 'review_required'
+    assert archive.automatic_status(store, b['id'])['state'] == 'enabled'
+    archive.put(store, 'settings:' + a['id'], None)
+    assert archive.automatic_status(store, a['id'])['state'] == 'disabled'
+    saved = archive.get(store, 'connection')
+    archive.put(store, 'connection', {**saved, 'workspace': 'different'})
+    assert archive.connection_status(store)['state'] == 'unavailable'
+    archive.put(store, 'connection', saved)
+    (repo / 'simshelf-archive-id').write_text('wrong')
+    assert archive.connection_status(store)['state'] == 'unavailable'
+    assert archive.automatic_status(store, b['id'])['state'] == 'review_required'
+
+
+def test_api_availability_disconnect_reload_and_workspace_copy(setup):
+    from fastapi.testclient import TestClient
+    from simshelf.api import create_app
+    store, repo, (a, b) = setup
+    ident = run_output(store, a)
+    client = TestClient(create_app(store.path))
+    assert client.get('/api/workspace/archive').json()['status']['state'] == 'connected'
+    assert client.get(f'/api/simulations/{a["id"]}/archive').json()['automatic_status']['state'] == 'enabled'
+    assert client.get('/api/workspace/git').json()['connection'] is None
+    saved = archive.get(store, 'connection')
+    archive.put(store, 'connection', None)
+    response = client.get(f'/api/runs/{ident}/archive').json()
+    assert response['connection_status']['state'] == 'disconnected'
+    event, = response['events']
+    item = next(x for x in store.run(ident)['artifacts'] if x['policy'] == 'copy')
+    assert client.get(f'/api/artifacts/{item["id"]}/file?download=true').content == b'one'
+    assert client.get(f'/api/runs/{ident}/archive/{event["id"]}/0/file').status_code == 400
+    archive.connect(store, saved['path'], False, True)
+    reloaded = TestClient(create_app(store.path))
+    assert reloaded.get('/api/workspace/archive').json()['status']['state'] == 'connected'
+    assert reloaded.get(f'/api/runs/{ident}/archive/{event["id"]}/0/file').status_code == 200

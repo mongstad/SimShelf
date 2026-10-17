@@ -216,6 +216,44 @@ def connection(store):
     return saved
 
 
+def connection_status(store):
+    """Read-only availability hint; downloads still verify exact objects."""
+    saved = get(store, 'connection')
+    if not saved:
+        return {'state': 'disconnected', 'reason': None, 'identity': None}
+    try:
+        saved = connection(store)
+        validate_repo(store, saved)
+        if not shutil.which('git'):
+            raise ValueError('Git unavailable. Workspace copies remain downloadable.')
+        return {'state': 'connected', 'reason': None, 'identity': saved['identity']}
+    except (ValueError, OSError, KeyError, TypeError) as exc:
+        return {'state': 'unavailable', 'reason': str(exc), 'identity': None}
+
+
+@locked_store
+def automatic_status(store, ident):
+    """Mirror start-time consent checks without creating a plan or writing data."""
+    plan = get(store, 'settings:' + ident)
+    if not plan:
+        return {'state': 'disabled', 'reason': None}
+    try:
+        saved = connection(store)
+        sim = store.simulation(ident)
+        if (plan['workspace'] != workspace_identity(store) or plan['repository'] != saved
+                or plan['capture_config'] != sim['config'] or plan['source'] != sim['root']):
+            raise ValueError('Source, capture settings or archive connection changed. Review consent again.')
+        inv = inventory(store, ident)
+        if inv['rules'] != plan['rules'] or inv['binding'] != plan['binding']:
+            raise ValueError('File selection changed. Review consent again.')
+        status = connection_status(store)
+        if status['state'] != 'connected':
+            raise ValueError(status['reason'] or 'Connect the master archive first.')
+        return {'state': 'enabled', 'reason': None}
+    except (ValueError, OSError, KeyError, TypeError) as exc:
+        return {'state': 'review_required', 'reason': str(exc)}
+
+
 def future_rules(values):
     if not isinstance(values, list) or len(values) > 100:
         raise ValueError('Use at most 100 future output rules.')
@@ -263,7 +301,7 @@ def entries(store, run_id):
 
 def view(store, run_id):
     events = entries(store, run_id)
-    return {'events': events, 'initial': get(store, 'initial:' + run_id),
+    return {'events': events, 'connection_status': connection_status(store), 'initial': get(store, 'initial:' + run_id),
             'pending': get(store, 'pending:' + run_id), 'error': get(store, 'error:' + run_id)}
 
 

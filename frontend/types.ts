@@ -44,6 +44,7 @@ export type Simulation = {
   last_run: string | null;
 };
 export type Artifact = {
+  blob?: string;
   automatic?: boolean;
   screenshot_deletion_reason?: string | null;
   id: string;

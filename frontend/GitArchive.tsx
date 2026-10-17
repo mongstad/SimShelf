@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { api, uploadFile } from "./api";
-import type { Run, Simulation } from "./types";
+import type { Artifact, Run, Simulation } from "./types";
 
 type Review = Record<string, any>;
 export const archiveLimits =
@@ -18,6 +18,8 @@ export function FutureOutputHelp({ directory }: { directory: string }) {
 }
 export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
   const [connection, setConnection] = useState<Review | null>(null);
+  const [status, setStatus] = useState<Review | null>(null);
+  const [automatic, setAutomatic] = useState<Review | null>(null);
   const [settings, setSettings] = useState<Review | null>(null);
   const [runs, setRuns] = useState<Review[]>([]);
   const [path, setPath] = useState("");
@@ -30,13 +32,19 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
     const c = await api<Review>("/workspace/archive");
     const s = await api<Review>(`/simulations/${simulation.id}/archive`);
     setConnection(c.connection);
+    setStatus(c.status);
+    setAutomatic(s.automatic_status);
     setSettings(s.settings);
     setRuns(s.runs);
     setPath(c.connection?.path || "");
     setFuture(s.settings?.future.join("\n") || "");
   }
   useEffect(() => {
-    void load().catch((e) => setMessage(e.message));
+    void load().catch((e) => {
+      setStatus(null);
+      setAutomatic(null);
+      setMessage(e.message);
+    });
   }, [simulation.id]);
   async function action(work: () => Promise<void>) {
     setBusy(true);
@@ -44,6 +52,9 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
     try {
       await work();
     } catch (e) {
+      setStatus(null);
+      setAutomatic(null);
+      setReview(null);
       setMessage((e as Error).message);
     } finally {
       setBusy(false);
@@ -54,6 +65,42 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
   return (
     <section className="git-archive">
       <h2>Shared master Git archive</h2>
+      <MasterArchiveStatus status={status} />
+      {automatic && (
+        <p role="status">
+          Automatic archival for {simulation.name}:{" "}
+          <strong>
+            {automatic.state === "enabled"
+              ? "Enabled"
+              : automatic.state === "disabled"
+                ? "Disabled"
+                : "Review required / unavailable"}
+          </strong>
+          {automatic.reason && (
+            <small className="path">{automatic.reason}</small>
+          )}
+        </p>
+      )}
+      {!automatic && (
+        <p>Automatic archival status unavailable until refreshed.</p>
+      )}
+      <button disabled={busy} onClick={() => void action(load)}>
+        Refresh archive status
+      </button>
+      {connection && (
+        <button
+          disabled={busy}
+          onClick={() =>
+            void action(async () => {
+              await post("/workspace/archive/disconnect");
+              setReview(null);
+              await load();
+            })
+          }
+        >
+          Disconnect archive
+        </button>
+      )}
       <p>
         One separate local repository for all simulations. Archive commits are
         independent of scientific versions and source Git history. No uploads or
@@ -65,11 +112,11 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
           Configured archive: <code>{connection.path}</code>
         </p>
       )}
-      <details>
+      <details key={connection ? "configured" : "setup"}>
         <summary>
           {connection
-            ? "Reconnect or disconnect archive"
-            : "Set up archive repository"}
+            ? "Reconnect or set up another archive"
+            : "Connect archive locally"}
         </summary>
         <label>
           Dedicated archive directory
@@ -114,27 +161,14 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
             ? "Initialize and connect archive"
             : "Connect archive locally"}
         </button>{" "}
-        {connection && (
-          <button
-            disabled={busy}
-            onClick={() =>
-              void action(async () => {
-                await post("/workspace/archive/disconnect");
-                await load();
-              })
-            }
-          >
-            Disconnect archive
-          </button>
-        )}
       </details>
-      <h3>Automatic archive for {simulation.name}</h3>
+      <h3>Automatic archive settings</h3>
       <p>
         {settings
           ? "Consent saved. Changed locations or capture settings require review again."
           : "Automatic archival is off."}{" "}
-        Existing file choices come from Manage Git files above; saving those
-        choices alone never enables archival.
+        Existing file choices come from Manage Git files in the Source Git
+        section; saving those choices alone never enables archival.
       </p>
       <label>
         Future outputs — one filename or pattern per line
@@ -150,12 +184,17 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
       </label>
       <FutureOutputHelp directory={simulation.config.output_dir} />
       <p>
+        <strong>
+          Workspace backups do not include the external Git archive.
+        </strong>
+      </p>
+      <p>
         {archiveLimits} Git retains earlier versions even after a run or
         attachment is deleted. Back up this repository separately from your
         library.
       </p>
       <button
-        disabled={busy || !connection}
+        disabled={busy || status?.state !== "connected"}
         onClick={() =>
           void action(async () =>
             setReview(
@@ -261,53 +300,17 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
   );
 }
 
-export function ArchiveInventory({
-  runId,
-  events,
+export function RunArchive({
+  run,
+  reload,
+  openSource,
 }: {
-  runId: string;
-  events: Review[];
+  run: Run;
+  reload: () => void;
+  openSource?: (path: string) => void;
 }) {
-  return (
-    <>
-      {events.map((e) => (
-        <section key={e.id}>
-          <h3>
-            {e.kind === "initial"
-              ? "Initial run archive"
-              : "Post-run additions"}{" "}
-            · <code>{e.commit.slice(0, 9)}</code>
-          </h3>
-          <ul>
-            {e.files.map((f: Review, i: number) => (
-              <li key={f.path}>
-                <a href={`/api/runs/${runId}/archive/${e.id}/${i}/file`}>
-                  Download {f.name}
-                </a>{" "}
-                <small>
-                  {f.category} · {f.size.toLocaleString()} bytes
-                </small>
-              </li>
-            ))}
-          </ul>
-          {!!e.skipped.length && (
-            <details>
-              <summary>Not archived ({e.skipped.length})</summary>
-              <ul>
-                {e.skipped.map((s: Review, i: number) => (
-                  <li key={i}>
-                    {s.name}: {s.reason}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-        </section>
-      ))}
-    </>
-  );
-}
-export function RunArchive({ run, reload }: { run: Run; reload: () => void }) {
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("all");
   const [view, setView] = useState<Review | null>(null),
     [selected, setSelected] = useState<string[]>([]);
   const [review, setReview] = useState<Review | null>(null),
@@ -324,7 +327,12 @@ export function RunArchive({ run, reload }: { run: Run; reload: () => void }) {
           if (active) setView(v);
         })
         .catch((e) => {
-          if (active) setMessage(e.message);
+          if (active) {
+            setView((old) =>
+              old ? { ...old, connection_status: null } : null,
+            );
+            setMessage(e.message);
+          }
         });
     void refresh();
     const timer = setInterval(refresh, 3000);
@@ -349,17 +357,12 @@ export function RunArchive({ run, reload }: { run: Run; reload: () => void }) {
       method: "POST",
       body: JSON.stringify(body),
     });
-  const used = new Set(
-    view?.events.flatMap((e: Review) =>
-      e.files.map((f: Review) => f.artifact_id),
-    ) || [],
-  );
   return (
     <section className="git-archive">
-      <h2>Git-archived files</h2>
+      <h2>Run files</h2>
       <p>
-        Historical downloads use each file’s exact commit. Earlier filename
-        revisions remain available. {archiveLimits}
+        Workspace copies download without Git. Git revisions use their exact
+        archived commit. Earlier filename revisions remain separate.
       </p>
       {message && <p role="status">{message}</p>}
       {view?.error && <p role="alert">Archive: {view.error}</p>}
@@ -370,7 +373,75 @@ export function RunArchive({ run, reload }: { run: Run; reload: () => void }) {
           manually if needed.
         </p>
       )}
-      {view && <ArchiveInventory runId={run.id} events={view.events} />}
+      <div className="toolbar">
+        <input
+          aria-label="Filter filenames"
+          placeholder="Filter filenames…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <select
+          aria-label="File policy filter"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        >
+          <option value="all">All recorded files</option>
+          <option value="copy">Saved copies</option>
+          <option value="archive">Archived in Git</option>
+          <option value="reference">References</option>
+          <option value="skipped">Skipped</option>
+        </select>
+      </div>
+      {!view && (
+        <p role="status">
+          Archive history unavailable until loaded. Workspace files remain
+          accessible.
+        </p>
+      )}
+      <RunFilesTable
+        run={run}
+        openSource={openSource}
+        events={view?.events || []}
+        connection={view?.connection_status}
+        search={search}
+        filter={filter}
+        selected={selected}
+        disabled={busy || !!view?.pending || !view || run.status === "running"}
+        onSelect={(id) => {
+          setSelected(
+            selected.includes(id)
+              ? selected.filter((x) => x !== id)
+              : [...selected, id],
+          );
+          setReview(null);
+        }}
+      />
+      {view && (
+        <details>
+          <summary>Archive events and omissions ({view.events.length})</summary>
+          <p>
+            {archiveLimits} Workspace backups do not include the external Git
+            archive.
+          </p>
+          {view.events.map((e: Review) => (
+            <section key={e.id}>
+              <h3>
+                {e.kind === "initial"
+                  ? "Initial run archive"
+                  : "Post-run additions"}{" "}
+                · <code>{e.commit.slice(0, 9)}</code>
+              </h3>
+              <ul>
+                {e.skipped.map((s: Review, i: number) => (
+                  <li key={i}>
+                    {s.name}: {s.reason}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </details>
+      )}
       {view && !view.events.length && (
         <p>No verified archive commits for this run.</p>
       )}
@@ -414,35 +485,24 @@ export function RunArchive({ run, reload }: { run: Run; reload: () => void }) {
                   for (const f of files) await uploadFile(run.id, f);
                   reload();
                   setMessage(
-                    "Files attached. Select attachments below to archive them.",
+                    "Files attached. Select attachments in Run files to archive them.",
                   );
                 });
               }}
             />
           </label>
-          <fieldset disabled={busy || !!view?.pending}>
-            <legend>Managed attachments to archive</legend>
-            {(run.artifacts || [])
-              .filter(
-                (a) => a.policy === "copy" && !a.automatic && !used.has(a.id),
-              )
-              .map((a) => (
-                <label className="archive-choice" key={a.id}>
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(a.id)}
-                    onChange={(e) => {
-                      setSelected(
-                        e.target.checked
-                          ? [...selected, a.id]
-                          : selected.filter((id) => id !== a.id),
-                      );
-                      setReview(null);
-                    }}
-                  />
-                  {a.name} · {a.size.toLocaleString()} bytes
-                </label>
-              ))}
+          <fieldset
+            disabled={
+              busy ||
+              !!view?.pending ||
+              view?.connection_status?.state !== "connected"
+            }
+          >
+            <legend>Archive selected attachments ({selected.length})</legend>
+            <p>
+              Select eligible workspace attachments in the Run files list, then
+              review.
+            </p>
             <button
               disabled={!selected.length}
               onClick={() =>
@@ -491,5 +551,269 @@ export function RunArchive({ run, reload }: { run: Run; reload: () => void }) {
         </>
       )}
     </section>
+  );
+}
+
+export function MasterArchiveStatus({ status }: { status?: Review | null }) {
+  return (
+    <p
+      role="status"
+      className={status?.state === "connected" ? "archive-connected" : ""}
+    >
+      {status?.state === "connected" ? (
+        <>
+          <span aria-hidden="true">✓ </span>Master simulation archive connected
+        </>
+      ) : status?.state === "disconnected" ? (
+        "Local archive disconnected"
+      ) : (
+        "Master archive availability unknown / unavailable"
+      )}
+      {status?.reason && <small className="path">{status.reason}</small>}
+    </p>
+  );
+}
+
+type FileRow = {
+  key: string;
+  name: string;
+  size: number;
+  artifact?: Artifact;
+  archived?: { event: Review; file: Review; index: number };
+};
+export function runFileRows(run: Run, events: Review[]): FileRow[] {
+  const rows: FileRow[] = (run.artifacts || []).map((artifact) => ({
+    key: `artifact:${artifact.id}`,
+    name: artifact.name,
+    size: artifact.size,
+    artifact,
+  }));
+  for (const event of events)
+    event.files.forEach((file: Review, index: number) => {
+      // Identity plus content: neither a coincident filename nor identical bytes
+      // alone identify a historical attachment. Never collapse separate events.
+      const row =
+        file.artifact_id &&
+        rows.find(
+          (r) =>
+            !r.archived &&
+            r.artifact?.id === file.artifact_id &&
+            r.artifact?.policy === "copy" &&
+            !!file.blob &&
+            r.artifact?.blob === file.blob &&
+            r.size === file.size,
+        );
+      const archived = { event, file, index };
+      if (row) row.archived = archived;
+      else
+        rows.push({
+          key: `event:${event.id}:${index}`,
+          name: file.name,
+          size: file.size,
+          archived,
+        });
+    });
+  return rows;
+}
+
+export function RunFilesTable({
+  run,
+  events,
+  connection,
+  search = "",
+  filter = "all",
+  selected = [],
+  disabled = false,
+  onSelect = () => {},
+  openSource,
+}: {
+  run: Run;
+  events: Review[];
+  connection?: Review | null;
+  search?: string;
+  filter?: string;
+  selected?: string[];
+  disabled?: boolean;
+  onSelect?: (id: string) => void;
+  openSource?: (path: string) => void;
+}) {
+  const [downloadError, setDownloadError] = useState("");
+  const used = new Set(
+    events.flatMap((e) => e.files.map((f: Review) => f.artifact_id)),
+  );
+  const rows = runFileRows(run, events).filter(
+    (r) =>
+      r.name.toLowerCase().includes(search.toLowerCase()) &&
+      (filter === "all" ||
+        (filter === "archive" ? !!r.archived : r.artifact?.policy === filter)),
+  );
+  async function downloadGit(
+    event: React.MouseEvent<HTMLAnchorElement>,
+    url: string,
+    name: string,
+  ) {
+    if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)
+      return;
+    event.preventDefault();
+    setDownloadError("");
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(
+          typeof body.detail === "string"
+            ? body.detail
+            : "Historical download unavailable. Check the master archive and retry.",
+        );
+      }
+      const blob = await response.blob(),
+        object = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = object;
+      anchor.download = name;
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(object), 30000);
+    } catch (error) {
+      setDownloadError((error as Error).message);
+    }
+  }
+  return (
+    <div className="run-files-list">
+      {downloadError && <p role="alert">{downloadError}</p>}
+      {!rows.length && <p>No files match this view.</p>}
+      {rows.map((row) => {
+        const a = row.artifact,
+          archived = row.archived;
+        const local = a?.policy === "copy" && a.availability === "available";
+        const connected =
+          !!archived &&
+          connection?.state === "connected" &&
+          connection.identity === archived.event.repository?.identity;
+        const snapshot =
+          archived?.file.category === "source" &&
+          run.snapshot?.files.find(
+            (f) =>
+              f.path === archived.file.name &&
+              f.blob === archived.file.blob &&
+              f.size === archived.file.size,
+          );
+        const gitUrl = archived
+          ? `/api/runs/${run.id}/archive/${archived.event.id}/${archived.index}/file`
+          : "";
+        const eligible =
+          a?.policy === "copy" &&
+          !a.automatic &&
+          !used.has(a.id) &&
+          run.status !== "running";
+        return (
+          <article key={row.key} className="run-file-row" aria-label={row.name}>
+            <div className="run-file-name">
+              <strong>{row.name}</strong>
+              <small>{row.size.toLocaleString()} bytes</small>
+              {eligible && (
+                <label className="archive-choice">
+                  <input
+                    type="checkbox"
+                    disabled={disabled}
+                    checked={selected.includes(a.id)}
+                    onChange={() => onSelect(a.id)}
+                    aria-label={`Select ${row.name} for archive`}
+                  />
+                  Select for archive
+                </label>
+              )}
+            </div>
+            <div className="run-file-storage">
+              {a && (
+                <span>
+                  {a.policy === "copy"
+                    ? "Preserved in workspace"
+                    : a.policy === "reference"
+                      ? "Reference only"
+                      : "Not preserved"}{" "}
+                  · {a.availability.replaceAll("-", " ")}
+                </span>
+              )}
+              {archived && (
+                <span>
+                  Archived in Git · {archived.file.category} ·{" "}
+                  <code>{archived.event.commit.slice(0, 9)}</code>
+                </span>
+              )}
+              {archived && !connected && (
+                <small>
+                  {connection?.state === "connected"
+                    ? "Connect the original archive for this revision."
+                    : "Git download unavailable — connect or check the master archive."}
+                </small>
+              )}
+              {a?.original_path && a.policy === "reference" && (
+                <small className="path">{a.original_path}</small>
+              )}
+              {a?.reason && <small className="text-amber">{a.reason}</small>}
+            </div>
+            <div className="run-file-download">
+              {snapshot && (
+                <p>
+                  Matching workspace source snapshot.{" "}
+                  {openSource && (
+                    <button onClick={() => openSource(snapshot.path)}>
+                      View in Source
+                    </button>
+                  )}
+                </p>
+              )}
+              {local ? (
+                <a
+                  href={`/api/artifacts/${a.id}/file?download=true`}
+                  aria-label={`Download workspace copy of ${row.name}`}
+                >
+                  Download workspace copy
+                </a>
+              ) : connected ? (
+                <a
+                  href={gitUrl}
+                  onClick={(e) => void downloadGit(e, gitUrl, row.name)}
+                  aria-label={`Download Git revision of ${row.name}`}
+                >
+                  Download Git revision
+                </a>
+              ) : (
+                <span>
+                  {snapshot
+                    ? "Git download unavailable"
+                    : "No downloadable copy available"}
+                </span>
+              )}
+              {archived && (
+                <details>
+                  <summary>Revision details</summary>
+                  <p>
+                    Archive event: {archived.event.kind}
+                    <br />
+                    Commit: <code>{archived.event.commit}</code>
+                    <br />
+                    SHA-256: <code>{archived.file.blob}</code>
+                  </p>
+                  {local && connected && (
+                    <a
+                      href={gitUrl}
+                      onClick={(e) => void downloadGit(e, gitUrl, row.name)}
+                      aria-label={`Download Git revision of ${row.name}`}
+                    >
+                      Download Git revision
+                    </a>
+                  )}
+                  <p>
+                    Git downloads verify this exact event and path, never the
+                    current source file.
+                  </p>
+                </details>
+              )}
+            </div>
+          </article>
+        );
+      })}
+    </div>
   );
 }

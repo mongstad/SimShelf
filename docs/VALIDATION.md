@@ -191,3 +191,9 @@ inspection and focused installed-browser/package checks.
 See [issue #47 shared archive](validation/issue-47-shared-archive.md) for explicit
 consent, capture-relative future rules, immutable post-run additions, historical
 downloads, failure/recovery checks and installed-browser/package evidence.
+
+## Unified master archive presentation
+
+See [issue #56 Stage A](validation/issue-56-master-archive-ux.md) for independent
+connection/consent states, coherent file revisions, focused regressions and
+all-theme installed-browser/package evidence. Earlier reports remain unchanged.

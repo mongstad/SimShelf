@@ -210,7 +210,7 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
 
     @app.get("/api/workspace/archive")
     def archive_connection():
-        return {"connection": archive.get(store, 'connection')}
+        return {"connection": archive.get(store, 'connection'), "status": archive.connection_status(store)}
 
     @app.post("/api/workspace/archive/connect")
     def archive_connect(body: ArchiveRequest):
@@ -227,7 +227,7 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
     @app.get("/api/simulations/{ident}/archive")
     def archive_settings(ident: str):
         store.simulation(ident)
-        return {"settings": archive.get(store, 'settings:' + ident),
+        return {"settings": archive.get(store, 'settings:' + ident), "automatic_status": archive.automatic_status(store, ident),
                 "runs": [{"run": r['id'], "name": r['name'], "events": archive.entries(store, r['id'])}
                          for r in store.runs(simulation=ident, limit=200)]}
 

@@ -6,7 +6,7 @@ import {GitObservation} from './GitHistory.tsx';
 const render = value => renderToStaticMarkup(React.createElement(GitObservation,{value}));
 test('nullable offline provenance remains explicit and inert',()=>{
   const disabled=render({availability:'disabled'});
-  assert.match(disabled,/Git is disconnected/);
+  assert.match(disabled,/Source Git history — Not connected/);
   assert.doesNotMatch(disabled,/Recent source history/);
   assert.match(render({availability:'unmapped'}),/not mapped/);
   assert.match(render({availability:'unavailable',reason:'Git <unavailable>'}),/Git &lt;unavailable&gt;/);
