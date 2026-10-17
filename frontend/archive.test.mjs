@@ -302,9 +302,14 @@ test("automatic archival has one accessible authoritative switch", async () => {
   });
   assert.doesNotMatch(
     html,
-    /Automatic archive consent|Confirm archival settings|Disable for future runs|Enable automatic archive for this simulation/,
+    /Automatic archive consent|Confirm changes|Disable for future runs|Enable automatic archive for this simulation/,
   );
   assert.match(html, /<details><summary>Automatic archival settings/);
+  assert.equal(
+    (html.match(/>Review archival settings<\/button>/g) || []).length,
+    1,
+  );
+  assert.doesNotMatch(html, />Cancel<\/button>/);
 });
 
 test("master connection switch is distinct and only reflects confirmed availability", () => {

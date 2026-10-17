@@ -25,7 +25,7 @@ revision, exact source snapshot and archive commit are different records.
    wildcard, traversal or absolute path is accepted. Edit/remove lines to revise.
 4. Switch **Automatic archival** on beside the simulation status (or choose
    **Review archival settings**). Inspect the selection and copy overrides, then
-   choose **Confirm archival settings**. The switch stays off until confirmation. Future-output matches
+   choose **Confirm changes**. The switch stays off until confirmation. Future-output matches
    request Keep a copy ahead of ordinary capture policy for new opted-in runs;
    configured capture size limits still apply. Global saved capture rules are
    not rewritten. Each run freezes its consent and effective copy overrides.
@@ -218,3 +218,11 @@ never moves files. If no previous connection is known, ON opens this setup form.
 Reconnecting the exact original archive can make previously granted consent
 usable again; it does not grant new consent. A different archive or changed
 source/capture selections still requires the separate automatic-archival review.
+
+
+During automatic archival review, the normal **Review archival settings** action
+is hidden. Inspect the displayed rules, then choose **Confirm changes** or
+**Cancel**. Future-output editing is locked while that review is open; cancel to
+edit again. Both paths restore the normal action and keyboard focus. The automatic
+archival toggle uses this same review when turning ON; server-side stale-review
+checks still apply.

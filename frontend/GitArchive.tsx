@@ -25,6 +25,8 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
   const setupPath = useRef<HTMLInputElement | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const cancelReview = useRef<HTMLButtonElement | null>(null);
+  const reviewAction = useRef<HTMLButtonElement | null>(null);
+  const automaticPanel = useRef<HTMLDetailsElement | null>(null);
   const restoreFocus = useRef(false);
   const [runs, setRuns] = useState<Review[]>([]);
   const [path, setPath] = useState("");
@@ -58,7 +60,12 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
       cancelReview.current?.focus();
       restoreFocus.current = true;
     } else if (!busy && restoreFocus.current) {
-      returnFocus.current?.focus();
+      const target = returnFocus.current?.isConnected
+        ? returnFocus.current
+        : reviewAction.current;
+      if (target === reviewAction.current && automaticPanel.current)
+        automaticPanel.current.open = true;
+      target?.focus();
       restoreFocus.current = false;
     }
   }, [review, busy]);
@@ -248,7 +255,7 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
       <p className="muted">
         Workspace backups do not include the external Git archive.
       </p>
-      <details>
+      <details ref={automaticPanel}>
         <summary>Automatic archival settings</summary>
         <p>
           File choices come from Manage Git files in the Source Git section.
@@ -259,7 +266,7 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
           Future outputs — one filename or pattern per line
           <textarea
             value={future}
-            disabled={busy}
+            disabled={busy || !!review}
             onChange={(e) => {
               setFuture(e.target.value);
               setReview(null);
@@ -273,12 +280,15 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
           attachment is deleted. Back up this repository separately from your
           library.
         </p>
-        <button
-          disabled={busy || !!review || status?.state !== "connected"}
-          onClick={(e) => void requestReview(e.currentTarget)}
-        >
-          Review archival settings
-        </button>
+        {!review && (
+          <button
+            ref={reviewAction}
+            disabled={busy || status?.state !== "connected"}
+            onClick={(e) => void requestReview(e.currentTarget)}
+          >
+            Review archival settings
+          </button>
+        )}
       </details>
       {review && (
         <section aria-label="Automatic archive consent">
@@ -331,12 +341,15 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
               })
             }
           >
-            Confirm archival settings
+            Confirm changes
           </button>{" "}
           <button
             ref={cancelReview}
             disabled={busy}
-            onClick={() => setReview(null)}
+            onClick={() => {
+              setReview(null);
+              setMessage("Review canceled. Settings unchanged.");
+            }}
           >
             Cancel
           </button>
