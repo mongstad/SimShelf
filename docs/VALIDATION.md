@@ -155,3 +155,8 @@ browser evidence, package checks and the existing schema-4 dialog limitation.
 See [issue #40 completed progress](validation/issue-40-completed-progress.md) for
 last-reported labeling, read-only investigation, lifecycle regressions and
 all-theme desktop/narrow source and installed-package checks.
+
+The owner's follow-up is recorded separately in
+[issue #40 completed-bar revision](validation/issue-40-completion-bar-revision.md):
+full successful-completion bars, unchanged historical telemetry, accessible
+semantics, focused regressions and packaged browser checks.

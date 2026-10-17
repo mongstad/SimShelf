@@ -20,24 +20,32 @@ export function RunProgress({ run }: { run: Run }) {
           Math.round((report!.current! / report!.total!) * 1000) / 10,
         )
     : null;
-  const completedBelowTotal =
-    known && run.status === "completed" && report!.current! < report!.total!;
+  const completed = run.status === "completed";
   return (
     <section className="run-progress" aria-label="Simulation progress">
       <div className="progress-heading">
         <strong>
-          {known
-            ? completedBelowTotal ? "Last reported progress" : "Progress"
-            : "Progress unavailable"}
+          {completed || known ? "Progress" : "Progress unavailable"}
         </strong>
-        {percent !== null && <span>{percent}%</span>}
+        {!completed && percent !== null && <span>{percent}%</span>}
       </div>
-      {known && (
+      {(completed || known) && (
         <progress
-          aria-label={completedBelowTotal ? "Last reported simulation progress" : "Simulation progress"}
-          value={report!.current!}
-          max={report!.total!}
+          aria-label={completed ? "Successful process completion" : "Simulation progress"}
+          aria-valuetext={completed
+            ? known
+              ? `Process completed; last reported progress ${percent}%, ${report!.current!.toLocaleString("en-US", { maximumFractionDigits: 12 })} of ${report!.total!.toLocaleString("en-US", { maximumFractionDigits: 12 })} steps`
+              : "Process completed; no reported progress available"
+            : undefined}
+          value={completed ? 100 : report!.current!}
+          max={completed ? 100 : report!.total!}
         />
+      )}
+      {completed && (
+        <div className="progress-heading">
+          <strong>{known ? "Last reported progress" : "Progress unavailable"}</strong>
+          {percent !== null && <span>{percent}%</span>}
+        </div>
       )}
       {known && (
         <div className="muted">
@@ -47,7 +55,6 @@ export function RunProgress({ run }: { run: Run }) {
         </div>
       )}
       {report?.stage && <div className="progress-stage">{report.stage}</div>}
-      {completedBelowTotal && <small className="muted">Process completed successfully.</small>}
       {run.progress_error && (
         <p role="alert">
           Progress could not be saved completely: {run.progress_error}

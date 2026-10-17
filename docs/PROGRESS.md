@@ -3,10 +3,13 @@
 Run details show **Progress** when a simulation supplies a valid
 current/total pair. Unknown totals show no percentage. Elapsed wall-clock time
 stays beside the run status. Finalized runs keep their last report, which may be
-less than 100%. For a successfully completed run below 100%, the panel labels
-the actual value **Last reported progress** and states **Process completed
-successfully.** It never fills in an unreported final value. Even a 100% report
-does not establish successful execution.
+less than 100%. Successfully completed runs show a fully filled bar representing
+process completion. Beneath it, **Last reported progress** identifies the actual
+reported percentage and step counts, without changing stored telemetry. Completed
+runs without a valid report still show the full bar and **Progress unavailable**,
+without inventing a reported percentage or counts. Running, failed, cancelled and
+interrupted runs show only their actual reported progress. Even a 100% report
+does not establish successful execution or stop a process.
 Progress is optional telemetry, separate from measurements, parameters and source
 identity. It does not add pause/resume or change cancellation semantics.
 
