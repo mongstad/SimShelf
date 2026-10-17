@@ -64,43 +64,92 @@ export function FileLabel({ file }: { file: FileItem }) {
     </>
   );
 }
-export function SelectionReview({ review }: { review: Selection }) {
+export function sameRules(left: Rule[], right: Rule[]) {
+  const keys = (rules: Rule[]) =>
+    rules.map((r) => JSON.stringify([r.kind, r.value])).sort();
+  return JSON.stringify(keys(left)) === JSON.stringify(keys(right));
+}
+
+export async function saveSelection(
+  base: string,
+  revision: string,
+  rules: Rule[],
+  request: typeof api = api,
+) {
+  const review = await request<Selection>(base + "/files/preview", {
+    method: "POST",
+    body: JSON.stringify({ revision, rules }),
+  });
+  await request(base + "/files/save", {
+    method: "POST",
+    body: JSON.stringify({ review, confirmed: true }),
+  });
+}
+
+export function SelectedRules({
+  rules,
+  files,
+  remove,
+}: {
+  rules: Rule[];
+  files: FileItem[];
+  remove: (rule: Rule) => void;
+}) {
   return (
-    <section aria-label="Inclusion preview">
-      <h4>Review inclusion preferences</h4>
-      <p>
-        {review.selected.length} current files selected. This does not stage or
-        commit files.
-      </p>
-      {review.matches.map(({ rule, paths }, i) => (
-        <details key={i} open>
-          <summary>
-            {rule.kind}: <code>{rule.value}</code> — {paths.length} matches
-          </summary>
-          <ul>
-            {paths.map((p) => (
-              <li key={p}>
-                <code>{p}</code>
-              </li>
-            ))}
-          </ul>
-        </details>
-      ))}
-      <p>
-        File choices apply to that path. Folder and extension choices also
-        suggest future matching files, which must be reviewed again before any
-        future commit.
-      </p>
-    </section>
+    <details>
+      <summary>Selected rules ({rules.length})</summary>
+      {rules.map((rule) => {
+        const paths = files
+          .filter((f) => included(f.path, [rule]))
+          .map((f) => f.path);
+        return (
+          <details key={JSON.stringify([rule.kind, rule.value])}>
+            <summary>
+              {rule.kind}: <code>{rule.value}</code> — {paths.length} matches
+            </summary>
+            <p>
+              {rule.kind === "file"
+                ? "This path only."
+                : "Includes future matching files; review again before committing."}
+            </p>
+            <ul>
+              {paths.map((path) => (
+                <li key={path}>
+                  <code>{path}</code>
+                </li>
+              ))}
+            </ul>
+            <button type="button" onClick={() => remove(rule)}>
+              Remove {rule.kind} rule: {rule.value}
+            </button>
+          </details>
+        );
+      })}
+    </details>
   );
 }
+
+export function SelectionStatus({
+  count,
+  dirty,
+}: {
+  count: number;
+  dirty: boolean;
+}) {
+  return (
+    <p role="status">
+      {count} files selected ·{" "}
+      {dirty ? "Unsaved changes" : "No unsaved changes"}
+    </p>
+  );
+}
+
 export function GitFiles({ simulationId }: { simulationId: string }) {
   const [open, setOpen] = useState(false),
     [data, setData] = useState<Inventory | null>(null);
   const [rules, setRules] = useState<Rule[]>([]),
     [ignorePaths, setIgnorePaths] = useState<string[]>([]);
-  const [review, setReview] = useState<Selection | null>(null),
-    [ignore, setIgnore] = useState<Ignore | null>(null);
+  const [ignore, setIgnore] = useState<Ignore | null>(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
@@ -122,16 +171,15 @@ export function GitFiles({ simulationId }: { simulationId: string }) {
     setData(d);
     setRules(d.rules);
     setIgnorePaths([]);
-    setReview(null);
     setIgnore(null);
   }
   function toggle(rule: Rule, checked: boolean) {
+    setMessage("");
     setRules(
       checked
         ? [...rules, rule]
         : rules.filter((r) => r.kind !== rule.kind || r.value !== rule.value),
     );
-    setReview(null);
   }
   const has = (rule: Rule) =>
     rules.some((r) => r.kind === rule.kind && r.value === rule.value);
@@ -162,7 +210,6 @@ export function GitFiles({ simulationId }: { simulationId: string }) {
           if (open) {
             setOpen(false);
             setData(null);
-            setReview(null);
             setIgnore(null);
           } else {
             setOpen(true);
@@ -176,8 +223,8 @@ export function GitFiles({ simulationId }: { simulationId: string }) {
         <>
           <h3>Include for future Git commits</h3>
           <p>
-            Choose preferences for this simulation folder. Nothing is staged or
-            committed. Unselected does not mean ignored in Git.
+            Selections are saved for future Git commits. Saving does not stage
+            or commit files.
           </p>
           {error && <p role="alert">{error}</p>}
           {message && <p role="status">{message}</p>}
@@ -192,18 +239,15 @@ export function GitFiles({ simulationId }: { simulationId: string }) {
               </p>
               {data.reason && <p role="status">{data.reason}</p>}
               <p className="muted">
-                Unchecking a tracked file leaves it tracked. These preferences
-                are separate from File capture, scientific versions and run
-                snapshots.
+                Unchecking a tracked file leaves it tracked.
               </p>
               <fieldset disabled={busy}>
                 <legend>Inclusion choices</legend>
                 <details>
                   <summary>Folders and file types</summary>
                   <p>
-                    Suggestion: review Python source (.py). No suggestion is
-                    selected automatically. Extension choices cover this
-                    simulation folder and its subfolders.
+                    Folder and extension rules include future matching files in
+                    this simulation folder.
                   </p>
                   {extensions.map((value) => (
                     <label key={value}>
@@ -270,58 +314,31 @@ export function GitFiles({ simulationId }: { simulationId: string }) {
                   })}
                 </div>
                 {rules.length > 0 && (
-                  <details>
-                    <summary>Selected rules ({rules.length})</summary>
-                    {rules.map((r, i) => (
-                      <label key={i}>
-                        <input
-                          type="checkbox"
-                          checked
-                          onChange={() => toggle(r, false)}
-                        />
-                        {r.kind}: <code>{r.value}</code>
-                      </label>
-                    ))}
-                  </details>
+                  <SelectedRules
+                    rules={rules}
+                    files={data.files}
+                    remove={(rule) => toggle(rule, false)}
+                  />
                 )}
               </fieldset>
               <button
-                disabled={busy}
+                disabled={busy || sameRules(rules, data.rules)}
                 onClick={() =>
                   void action(async () => {
-                    setReview(
-                      await post<Selection>("/files/preview", {
-                        revision: data.revision,
-                        rules,
-                      }),
-                    );
+                    await saveSelection(base, data.revision, rules);
+                    await load();
+                    setMessage("Selection saved.");
                   })
                 }
               >
-                Preview inclusion
+                Save selection
               </button>
-              {review && (
-                <>
-                  <SelectionReview review={review} />
-                  <button
-                    disabled={busy}
-                    onClick={() =>
-                      void action(async () => {
-                        await post("/files/save", { review, confirmed: true });
-                        await load();
-                        setMessage(
-                          "Inclusion preferences saved. Git tracking and ignore rules are unchanged.",
-                        );
-                      })
-                    }
-                  >
-                    Save inclusion preferences
-                  </button>{" "}
-                  <button disabled={busy} onClick={() => setReview(null)}>
-                    Cancel inclusion preview
-                  </button>
-                </>
-              )}
+              <SelectionStatus
+                count={
+                  data.files.filter((file) => included(file.path, rules)).length
+                }
+                dirty={!sameRules(rules, data.rules)}
+              />
               <details>
                 <summary>Optional Git ignore additions</summary>
                 <p>

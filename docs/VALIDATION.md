@@ -181,3 +181,7 @@ See [issue #44 Git file selection](validation/issue-44-git-file-selection.md) fo
 explicit preferences, separately approved ignore additions, safety tests, package
 and installed-browser evidence, limitations and owner checks. Earlier reports
 remain unchanged.
+
+The [direct-save revision](validation/issue-44-direct-save-revision.md) records
+simplified selection saving, preserved server validation, optional grouped-match
+inspection and focused installed-browser/package checks.

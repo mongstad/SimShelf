@@ -14,12 +14,16 @@ automatically. File sizes and warnings help you review large files, likely
 credentials and possible scientific inputs/results. A JSON configuration or NPZ
 checkpoint may be an essential input: SimShelf does not decide it is disposable.
 
-Choose **Preview inclusion** to see the exact current paths matched by each rule,
-then **Save inclusion preferences**. Canceling the preview saves nothing; use
-**Refresh files / discard edits** to reload saved choices. Reopen this panel to
-change them later. A group-selected checkbox is disabled: remove the folder/type
-rule before making individual choices. Selected rules remain removable even when
-their files no longer exist.
+Choose **Save selection** directly beneath the choices. The selected-file count
+and **Unsaved changes** / **No unsaved changes** status reflect your edits. Expand
+**Selected rules** and an individual rule to inspect current matches optionally.
+File rules apply to one path; folder/type rules also cover future matching files.
+Saving still validates the displayed inventory and exact matches on the server;
+stale files or preferences require **Refresh files / discard edits** before retrying.
+Refresh also restores saved choices without saving your edits. Reopen the panel
+to modify and save them again. Group-selected checkboxes are disabled: remove the
+group rule before making individual choices. Rules remain removable when files
+no longer exist. Saving never stages or commits files.
 
 - A file rule applies to that relative path.
 - A folder rule applies to its descendants, including future matching files.
