@@ -309,3 +309,13 @@ Structured API input takes precedence over explicit whole-line text adapters;
 stdout/stderr bytes and process ownership remain unchanged. Lifecycle status is
 independent of reported fraction. The [design](PROGRESS_DESIGN.md) specifies the
 separately authorized migration and recovery boundaries.
+
+## Optional local Git provenance
+
+[Local Git history](GIT_PROVENANCE.md) defines a nullable provider-neutral format-1
+interface and an explicitly confirmed, single-repository mapping. Settings use an
+additive metadata key without a schema migration. Future runs freeze observations
+with their exact snapshot ID; old records stay unchanged. Inspections are bounded
+and read-only, compare raw bytes without filters, and never invoke transports.
+Restored/moved library bindings require reconnection. No-Git recording remains
+independent; local commits and remote synchronization are deferred follow-ups.

@@ -15,6 +15,7 @@ import type {
   Version,
 } from "./types";
 import "./style.css";
+import { GitHistory } from "./GitHistory";
 import { LaunchSimulation } from "./LaunchSimulation";
 
 const icons: Record<string, React.ReactNode> = {
@@ -1138,12 +1139,16 @@ function RunDetails({
                   {run.git.commit ? (
                     <code>
                       {run.git.commit.slice(0, 9)}
-                      {run.git.dirty ? " + local changes" : ""}
+                      {run.git.dirty === null ? " · working tree unknown" : run.git.dirty ? " + local changes" : ""}
                     </code>
                   ) : (
                     "No Git commit"
                   )}
                 </dd>
+                {run.git.availability && <>
+                  <dt>Git observation</dt><dd>{run.git.availability === "available" ? (run.git.branch || "Detached HEAD") : (run.git.reason || run.git.availability)}</dd>
+                  <dt>Captured source vs Git</dt><dd>{run.git.snapshot_relation === "captured_files_match_commit" ? "Captured files match commit bytes; uncaptured files are not compared" : run.git.snapshot_relation === "captured_files_differ" ? "Captured files differ from commit" : "Not compared"}</dd>
+                </>}
                 <dt>Exit code</dt>
                 <dd>{run.exit_code ?? "—"}</dd>
                 <dt>Capture inspection</dt>
@@ -1998,6 +2003,7 @@ function App() {
                   >
                     Version history
                   </button>
+                  <button className={page === "git" ? "active" : ""} onClick={() => setPage("git")}>Git history</button>
                   <button
                     className={page === "capture" ? "active" : ""}
                     onClick={() => setPage("capture")}
@@ -2432,6 +2438,7 @@ function App() {
                   }}
                 />
               )}
+              {page === "git" && simulation && <GitHistory key={simulation.id} simulation={simulation} simulations={simulations} />}
               {page === "capture" && simulation && (
                 <CaptureSettings simulation={simulation} onSaved={refresh} />
               )}

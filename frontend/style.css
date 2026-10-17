@@ -2047,3 +2047,13 @@ details label {
 .run-progress small { display: block; margin-top: 6px; }
 .progress-settings { border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
 .progress-settings summary { cursor: pointer; font-weight: 600; }
+
+.git-history { overflow-wrap: anywhere; }
+.git-history input:not([type="checkbox"]) { width: 100%; }
+.git-history fieldset label { display: block; margin: 8px 0; }
+
+.git-history > p, .git-history form, .git-history fieldset { margin: 14px 0; }
+.git-history fieldset { border: 1px solid var(--line); border-radius: 6px; }
+.git-history .git-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.git-history dl { margin: 18px 0; }
+.git-history li { margin: 8px 0; }

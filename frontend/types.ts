@@ -101,7 +101,8 @@ export type Run = {
   capture_errors: string[];
   capture_counts?: Record<string, number>;
   source_warnings: string[];
-  git: { commit: string | null; branch: string | null; dirty: boolean | null };
+  git: { commit: string | null; branch: string | null; dirty: boolean | null;
+    availability?: string; snapshot_relation?: string; subdirectory?: string | null; reason?: string | null };
   environment: {
     python: string;
     executable: string;
