@@ -12,6 +12,8 @@ from pathlib import Path
 from .common import atomic_write, contained, default_workspace, json_text, now, process_alive, slugify
 from .config import read_project, validate_config
 from .source import blob_path, read_snapshot
+from .workspace_lock import locked_store
+from .removal import deleted_run, cleanup_removed, remove_runs
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -37,7 +39,7 @@ class Store:
             conn.execute("PRAGMA journal_mode=WAL")
             conn.executescript(SCHEMA)
             row = conn.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()
-            if row and row[0] != "1":
+            if row and row[0] not in {"1", "2"}:
                 raise ValueError("This workspace uses a newer database schema. Upgrade SimShelf.")
             conn.execute("INSERT OR IGNORE INTO metadata VALUES ('schema_version', '1')")
             conn.execute("INSERT OR IGNORE INTO metadata VALUES ('workspace_id', ?)", (uuid.uuid4().hex,))
@@ -132,9 +134,13 @@ class Store:
             conn.execute("UPDATE simulations SET data=? WHERE id=?", (json_text(data), ident))
         return data
 
+    @locked_store
     def emit(self, run_id: str, kind: str, data: dict) -> str:
         if not run_id or any(c not in "0123456789abcdef" for c in run_id) or len(run_id) != 32:
             raise ValueError("Invalid run identifier")
+        with self.connection() as conn:
+            if deleted_run(conn, run_id):
+                raise ValueError("Run was deliberately removed")
         event_id = f"{time.time_ns():020d}-{uuid.uuid4().hex}"
         event = {"id": event_id, "run_id": run_id, "kind": kind, "at": now(), "data": data}
         file = self.path / "journal" / run_id / (event_id + ".json")
@@ -147,12 +153,15 @@ class Store:
             raise
         return event_id
 
+    @locked_store
     def apply(self, event: dict) -> None:
         with self.connection() as conn:
             conn.execute("BEGIN IMMEDIATE")
             if conn.execute("SELECT 1 FROM applied_events WHERE id=?", (event["id"],)).fetchone():
                 return
             run_id, kind, data = event["run_id"], event["kind"], event["data"]
+            if deleted_run(conn, run_id):
+                return  # Historical or delayed events must never resurrect removed runs.
             if kind == "start":
                 data = dict(data)
                 for active in conn.execute("SELECT data FROM runs WHERE status='running'"):
@@ -208,6 +217,7 @@ class Store:
                     conn.execute("UPDATE runs SET status=?,data=? WHERE id=?", (run["status"], json_text(run), run_id))
             conn.execute("INSERT INTO applied_events VALUES (?)", (event["id"],))
 
+    @locked_store
     def reconcile(self) -> dict:
         recovered, errors = 0, []
         with self.connection() as conn:
@@ -224,7 +234,15 @@ class Store:
             owner = run.get("owner", {})
             if owner.get("host") == socket.gethostname() and owner.get("pid") and not process_alive(owner["pid"], owner.get("identity")):
                 self.emit(run["id"], "finish", {"status": "interrupted", "ended_at": now(), "exit_code": None, "capture_status": "incomplete", "capture_errors": ["Recorder process ended unexpectedly. Final output capture did not complete."]})
+        if not errors:
+            try:
+                errors.extend(cleanup_removed(self))
+            except (ValueError, OSError, sqlite3.Error) as exc:
+                errors.append(str(exc))
         return {"recovered": recovered, "errors": errors}
+
+    def remove_runs(self, identifiers, *, confirmed=False):
+        return remove_runs(self, identifiers, confirmed=confirmed)
 
     def runs(self, simulation=None, status=None, search="", version=None, limit=500, offset=0) -> list[dict]:
         where, args = [], []
@@ -240,12 +258,14 @@ class Store:
             data = [r for r in data if needle in " ".join([r.get("name", ""), r["id"], r["version"], r.get("notes", ""), " ".join(r.get("tags", [])), json_text(r.get("parameters", {}))]).casefold()]
         return data[offset:offset + limit]
 
+    @locked_store
     def run(self, ident: str, detail=True) -> dict:
         with self.connection() as conn:
             row = conn.execute("SELECT data FROM runs WHERE id=?", (ident,)).fetchone()
             if not row:
                 raise ValueError("Run not found")
             result = json.loads(row[0])
+            result["baseline_deleted"] = deleted_run(conn, result.get("baseline_run_id", "")) is not None
             if detail:
                 result["artifacts"] = [self.artifact_state(json.loads(r[0])) for r in conn.execute("SELECT data FROM artifacts WHERE run_id=? ORDER BY rowid", (ident,))]
                 result["metrics"] = [json.loads(r[0]) for r in conn.execute("SELECT data FROM metrics WHERE run_id=? ORDER BY event_id LIMIT 5000", (ident,))]

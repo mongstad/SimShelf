@@ -425,6 +425,36 @@ Open a run's **Screenshots** tab to upload, drag, or paste PNG/JPEG/WebP/GIF ima
 Add captions and choose a cover. Other saved files can be downloaded from **Files**.
 HTML and SVG attachments are offered as downloads rather than executed in the app.
 
+## Remove obsolete runs
+
+Open a finalized run and choose **Remove run…**, or select several runs in the
+list/gallery and choose **Remove selected…**. Review the names, IDs, statuses and
+count. **Cancel** is the default. Confirm only after backing up anything you may
+need: removal deletes run records, notes, measurements, logs and unshared managed
+copies. Running/finalizing runs must finish or be stopped before removal. A batch
+containing an ineligible or unknown run is rejected as a whole.
+
+Original source projects, Git history, original outputs and external reference
+files are never deleted. Shared managed content remains while another record
+needs it. A removed baseline's snapshot remains available for surviving runs'
+source comparisons; their historical classifications do not change. Future runs
+compare with the earliest surviving run, or establish a new baseline if none
+remain. Counts, version history, favorites and comparison selections reflect the
+remaining runs.
+
+The first confirmed removal updates the library format; older SimShelf builds
+cannot reopen it. Stop older servers/recorders using this library first. There is
+no automatic migration on startup. A minimal deletion audit remains; this is not
+secure erasure or an undo feature. Existing backups still contain old data, and
+restoring one into a separate library can recover it. New backups exclude removed
+payloads but retain audit entries and any baseline snapshots still needed.
+
+If removal succeeds but file cleanup reports a problem, the records stay removed;
+periodic recovery or `simshelf doctor` retries cleanup. Resolve the reported file
+permissions or unexpected symlink without deleting original scientific files.
+Long captures/backups can delay removal. See [run removal](docs/RUN_REMOVAL.md)
+for retention, locking and compatibility details.
+
 ## Backup and restore
 
 Use **Back up workspace** in the browser or:

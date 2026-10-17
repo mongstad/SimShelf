@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .common import clean_name, contained, match, now
 from .source import blob_path
+from .workspace_lock import locked_store
 
 MAX_SCAN_FILES = 20000
 
@@ -56,7 +57,9 @@ def preview(simulation: dict) -> dict:
     return {"files": files[:1000], "total_files": len(files), "copy_bytes": copied, "errors": errors, "truncated": len(files) > 1000, "counts": {action: sum(f["action"] == action for f in files) for action in ("copy", "reference", "ignore")}}
 
 
+@locked_store
 def save_file(store, run_id: str, path: Path, *, policy="copy", name=None, caption="", limit=25 * 1024**2, automatic=False) -> dict:
+    store.run(run_id, False)  # Check before copying, under the removal lock.
     path = path.expanduser().absolute()
     if path.is_symlink() or not path.is_file():
         raise ValueError("Only regular files can be attached; symbolic links are excluded")

@@ -114,3 +114,10 @@ checks and scientific-default limitations. Earlier reports are preserved.
 See [issue #12 explicit shutdown](validation/issue-12-shutdown.md) for protected
 Quit confirmation, lifecycle races, independent recorders, actual port release,
 browser checks and installed-package verification. Earlier evidence is unchanged.
+
+## Later deliberate run removal validation
+
+See [issue #15 run removal](validation/issue-15-run-removal.md) for transactional
+removal, retained baseline semantics, cleanup recovery/concurrency tests,
+source/installed browser checks, compatibility limits and owner verification.
+Earlier evidence is unchanged.

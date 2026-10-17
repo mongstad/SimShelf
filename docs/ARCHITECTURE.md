@@ -8,7 +8,8 @@
   attachments, and joins an active wrapper through its run ID.
 - FastAPI provides the local UI API and serves the compiled React/TypeScript app.
 - SQLite stores simulations, runs, artifact manifests, measurements, annotation
-  history, and event deduplication IDs. Schema version 1 is checked at startup.
+  history, and event deduplication IDs. Schema versions 1 and 2 are checked at startup; version 2 is selected only by
+  explicit run removal.
 - Source snapshots and retained artifacts share a SHA-256-addressed blob store.
 
 ```text
@@ -271,3 +272,14 @@ records in the backup become interrupted on restore.
 - Full workspace restore is capped at 10 GB uncompressed and 100,000 archive
   members. Source and local reference locations are retained, not relocated.
 - No automatic dependency-environment recreation or claim of bitwise replay.
+
+## Deliberate run removal
+
+[Run removal](RUN_REMOVAL.md) specifies transactional hard deletion plus minimal
+audit tombstones, journal replay exclusion, queued file cleanup, shared baseline
+retention and schema-2 compatibility. Managed-data locks serialize snapshot/start,
+attachment publication, event replay, backups and reclamation across Linux
+threads/processes. Live simulations do not hold the lock for their lifetime.
+Source/log reads hold it while resolving and reading; artifact downloads retain an
+open inode so concurrent unlink cannot break bytes or range requests. Removal
+never mutates surviving execution metadata or traverses original output paths.
