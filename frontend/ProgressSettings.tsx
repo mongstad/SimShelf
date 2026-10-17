@@ -123,6 +123,30 @@ export function ProgressSettings({
           future launches.
         </small>
       </label>
+      {value !== "off" && (
+        <div className="muted" aria-label="Supported console progress examples">
+          <p>Recognized whole-line examples:</p>
+          {value === "step" ? (
+            <ul>
+              <li><code>step 1,000/50,000 (2.0%)</code></li>
+              <li><code>250 / 1000 steps</code></li>
+              <li><code>Step 500 of 1000</code></li>
+            </ul>
+          ) : (
+            <ul>
+              <li><code>25%</code></li>
+              <li><code>Progress: 25%</code></li>
+              <li><code>50% complete</code></li>
+            </ul>
+          )}
+          <small>
+            Case and spacing may vary. Step counts may use commas; a percentage
+            alongside counts must agree after rounding. Unrelated measurements
+            such as “Energy loss: 50%” are ignored. Reports never stop a run,
+            even at 100%.
+          </small>
+        </div>
+      )}
       {error && (
         <p role="alert" className="error-banner">
           {error}

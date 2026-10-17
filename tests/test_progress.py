@@ -49,6 +49,70 @@ def test_overlong_lines_cannot_parse_suffix_and_memory_is_bounded():
     assert list(parser.feed(b"50%\r")) == []
     assert list(parser.feed(b"25.5%\r"))[0]["current"] == 25.5
 
+
+@pytest.mark.parametrize('line,current,total', [
+    (b'step 1000/50000', 1000, 50000),
+    (b'  step 1,000/50,000 (  2.0%)', 1000, 50000),
+    (b'250 / 1000 steps', 250, 1000),
+    (b'Step 500 of 1000', 500, 1000),
+    (b'\tStEp\t1,000 \t/ 50,000\t(2.0 %)\t', 1000, 50000),
+    (b'1 / 3 STEPS (33.3%)', 1, 3),
+    (b'Step 1 of 3 (33%)', 1, 3),
+    (b'step 1/8 (12%)', 1, 8),  # Exactly half an integer percentage point.
+    (b'step 1.5/3 (50.0%)', 1.5, 3),
+])
+def test_supported_count_conventions(line, current, total):
+    assert list(TextProgressParser('step').feed(line + b'\n')) == [progress_report(current, total)]
+    assert list(TextProgressParser('percent').feed(line + b'\n')) == []
+
+
+@pytest.mark.parametrize('line,value', [(b'Progress: 25%', 25),
+    (b'50% complete', 50), (b' \tPROGRESS :\t25.5 % ', 25.5),
+    (b'50 % COMPLETE', 50), (b'25%', 25)])
+def test_supported_percentage_conventions(line, value):
+    assert list(TextProgressParser('percent').feed(line+b'\n')) == [progress_report(value, 100)]
+    assert list(TextProgressParser('step').feed(line+b'\n')) == []
+
+
+@pytest.mark.parametrize('line', [
+    b'Energy loss: 50%', b'Convergence error: 25%', b'Mass retained: 80%',
+    b'Headless run: target step 50,000', b'1/10', b'energy step 1/10',
+    b'step 1,00/50,000', b'step 1/0', b'step 2/1', b'step -1/10',
+    b'step 1/10 (50%)', b'step 1/3 (33.4%)', b'step 1/8 (11%)',
+    b'step 100/100 (100.1%)', b'step 1/10 (NaN%)', b'step 1/10 trailing',
+    b'Progress: 101%', b'Progress: -1%', b'Progress: NaN%',
+    b'50% complete loss', b'Progress: 25% (energy)', b'step 1/1,00',
+    b'\x1b[32mstep 1/10', b'\x00step 1/10', b'\vstep 1/10',
+    b'step 1e3/50000', b'step 1/10 (10%, 20%)', b'progress: 1,0%',
+])
+def test_ambiguous_scientific_and_malformed_lines_ignored(line):
+    for mode in ('off', 'step', 'percent'):
+        assert list(TextProgressParser(mode).feed(line+b'\n')) == []
+
+
+@pytest.mark.parametrize('delimiter', [b'\r', b'\n', b'\r\n'])
+def test_exact_phi_example_all_chunk_boundaries(delimiter):
+    lines = [b'Headless run: target step 50,000',
+             b'  step 1,000/50,000 (  2.0%)',
+             b'  step 2,000/50,000 (  4.0%)',
+             b'  step 3,000/50,000 (  6.0%)']
+    data = delimiter.join(lines) + delimiter
+    expected = [progress_report(i, 50000) for i in (1000, 2000, 3000)]
+    for split in range(len(data)+1):
+        parser = TextProgressParser('step')
+        assert list(parser.feed(data[:split])) + list(parser.feed(data[split:])) == expected
+    parser = TextProgressParser('step')
+    assert [r for byte in data for r in parser.feed(bytes([byte]))] == expected
+    assert list(TextProgressParser('off').feed(data)) == []
+
+
+def test_oversized_recognizable_lines_and_unterminated_tail():
+    parser = TextProgressParser('step')
+    assert list(parser.feed(b' ' * MAX_LINE + b'step 1/10\r')) == []
+    assert list(parser.feed(b'step 1/10' + b' ' * MAX_LINE + b'\n')) == []
+    assert list(parser.feed(b'Step 500 of 1,000 (50%)')) == []
+    assert parser.finish() == progress_report(500, 1000)
+
 import concurrent.futures
 import json
 import sqlite3
@@ -213,11 +277,77 @@ def test_text_adapter_logs_and_structured_join(project):
     assert store.run(ident)['progress']['current'] in (4, 6)  # Two streams have no global ordering.
     assert (store.path/'logs'/ident/'stdout.log').read_bytes() == b'step 1/10\rstep 4/10\r\n'
     assert (store.path/'logs'/ident/'stderr.log').read_bytes() == b'step 6/10\r'
-    source.write_text(f"import simshelf\nwith simshelf.run({sim['id']!r}) as run:\n run.progress(2, 5, stage='Structured')\n print('step 5/5', flush=True)\n")
+    source.write_text(f"import simshelf\nwith simshelf.run({sim['id']!r}) as run:\n run.progress(2, 5, stage='Structured')\n print('step 5,000/5,000 (100%)', flush=True)\n")
     ident, code = record_command(store, sim['id'], [sys.executable, str(source)], progress_mode='step', quiet=True)
     assert code == 0
     report = store.run(ident)['progress']
     assert (report['source'], report['current'], report['total']) == ('structured', 2, 5)
+
+
+@pytest.mark.parametrize('outcome', ['success', 'failure', 'cancel'])
+def test_portal_100_percent_is_observational_until_real_exit(project, outcome):
+    store, sim, root, source = project
+    enable_progress(store, confirmed=True)
+    # Explicit file gate proves the process keeps executing after its 100% report.
+    # No timing-based assumption that the child is still alive after a sleep.
+    source.write_text("import os, sys, time\nfrom pathlib import Path\n"
+        "out=Path(os.environ['SIMSHELF_OUTPUT_DIR']); out.mkdir(parents=True, exist_ok=True)\n"
+        "(out/'result.txt').write_text('scientific output')\n"
+        "print('step 50,000/50,000 (100.0%)', flush=True)\n"
+        "print('Mass retained: 80%', file=sys.stderr, flush=True)\n"
+        "while not Path('release').exists(): time.sleep(.02)\n"
+        "print('after progress', flush=True)\n"
+        f"sys.exit({7 if outcome == 'failure' else 0})\n")
+    with TestClient(create_app(store.path)) as client:
+        auth = headers(client)
+        ident = launch(client, sim, auth, progress_mode='step')
+        deadline = time.monotonic()+5
+        while time.monotonic() < deadline:
+            live = client.get(f'/api/runs/{ident}').json()
+            if live.get('progress'): break
+            time.sleep(.02)
+        assert live['progress']['current'] == live['progress']['total'] == 50000
+        assert live['status'] == 'running' and live['exit_code'] is None
+        assert live['can_stop']
+        assert live['metrics'] == []
+        if outcome == 'cancel':
+            assert client.post(f'/api/runs/{ident}/stop', headers=auth).status_code == 202
+        else:
+            (root/'release').touch()
+        final = finish(store, ident)
+    assert final['status'] == {'success':'completed','failure':'failed','cancel':'interrupted'}[outcome]
+    if outcome != 'cancel': assert final['exit_code'] == (7 if outcome == 'failure' else 0)
+    else: assert final['exit_code'] == -15
+    assert final['progress']['current'] == 50000 and final['metrics'] == []
+    assert (root/'outputs'/'result.txt').read_text() == 'scientific output'
+    assert any(a['name'].endswith('result.txt') for a in final['artifacts'])
+    expected = b'step 50,000/50,000 (100.0%)\n' + (b'' if outcome == 'cancel' else b'after progress\n')
+    assert (store.path/'logs'/ident/'stdout.log').read_bytes() == expected
+    assert (store.path/'logs'/ident/'stderr.log').read_bytes() == b'Mass retained: 80%\n'
+    with store.connection() as conn:
+        before = conn.execute('SELECT data FROM runs WHERE id=?', (ident,)).fetchone()[0]
+    with pytest.raises(ValueError, match='active run'):
+        write_progress(store, ident, {**progress_report(1, 2), 'reported_at':now()}, 'text:stdout')
+    store.reconcile()
+    with store.connection() as conn:
+        assert conn.execute('SELECT data FROM runs WHERE id=?', (ident,)).fetchone()[0] == before
+
+
+def test_cli_phi_bytes_preserved_on_both_streams(project):
+    store, sim, root, source = project
+    enable_progress(store, confirmed=True)
+    stdout = b'Headless run: target step 50,000\n  step 1,000/50,000 (  2.0%)\r  step 2,000/50,000 (  4.0%)\r\n'
+    stderr = b'  step 3,000/50,000 (  6.0%)\nEnergy loss: 50%\n'
+    source.write_text(f'import sys\nsys.stdout.buffer.write({stdout!r})\nsys.stderr.buffer.write({stderr!r})\nsys.exit(9)\n')
+    process = subprocess.run([sys.executable, '-B', '-m', 'simshelf', '--workspace', str(store.path),
+        'record', '-s', sim['id'], '--progress', 'step', '--', sys.executable, str(source)], capture_output=True)
+    assert process.returncode == 9
+    result = store.run(store.runs()[0]['id'])
+    assert result['status'] == 'failed' and result['exit_code'] == 9
+    assert result['progress']['current'] in (2000, 3000)
+    assert result['progress']['total'] == 50000
+    for name, data in [('stdout', stdout), ('stderr', stderr)]:
+        assert (store.path/'logs'/result['id']/f'{name}.log').read_bytes() == data
 
 
 def test_concurrent_writers_and_long_job_constant_storage(project):

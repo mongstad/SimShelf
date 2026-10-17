@@ -80,10 +80,34 @@ simshelf --workspace /path/to/library record -s my-simulation --progress step --
 simshelf --workspace /path/to/library record -s my-simulation --progress percent -- python model.py
 ```
 
-Supported formats match a whole line (outer whitespace allowed):
+Supported formats match a whole line, case-insensitively, with spaces/tabs allowed
+around separators and at the edges. Choose the corresponding adapter explicitly:
 
-- **Step counts:** `step 10/100` (case-insensitive `step`).
-- **Percentage:** `25%` or `25.5%`.
+| Adapter | Accepted examples |
+| --- | --- |
+| Step counts | `step 1000/50000`, `step 1,000/50,000 (2.0%)`, `250 / 1000 steps`, `Step 500 of 1000` |
+| Percentage | `25%`, `25.5%`, `Progress: 25%`, `50% complete` |
+
+Count values may use correctly grouped comma thousands separators (`1,000`, not
+`1,00`) and decimal points. Count formats may end in one parenthesized percentage.
+It must agree with current/total to within half a unit of its printed precision:
+`33%` allows 0.5 percentage points, `33.3%` allows 0.05. Counts remain the source
+of the displayed fraction. Invalid totals, malformed grouping and inconsistent
+percentages reject the entire line. No locale-specific decimal commas, exponent
+notation or arbitrary extra text are recognized.
+
+For example, `Headless run: target step 50,000` stays ordinary log text, while
+`  step 1,000/50,000 (  2.0%)` is recognized by the step adapter. `Energy loss: 50%`,
+`Convergence error: 25%` and `Mass retained: 80%` are ignored by both adapters.
+Bare `25%` remains supported only in explicitly selected percentage mode; choose
+that mode only when such standalone lines mean execution progress in your script.
+The settings show examples for the selected adapter, not a separate parser or
+an unrestricted regex preview.
+
+Reports are observational: even 100% never stops, cancels or finalizes a run.
+The process can continue producing results and can still fail with its real exit
+status. Unsupported lines do not create a report; if a valid earlier report
+exists it remains labeled as the last report, otherwise progress stays unknown.
 
 Newlines and carriage returns terminate a report; a final unterminated line is
 also considered. Invalid, decorated, ANSI-colored or overlong lines (over 256

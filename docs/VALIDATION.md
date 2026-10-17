@@ -134,3 +134,8 @@ source/installed browser checks. Earlier reports remain unchanged.
 See [issue #17 progress](validation/issue-17-progress.md) for explicit schema-4
 enablement, bounded telemetry, recovery/backup tests, source/installed browser
 checks, limitations and owner verification. Earlier reports remain unchanged.
+
+For PR #34's later parser refinement, see
+[issue #17 console revision](validation/issue-17-console-revision.md): expanded
+conservative formats, observational-only 100% lifecycle checks and revised
+installed-browser/package evidence.

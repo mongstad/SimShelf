@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { RunProgress } from './RunProgress.tsx';
+import { ProgressSettings } from './ProgressSettings.tsx';
 const render = run => renderToStaticMarkup(React.createElement(RunProgress, {run}));
 const report = {current: 2, total: 5, stage: '<solve>', source: 'structured', reported_at: '2026-10-17T12:00:00Z'};
 test('unknown progress never fabricates a percentage or progressbar', () => {
@@ -25,4 +26,14 @@ test('malformed totals stay unknown and rounding does not imply early 100%', () 
   const failed = render({status:'failed',progress_error:'disk unavailable'});
   assert.match(failed,/Progress unavailable/);
   assert.doesNotMatch(failed,/Running/);
+});
+
+test('console examples follow the explicitly selected adapter', () => {
+  const settings = value => renderToStaticMarkup(React.createElement(ProgressSettings, {value,change:()=>{}}));
+  assert.doesNotMatch(settings('off'), /Recognized whole-line examples/);
+  assert.match(settings('step'), /step 1,000\/50,000 \(2.0%\)/);
+  assert.match(settings('step'), /Step 500 of 1000/);
+  assert.match(settings('percent'), /Progress: 25%/);
+  assert.match(settings('percent'), /50% complete/);
+  assert.match(settings('step'), /Reports never stop a run/);
 });

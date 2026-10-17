@@ -10,6 +10,7 @@ import threading
 import time
 import warnings
 from datetime import datetime
+from decimal import Decimal
 
 from .common import atomic_write, json_text, now
 from .workspace_lock import locked_store
@@ -17,9 +18,18 @@ from .removal import ID, deleted_run
 
 TEXT_MODES = {"off", "step", "percent"}
 MAX_LINE = 256
-NUMBER = rb"[0-9]{1,16}(?:\.[0-9]{1,12})?"
-STEP = re.compile(rb"step (" + NUMBER + rb")/(" + NUMBER + rb")", re.IGNORECASE)
-PERCENT = re.compile(rb"(" + NUMBER + rb")%")
+NUMBER = rb"(?:[0-9]{1,3}(?:,[0-9]{3}){1,5}|[0-9]{1,16})(?:\.[0-9]{1,12})?"
+PCT_NUMBER = rb"[0-9]{1,3}(?:\.[0-9]{1,12})?"
+WS = rb"[ \t]*"
+GAP = rb"[ \t]+"
+COUNTS = rb"(?P<current>" + NUMBER + rb")" + WS + rb"/" + WS + rb"(?P<total>" + NUMBER + rb")"
+SUFFIX = rb"(?:" + WS + rb"\(" + WS + rb"(?P<percent>" + PCT_NUMBER + rb")" + WS + rb"%" + WS + rb"\))?"
+STEP_PATTERNS = tuple(re.compile(pattern + SUFFIX, re.IGNORECASE) for pattern in (
+    rb"step" + GAP + COUNTS,
+    COUNTS + GAP + rb"steps",
+    rb"step" + GAP + rb"(?P<current>" + NUMBER + rb")" + GAP + rb"of" + GAP + rb"(?P<total>" + NUMBER + rb")",
+))
+PERCENT = re.compile(rb"(?:progress" + WS + rb":" + WS + rb"(?P<label>" + PCT_NUMBER + rb")" + WS + rb"%|(?P<bare>" + PCT_NUMBER + rb")" + WS + rb"%(?:" + GAP + rb"complete)?)", re.IGNORECASE)
 
 
 def progress_report(current=None, total=None, *, stage=None):
@@ -59,13 +69,26 @@ class TextProgressParser:
     def _line(self):
         result = None
         if not self.overflow:
-            line = bytes(self.pending).strip()
-            match = (STEP if self.mode == "step" else PERCENT).fullmatch(line)
+            line = bytes(self.pending).strip(b" \t")
+            match = (next((m for pattern in STEP_PATTERNS if (m := pattern.fullmatch(line))), None)
+                     if self.mode == "step" else PERCENT.fullmatch(line))
             if match:
                 try:
-                    result = progress_report(float(match[1]), float(match[2]) if self.mode == "step" else 100)
+                    if self.mode == "step":
+                        current = Decimal(match['current'].replace(b',', b'').decode('ascii'))
+                        total = Decimal(match['total'].replace(b',', b'').decode('ascii'))
+                        result = progress_report(float(current), float(total))
+                        if match['percent'] is not None:
+                            percent = Decimal(match['percent'].decode('ascii'))
+                            # Half a unit of the printed precision: 2.0% allows
+                            # 0.05 percentage points; integer 2% allows 0.5.
+                            tolerance = Decimal(5).scaleb(percent.as_tuple().exponent - 1)
+                            if percent > 100 or abs(current * 100 / total - percent) > tolerance:
+                                result = None
+                    else:
+                        result = progress_report(float(match['label'] or match['bare']), 100)
                 except ValueError:
-                    pass
+                    result = None
         self.pending.clear()
         self.overflow = False
         return result
