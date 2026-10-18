@@ -2103,3 +2103,12 @@ details label {
 .archive-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .archive-toggle:disabled { opacity: .55; cursor: not-allowed; }
 .archive-toggle:not(:disabled):hover { box-shadow: 0 0 0 2px var(--soft); }
+
+.source-location {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+}
+.source-location span { min-width: 0; overflow-wrap: anywhere; }

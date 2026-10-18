@@ -60,6 +60,7 @@ class Store:
         finally:
             conn.close()
 
+    @locked_store
     def add_simulation(self, root, name=None, entrypoint=None, version_file=None, config=None) -> dict:
         root = Path(root).expanduser().resolve()
         if not root.is_dir():
@@ -109,6 +110,7 @@ class Store:
             raise ValueError(f"Unknown simulation '{ident}'. Register its folder first with simshelf add.")
         return json.loads(row[0])
 
+    @locked_store
     def update_simulation(self, ident: str, *, config=None, name=None, description=None, execution=None, entrypoint=None) -> dict:
         with self.connection() as conn:
             conn.execute("BEGIN IMMEDIATE")

@@ -346,3 +346,42 @@ not a sandbox for a script that intentionally replaces paths or writes elsewhere
 avoid changing output directories while a run is active. Linux is the validated
 platform for this policy. No workspace migration or historical record rewrite
 is performed.
+
+## Reconnect a moved source folder
+
+Select the existing simulation and choose **Locate source folder…** when its
+source is missing, or **Change source location** while the old path is still
+available. The current path is shown beside the action. Enter the new absolute
+folder path on this computer, choose **Review new location**, then verify the
+previous and new paths before **Confirm source location**. Cancel leaves the
+registration unchanged. This is a path-entry workflow; the browser does not have
+an arbitrary local-folder picker.
+
+Move/copy the source yourself before reconnecting. SimShelf neither moves nor
+deletes files, and cannot verify that a replacement folder is scientifically the
+same project. It requires the registered entry/version files, rejects symlinks
+in the source path and those files, and rejects workspace overlap or overlap with
+another registration. Stop this simulation's active runs first. If the target or
+registration changes after review, review again. Avoid moving folders concurrently
+with confirmation or launch.
+
+The simulation ID and run history remain the same. Past commands, capture roots,
+source snapshots, scientific version labels, notes and archive downloads are not
+rewritten. Reference-only files keep their original paths and may still be
+missing; reconnecting source does not relocate those results or turn them into
+backups. Existing backups remain unchanged; new backups preserve the new
+registration, while source folders themselves still need independent backups.
+
+Capture rules and saved execution preferences are retained, including potentially
+invalid machine-local paths. Before launching, review and validate the interpreter,
+entry file, working directory, arguments and output destinations. A missing saved
+interpreter/cwd is reported during review and must be corrected through the normal
+launch settings. No environment is installed and no source is executed by relocation.
+A launch prepared before relocation is rejected and must be prepared again.
+
+Source Git mapping, file-selection preferences and automatic archival consent for
+this simulation are cleared transactionally. Reconnect/review them explicitly for
+the new location; returning to an earlier path does not restore old consent. The
+independent master archive connection and historical commits stay unchanged.
+If a save response is lost, close the dialog and refresh to inspect the current
+source path before retrying.

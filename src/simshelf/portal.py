@@ -89,7 +89,9 @@ class PortalJobs:
     def start(self, simulation: str, settings: dict, name: str | None, acknowledge_outputs: bool = False) -> dict:
         if not sys.platform.startswith("linux"):
             raise ValueError("Portal launching currently requires Linux. CLI/editor recording remains available.")
-        plan = execution_settings(self.store.simulation(simulation), settings, probe=True)
+        from .relocation import source_binding
+        registered = self.store.simulation(simulation)
+        plan = execution_settings(registered, settings, probe=True)
         from .progress import enabled
         with self.store.connection() as conn:
             if plan["settings"]["progress_mode"] != "off" and not enabled(conn):
@@ -107,7 +109,8 @@ class PortalJobs:
             self.generation += 1
             self.jobs[process] = {"run_id": None, "stopping": False}
             payload = {"workspace": str(self.store.path), "simulation": simulation,
-                       "settings": plan["settings"], "name": name, "acknowledge_outputs": acknowledge_outputs}
+                       "settings": plan["settings"], "name": name, "acknowledge_outputs": acknowledge_outputs,
+                       "source_binding": source_binding(registered)}
             threading.Thread(target=self._reap, args=(process,), daemon=True).start()
             try:
                 process.stdin.write((json.dumps(payload) + "\n").encode())
