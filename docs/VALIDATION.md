@@ -234,3 +234,10 @@ See [issue #59 output declarations](validation/issue-59-output-declarations.md)
 for the placeholder reproduction, independent capture review, row-specific errors,
 focused regressions, installed desktop/narrow checks and owner verification.
 Earlier evidence remains unchanged.
+
+## Percentage and fractional progress presentation
+
+See [issue #67 progress units](validation/issue-67-progress-units.md) for precise
+percentage display, grouped discrete counts, fractional units, accessibility,
+focused regressions and installed desktop/narrow checks. Earlier evidence remains
+unchanged.

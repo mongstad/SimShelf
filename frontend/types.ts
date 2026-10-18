@@ -67,6 +67,7 @@ export type Measurement = {
   unit?: string;
 };
 export type Run = {
+  progress_mode?: string;
   output_policy?: "per_run";
   output_base?: string;
   archive_commits?: number;
