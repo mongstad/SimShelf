@@ -115,6 +115,12 @@ class Run:
 
     @locked_recorder
     def __enter__(self):
+        from .relocation import source_binding
+        current_binding = source_binding(self.store.simulation(self.simulation['id']))
+        if source_binding(self.simulation) != current_binding or (
+            self.launch and self.launch.get('source_binding', current_binding) != current_binding
+        ):
+            raise ValueError('Source location changed. Review the simulation and launch again')
         if self.joined:
             parent = self.store.run(self.id, detail=False)
             if parent["simulation_id"] != self.simulation["id"] or parent["status"] != "running":

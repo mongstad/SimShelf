@@ -22,7 +22,11 @@ def main():
             cancel.set()
         threading.Thread(target=watch, daemon=True).start()
         store = Store(request["workspace"])
-        plan = execution_settings(store.simulation(request["simulation"]), request["settings"])
+        from .relocation import source_binding
+        registered = store.simulation(request["simulation"])
+        if request.get('source_binding') != source_binding(registered):
+            raise ValueError('Source location changed. Review the simulation and launch again')
+        plan = execution_settings(registered, request["settings"])
         if plan["output_review"]["requires_acknowledgement"] and not request.get("acknowledge_outputs", False):
             raise ValueError("Output coverage changed; review output paths before launching")
         def started(run_id):
@@ -33,7 +37,7 @@ def main():
         record_command(store, request["simulation"], plan["command"], name=request["name"],
                        cwd=plan["cwd"], output_dir=plan["settings"]["output_dir"],
                        output_policy=plan["settings"]["output_policy"],
-                       cancel=cancel, on_started=started, quiet=True, progress_mode=plan["settings"]["progress_mode"], launch={"kind": "portal", "output_review": plan["output_review"], "outputs_acknowledged": request.get("acknowledge_outputs", False)})
+                       cancel=cancel, on_started=started, quiet=True, progress_mode=plan["settings"]["progress_mode"], launch={"kind": "portal", "source_binding": request['source_binding'], "output_review": plan["output_review"], "outputs_acknowledged": request.get("acknowledge_outputs", False)})
     except Exception as exc:
         try:
             print(json.dumps({"error": str(exc)}), flush=True)

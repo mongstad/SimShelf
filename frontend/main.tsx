@@ -16,6 +16,7 @@ import type {
 } from "./types";
 import "./style.css";
 import { RunArchive } from "./GitArchive";
+import { RelocateSimulation } from "./RelocateSimulation";
 import { GitHistory } from "./GitHistory";
 import { LaunchSimulation } from "./LaunchSimulation";
 
@@ -1908,6 +1909,12 @@ function App() {
               {simulation && !simulation.available && (
                 <ErrorMessage message="This simulation’s source folder is unavailable on this computer. Existing run records and saved copies remain accessible." />
               )}
+              {simulation && <div className="source-location">
+                <span>Source folder: <code style={{ overflowWrap: "anywhere" }}>{simulation.root}</code></span>{" "}
+                <button onClick={() => setModal("relocate")}>
+                  {simulation.available ? "Change source location" : "Locate source folder…"}
+                </button>
+              </div>}
               {simulation && (
                 <nav className="tabs" aria-label="Simulation sections">
                   <button
@@ -2359,9 +2366,9 @@ function App() {
                   }}
                 />
               )}
-              {page === "git" && simulation && <GitHistory key={simulation.id} simulation={simulation} simulations={simulations} />}
+              {page === "git" && simulation && <GitHistory key={`${simulation.id}:${simulation.root}`} simulation={simulation} simulations={simulations} />}
               {page === "capture" && simulation && (
-                <CaptureSettings simulation={simulation} onSaved={refresh} />
+                <CaptureSettings key={`${simulation.id}:${simulation.root}`} simulation={simulation} onSaved={refresh} />
               )}
             </>
           )}
@@ -2378,6 +2385,10 @@ function App() {
           }}
         />
       )}
+      {modal === "relocate" && simulation && <RelocateSimulation key={simulation.id}
+        simulation={simulation} close={() => setModal("")} relocated={() => {
+          setModal(""); setNotice("Source location updated. Review launch settings and Git archival preferences before your next run."); refresh();
+        }} />}
       {modal === "launch" && simulation && (
         <Modal title="Start a simulation" close={() => setModal("")} wide>
           <LaunchSimulation

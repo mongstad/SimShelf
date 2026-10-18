@@ -241,3 +241,10 @@ See [issue #67 progress units](validation/issue-67-progress-units.md) for precis
 percentage display, grouped discrete counts, fractional units, accessibility,
 focused regressions and installed desktop/narrow checks. Earlier evidence remains
 unchanged.
+
+## Reconnecting moved simulation sources
+
+See [issue #60 source relocation](validation/issue-60-source-relocation.md) for
+transactional remapping, path and active-run guards, consent invalidation,
+history/backup preservation, installed browser checks and known limitations.
+Earlier evidence remains unchanged.

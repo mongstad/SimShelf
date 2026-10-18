@@ -396,3 +396,24 @@ silently collecting another folder. This does not sandbox arbitrary script write
 or external directory changes during capture. Failed-start empty directories are
 preserved, and unknown outside writes remain unknown. See the
 [user workflow](RUNNING.md#unique-output-folders-for-cooperating-scripts).
+
+## Explicit source relocation
+
+Issue #60 introduces token-protected preview/confirm POSTs for remapping an
+existing registration. Preview checks absolute paths, no-follow directory/file
+metadata, entry/version files, capture boundaries and registration collisions.
+The review digest binds registration, target identity and location-bound Git
+settings. Confirmation repeats validation under the managed-data lock and one
+SQLite transaction, refuses active runs and updates only registration root plus
+an additive location revision. It removes that simulation's source Git mapping,
+file-selection preferences and archive settings; other mappings, master connection
+and historical archive events remain intact. No schema migration or source writes.
+
+Recorder entry checks the registration location revision under the same lock.
+Portal supervisors carry the source binding through validation and recorder entry,
+so pending launches cannot cross relocation or a move-away-and-back unnoticed.
+Registration add/update also take this lock. Historical rows, blobs, journals,
+references and captured paths are never rewritten. Existing launch checks still
+validate saved execution preferences before use; relocation does not probe Python.
+External directory mutations are not locked by SimShelf: the user must not move
+or replace folders concurrently with review/confirmation/launch.

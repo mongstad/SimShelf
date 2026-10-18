@@ -65,6 +65,13 @@ class SimulationInput(BaseModel):
     version_file: str | None = None
 
 
+class RelocationInput(BaseModel):
+    model_config = {"extra": "forbid"}
+    path: str = Field('', max_length=4096)
+    review: dict = Field(default_factory=dict)
+    confirmed: bool = False
+
+
 class SimulationUpdate(BaseModel):
     entrypoint: str | None = None
     config: dict | None = None
@@ -378,6 +385,16 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
     @app.patch("/api/simulations/{ident}")
     def update_simulation(ident: str, body: SimulationUpdate):
         return store.update_simulation(ident, **body.model_dump(exclude_unset=True))
+
+    @app.post("/api/simulations/{ident}/relocation/preview")
+    def preview_relocation(ident: str, body: RelocationInput):
+        from .relocation import preview
+        return preview(store, ident, body.path)
+
+    @app.post("/api/simulations/{ident}/relocation")
+    def relocate_simulation(ident: str, body: RelocationInput):
+        from .relocation import relocate
+        return relocate(store, ident, body.review, body.confirmed)
 
     @app.get("/api/simulations/{ident}/capture-preview")
     def capture_preview(ident: str):
