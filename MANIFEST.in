@@ -3,6 +3,7 @@ include tsconfig.json start.sh requirements-dev.lock
 include LICENSE THIRD_PARTY_NOTICES.md
 recursive-include frontend *.tsx *.ts *.css *.mjs
 recursive-include docs *.md
+include docs/images/01.png docs/images/02.png docs/images/03.png
 recursive-include examples *.py *.toml
 recursive-include scripts *.py
 recursive-include tests *.py
