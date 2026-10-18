@@ -260,3 +260,9 @@ installed-browser checks and limitations. Earlier evidence remains unchanged.
 See [issue #68 run timestamp](validation/issue-68-run-timestamp.md) for year display,
 unchanged run names and stored records, local year-boundary checks, and installed
 desktop/narrow validation. Earlier evidence remains unchanged.
+
+## Stable run duration layout
+
+See [issue #74 duration width](validation/issue-74-duration-width.md) for measured
+baseline movement, stable control positions across duration transitions, installed
+responsive checks and fixture limitations. Earlier evidence remains unchanged.

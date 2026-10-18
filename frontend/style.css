@@ -1329,6 +1329,12 @@ details label {
   margin-top: 15px;
   align-items: center;
 }
+.run-meta .run-duration {
+  /* Reserve space so timer growth does not redistribute header controls. */
+  font-variant-numeric: tabular-nums;
+  min-width: 12ch;
+  white-space: nowrap;
+}
 .run-meta .status {
   font-size: 12px;
 }
