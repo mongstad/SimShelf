@@ -11,6 +11,7 @@ export type FileItem = {
 };
 type Inventory = {
   source: string;
+  capture_directory: string;
   repository: { root: string } | null;
   reason: string | null;
   files: FileItem[];
@@ -238,6 +239,12 @@ export function GitFiles({ simulationId }: { simulationId: string }) {
                 <code>{data.source}</code>
               </p>
               {data.reason && <p role="status">{data.reason}</p>}
+              <p className="muted">
+                Capture directory <code>{data.capture_directory}/</code> is excluded
+                from source inventory. Select generated results with Future outputs
+                in Automatic archival settings. Other source files and configurations
+                remain selectable; Git ignore rules do not hide them.
+              </p>
               <p className="muted">
                 Unchecking a tracked file leaves it tracked.
               </p>

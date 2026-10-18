@@ -220,3 +220,10 @@ See [issue #69 isolated outputs](validation/issue-69-isolated-outputs.md) for
 opt-in allocation, environment/API coordination, original-output isolation,
 source/archive preservation, focused tests, installed-package/UI checks and limits.
 Earlier evidence remains unchanged.
+
+## Generated outputs and source inventory
+
+See [issue #61 source inventory](validation/issue-61-source-inventory.md) for
+capture-subtree pruning, separate CSV/JSON archival, unchanged bounds/consent,
+focused regressions, installed desktop/narrow checks and owner verification.
+Earlier evidence remains unchanged.

@@ -325,7 +325,14 @@ independent; local commits and remote synchronization are deferred follow-ups.
 
 [Git file selection](GIT_FILE_SELECTION.md) is separate from recorder provenance:
 bounded metadata inventories and typed file/folder/extension rules produce exact
-current-path previews. Explicit saves use additive, location-bound metadata; no
+current-path previews. The configured base capture subtree is pruned before source
+inventory traversal;
+its boundary metadata and configured path participate in the review revision.
+Git classification is scoped to inventoried literal files; output descendants
+cannot consume source inventory entries. Other source/configuration paths remain
+visible regardless of snapshot or Git ignore patterns. Separate future-output
+consent and per-run archive budgets are unchanged.
+Explicit saves use additive, location-bound metadata; no
 schema migration or completed-record write occurs. Optional exact-path ignore
 additions require a separate refreshed review and append only to the registered
 source folder's `.gitignore`, using descriptor checks and advisory locking. No

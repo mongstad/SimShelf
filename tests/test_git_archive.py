@@ -658,3 +658,54 @@ def test_isolated_outputs_keep_base_consent_and_capture_relative_selection(setup
         (run.output_dir / 'result.csv').write_text('not consented')
     assert not archive.entries(store, run.id)
     assert 'no longer match' in archive.view(store, run.id)['error']
+
+
+@pytest.mark.parametrize('policy', ['fixed', 'per_run'])
+def test_large_output_history_source_selection_and_future_csv_json(setup, policy):
+    store, repo, (a, b) = setup
+    root = Path(a['root'])
+    for i in range(3301):
+        folder = root / 'outputs' / f'old-{i % 5}' / 'nested'
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / f'{i}.npz').write_bytes(b'old scientific output')
+    (root / 'config.json').write_text('{"input":1}')
+    inv = inventory(store, a['id'])
+    save_selection(store, a['id'], selection_preview(store, a['id'], inv['revision'],
+                   [{'kind':'file', 'value':'sim.py'}, {'kind':'file', 'value':'config.json'}]))
+    review = archive.settings_preview(store, a['id'], ['*.csv', '*.json'])
+    archive.enable(store, a['id'], review, True)
+    assert archive.automatic_status(store, a['id'])['state'] == 'enabled'
+    with Run(a['id'], workspace=store.path, capture_console=False, output_policy=policy) as run:
+        (run.output_dir / 'summary.csv').write_bytes(b'time,energy\n1,2\n')
+        (run.output_dir / 'metadata.json').write_bytes(b'{"result":3}')
+        (run.output_dir / 'unselected.npz').write_bytes(b'not archived')
+    view = archive.view(store, run.id)
+    assert not view['error'], view
+    event, = view['events']
+    assert {f['name'] for f in event['files']} == {'sim.py', 'config.json', 'summary.csv', 'metadata.json'}
+    for i, file in enumerate(event['files']):
+        if file['name'] == 'summary.csv':
+            assert archive.download(store, run.id, event['id'], i)[1] == b'time,energy\n1,2\n'
+        if file['name'] == 'metadata.json':
+            assert archive.download(store, run.id, event['id'], i)[1] == b'{"result":3}'
+    assert (root / 'outputs/old-0/nested/0.npz').read_bytes() == b'old scientific output'
+    assert archive.COUNT_LIMIT == 1000
+    assert archive.FILE_LIMIT == 25 * 1024 * 1024
+    assert archive.RUN_LIMIT == 100 * 1024 * 1024
+
+
+def test_source_limit_api_refuses_consent_without_state_change(setup):
+    from fastapi.testclient import TestClient
+    from simshelf.api import create_app
+    store, repo, (a, b) = setup
+    archive.put(store, 'settings:' + a['id'], None)
+    for i in range(1001):
+        (Path(a['root']) / f'source-{i}.py').write_text('')
+    with TestClient(create_app(store.path)) as client:
+        client.headers['X-SimShelf-Token'] = client.get('/api/workspace').json()['token']
+        response = client.post(f'/api/simulations/{a["id"]}/archive/preview', json={'future':['*.csv']})
+        assert response.status_code == 400
+        assert '1,000 entries' in response.json()['detail']
+        assert 'File capture' in response.json()['detail']
+        assert client.get(f'/api/simulations/{a["id"]}/archive').json()['automatic_status']['state'] == 'disabled'
+    assert archive.get(store, 'settings:' + a['id']) is None

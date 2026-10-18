@@ -14,6 +14,7 @@ import stat
 import time
 
 from .common import json_text
+from .config import validate_config
 from .git_provenance import git, repository, workspace_identity
 from .workspace_lock import locked_store
 
@@ -70,7 +71,10 @@ def saved_settings(store, ident, binding):
 
 def inventory(store, ident):
     """Metadata only, except bounded .gitignore text; never read scientific files."""
-    source = Path(store.simulation(ident)['root'])
+    simulation = store.simulation(ident)
+    source = Path(simulation['root'])
+    # Use the declared base, never resolve links or infer output semantics from names.
+    capture = Path(validate_config(simulation['config'])['output_dir']).as_posix()
     try:
         if source.is_relative_to(store.path) or store.path.is_relative_to(source):
             raise ValueError('Keep source folders separate from the SimShelf library.')
@@ -81,7 +85,7 @@ def inventory(store, ident):
         except (OSError, ValueError):
             reason = 'Git inspection unavailable. Preferences remain local; ignore writes are disabled.'
         files, ignores, blocked = [], [], []
-        signatures = []
+        signatures = [['capture_directory', capture]]
         deadline = time.monotonic() + 5
         count = 0
         with directory(source) as rootfd:
@@ -91,13 +95,13 @@ def inventory(store, ident):
             def scan(fd, prefix='', depth=0):
                 nonlocal count
                 if depth > 20 or time.monotonic() > deadline:
-                    raise ValueError('Source inventory exceeds the depth/time limit. Use a smaller registered project folder.')
+                    raise ValueError('Source inventory exceeds the depth/time limit. The configured capture directory is excluded. Check File capture settings or register a smaller source folder.')
                 with os.scandir(fd) as entries:
                     names = []
                     for entry in entries:
                         count += 1
                         if count > MAX_ENTRIES:
-                            raise ValueError('Source inventory exceeds 1,000 entries. Use a smaller registered project folder.')
+                            raise ValueError('Source inventory exceeds 1,000 entries. The configured capture directory is excluded. Check File capture settings or register a smaller source folder.')
                         names.append(entry.name)
                 for name in sorted(names):
                     if name == '.git':
@@ -108,6 +112,10 @@ def inventory(store, ident):
                     if any(ord(c) < 32 or ord(c) == 127 or 0xD800 <= ord(c) <= 0xDFFF for c in path) or len(path) > 512:
                         blocked.append('Unsupported filename (not displayed)'); continue
                     if stat.S_ISDIR(st.st_mode):
+                        if path == capture:
+                            # Count this boundary entry, but never enumerate its descendants.
+                            blocked.append(path + '/ (capture directory; review future outputs separately)')
+                            continue
                         child = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
                         try:
                             try:
@@ -136,11 +144,17 @@ def inventory(store, ident):
             if root.is_relative_to(store.path) or store.path.is_relative_to(root):
                 raise ValueError('Keep the Git repository separate from the SimShelf library.')
             subdir = source.relative_to(root).as_posix()
+            # Literal file pathspecs avoid a second broad output traversal by Git.
+            # Batch to stay below argv limits even for long supported filenames.
+            paths_in_scope = [':(literal)' + (f['path'] if subdir == '.' else subdir + '/' + f['path']) for f in files]
+            def listing(*args):
+                return b''.join(git(root, 'ls-files', *args, '-z', '--', *paths_in_scope[i:i + 100])
+                                for i in range(0, len(paths_in_scope), 100))
             def paths(*args):
-                return {os.fsdecode(p) for p in git(root, 'ls-files', *args, '-z', '--', subdir).split(b'\0') if p}
+                return {os.fsdecode(p) for p in listing(*args).split(b'\0') if p}
             try:
                 tracked = paths('--cached')
-                signatures.append(['index', hashlib.sha256(git(root, 'ls-files', '--stage', '-z', '--', subdir)).hexdigest()])
+                signatures.append(['index', hashlib.sha256(listing('--stage')).hexdigest()])
                 ignored = paths('--others', '--ignored', '--exclude-standard') | paths('--cached', '--ignored', '--exclude-standard')
                 for item in files:
                     rel = item['path'] if subdir == '.' else subdir + '/' + item['path']
@@ -165,6 +179,7 @@ def inventory(store, ident):
             reason = reason or 'No Git repository found. Preferences do not initialize or connect Git.'
         saved = saved_settings(store, ident, binding)
         result = {'source': str(source), 'repository': repo, 'subdirectory': subdir,
+                  'capture_directory': capture,
                   'reason': reason, 'files': files, 'ignore_files': ignores, 'blocked': blocked,
                   'rules': saved['rules'] if saved else [], 'binding': binding,
                   'ignore_writable': bool(repo and not reason),
