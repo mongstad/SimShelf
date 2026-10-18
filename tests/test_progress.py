@@ -55,6 +55,7 @@ def test_overlong_lines_cannot_parse_suffix_and_memory_is_bounded():
     (b'  step 1,000/50,000 (  2.0%)', 1000, 50000),
     (b'250 / 1000 steps', 250, 1000),
     (b'Step 500 of 1000', 500, 1000),
+    (b'Step 8 of 8000', 8, 8000),
     (b'\tStEp\t1,000 \t/ 50,000\t(2.0 %)\t', 1000, 50000),
     (b'1 / 3 STEPS (33.3%)', 1, 3),
     (b'Step 1 of 3 (33%)', 1, 3),
@@ -68,7 +69,8 @@ def test_supported_count_conventions(line, current, total):
 
 @pytest.mark.parametrize('line,value', [(b'Progress: 25%', 25),
     (b'50% complete', 50), (b' \tPROGRESS :\t25.5 % ', 25.5),
-    (b'50 % COMPLETE', 50), (b'25%', 25)])
+    (b'50 % COMPLETE', 50), (b'25%', 25),
+    (b'Progress: 0.2%', 0.2), (b'0.002%', 0.002)])
 def test_supported_percentage_conventions(line, value):
     assert list(TextProgressParser('percent').feed(line+b'\n')) == [progress_report(value, 100)]
     assert list(TextProgressParser('step').feed(line+b'\n')) == []

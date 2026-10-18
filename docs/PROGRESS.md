@@ -4,7 +4,7 @@ Run details show **Progress** when a simulation supplies a valid
 current/total pair. For non-completed runs, unknown totals show no percentage. Elapsed wall-clock time
 stays beside the run status. Finalized runs keep their last report, which may be
 less than 100%. Successfully completed runs display **Progress 100%**, a full bar,
-and the stored positive total on both sides of the step count (for example,
+and, for count reports, the stored positive total on both sides (for example,
 **5,463 / 5,463 steps**). These are process-completion display values, not measured
 telemetry; the accessible description makes that distinction explicit. The stored
 last report stays unchanged. Without a finite positive total, completed runs show
@@ -13,6 +13,18 @@ only their actual reported progress. Even a 100% report does not establish
 successful execution or stop a process.
 Progress is optional telemetry, separate from measurements, parameters and source
 identity. It does not add pause/resume or change cancellation semantics.
+
+Percentage-adapter reports show the reported percentage alone, including small
+fractions such as **0.2%** or **0.002%**, without a fictional `/ 100 steps` counter.
+Count reports with integer values show grouped counters such as **8 / 8,000 steps**.
+Fractional structured or count-adapter values use neutral **units**, preserving
+the numeric precision supplied to the UI. Structured reports take precedence
+over the run's text-adapter selection; a total of 100 alone never implies percent.
+Historical text reports without a recognized frozen adapter use neutral units.
+Unknown totals remain **Progress unavailable**, with any stage retained and no
+invented percentage/count. Completed percentage reports show process completion
+at 100% without counts; completed fractional counts use units, with the same
+accessible distinction between display values and raw telemetry.
 
 ## Enable a library explicitly
 

@@ -313,7 +313,11 @@ One-second coalescing plus final flush bounds durable work; one row/checkpoint p
 run bounds retained telemetry. Older finalized run rows remain unchanged.
 Structured API input takes precedence over explicit whole-line text adapters;
 stdout/stderr bytes and process ownership remain unchanged. Lifecycle status is
-independent of reported fraction. The [design](PROGRESS_DESIGN.md) specifies the
+independent of reported fraction. The UI uses report source plus the run's frozen
+`progress_mode` to distinguish text percentages from counts; structured reports
+remain independent of the adapter. Fractional counters and legacy text reports
+without a known adapter use neutral units. Completion is a display projection,
+and no report, parser, cache or storage semantics change. The [design](PROGRESS_DESIGN.md) specifies the
 separately authorized migration and recovery boundaries.
 
 ## Optional local Git provenance
