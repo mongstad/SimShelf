@@ -254,3 +254,9 @@ Earlier evidence remains unchanged.
 See [issue #54 run navigation](validation/issue-54-run-navigation.md) for retained
 simulation-scoped browsing context, detail-state isolation, focused tests,
 installed-browser checks and limitations. Earlier evidence remains unchanged.
+
+## Secondary run timestamp year
+
+See [issue #68 run timestamp](validation/issue-68-run-timestamp.md) for year display,
+unchanged run names and stored records, local year-boundary checks, and installed
+desktop/narrow validation. Earlier evidence remains unchanged.
