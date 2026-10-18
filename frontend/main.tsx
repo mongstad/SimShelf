@@ -975,7 +975,7 @@ function RunDetails({
             <Status status={run.status} />
             <span>Version {run.version}</span>
             <span>{date(run.started_at, true)}</span>
-            <span>
+            <span className="run-duration">
               {duration(
                 run.status === "running"
                   ? Math.max(
