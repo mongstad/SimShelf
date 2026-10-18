@@ -281,3 +281,6 @@ backup recovery, installed browser checks and limitations.
 
 See also the [issue #52 settings-dialog review](validation/issue-52-settings-review.md)
 for the owner-requested cogwheel, keyboard focus and missing-source recovery checks.
+
+The [title-placement follow-up](validation/issue-52-title-placement.md) records
+long-title wrapping, title/icon geometry and keyboard checks for the final layout.

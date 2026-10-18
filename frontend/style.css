@@ -2158,7 +2158,9 @@ details label {
 .simulation-removal-counts { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; }
 .simulation-removal-counts dd { margin: 0; font-variant-numeric: tabular-nums; }
 
-/* Keep simulation administration at the header corner, including wrapped layouts. */
-.page-heading:has(.simulation-settings-trigger) { position: relative; padding-right: 44px; }
-.simulation-settings-trigger { position: absolute; top: 0; right: 0; }
+/* Keep settings attached to the title while allowing the title itself to wrap. */
+.page-title-group { min-width: 0; max-width: 100%; }
+.simulation-title-row { display: flex; align-items: center; gap: 14px; }
+.simulation-title-row h1 { min-width: 0; overflow-wrap: anywhere; }
+.simulation-settings-trigger { flex: 0 0 auto; }
 .simulation-settings-actions { display: grid; gap: 12px; }

@@ -1932,9 +1932,19 @@ function App() {
           ) : (
             <>
               <header className="page-heading">
-                <div>
+                <div className="page-title-group">
                   <div className="eyebrow">SIMULATION JOURNAL</div>
-                  <h1>{simulation?.name || "All simulations"}</h1>
+                  <div className="simulation-title-row">
+                    <h1>{simulation?.name || "All simulations"}</h1>
+                    {simulation && <button ref={simulationSettingsTrigger} className="icon-button simulation-settings-trigger"
+                      aria-label="Simulation settings" title="Simulation settings" aria-haspopup="dialog"
+                      onClick={e => { administrationReturnFocus.current = e.currentTarget; setModal("simulation-settings"); }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                        <path d="m9 3-.6 2.4-2 .9-2.3-.7-2 3.4 1.7 1.8v2.4L2.1 15l2 3.4 2.3-.7 2 .9L9 21h4l.6-2.4 2-.9 2.3.7 2-3.4-1.7-1.8v-2.4L19.9 9l-2-3.4-2.3.7-2-.9L13 3Z" />
+                        <circle cx="11" cy="12" r="3" />
+                      </svg>
+                    </button>}
+                  </div>
                   {simulation?.description && <p>{simulation.description}</p>}
                 </div>
                 <div className="heading-actions">
@@ -1962,14 +1972,6 @@ function App() {
                     Start simulation
                   </button>
                 </div>
-                {simulation && <button ref={simulationSettingsTrigger} className="icon-button simulation-settings-trigger"
-                  aria-label="Simulation settings" title="Simulation settings" aria-haspopup="dialog"
-                  onClick={e => { administrationReturnFocus.current = e.currentTarget; setModal("simulation-settings"); }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                    <path d="m9 3-.6 2.4-2 .9-2.3-.7-2 3.4 1.7 1.8v2.4L2.1 15l2 3.4 2.3-.7 2 .9L9 21h4l.6-2.4 2-.9 2.3.7 2-3.4-1.7-1.8v-2.4L19.9 9l-2-3.4-2.3.7-2-.9L13 3Z" />
-                    <circle cx="11" cy="12" r="3" />
-                  </svg>
-                </button>}
               </header>
               {simulation && !simulation.available && (
                 <ErrorMessage message="This simulation’s source folder is unavailable on this computer. Existing run records and saved copies remain accessible." />
