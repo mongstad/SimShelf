@@ -1,3 +1,4 @@
+import { RunNavigation, chronological, runSequence, type RunSequence } from "./RunNavigation";
 import { RunProgress } from "./RunProgress";
 import { DeleteScreenshot, withoutScreenshots } from "./DeleteScreenshot";
 import { RemoveRuns, type RemovalResult } from "./RemoveRuns";
@@ -796,13 +797,11 @@ function Versions({
 function RunDetails({
   id,
   simulation,
-  close,
   changed,
   requestRemoval,
 }: {
   id: string;
   simulation?: Simulation;
-  close: () => void;
   changed: () => void;
   requestRemoval: (run: Run) => void;
 }) {
@@ -950,9 +949,6 @@ function RunDetails({
   if (!run)
     return (
       <div className="detail-page">
-        <button className="text-button" onClick={close}>
-          ← Back to runs
-        </button>
         <ErrorMessage message={error} />
         <div className="empty-inline">{error ? "This run is unavailable. Return to the run list to refresh." : "Loading run…"}</div>
       </div>
@@ -967,9 +963,6 @@ function RunDetails({
   const imageUrl = (a: Artifact) => `/api/artifacts/${a.id}/file`;
   return (
     <div className="detail-page">
-      <button className="text-button back" onClick={close}>
-        ← Back to runs
-      </button>
       <header className="run-heading">
         <div>
           <div className="eyebrow">
@@ -1583,6 +1576,7 @@ function App() {
     [limit, setLimit] = useState(200),
     [backingUp, setBackingUp] = useState(false),
     [notice, setNotice] = useState("");
+  const [sequence, setSequence] = useState<RunSequence | null>(null);
   const [removalRuns, setRemovalRuns] = useState<Run[] | null>(null);
   const removedIds = useRef(new Set<string>());
   const [quitting, setQuitting] = useState(false);
@@ -1619,7 +1613,7 @@ function App() {
       const nextRuns = await api<Run[]>(`/runs?${query}`);
       if (activeQuery.current !== requestKey || sequence !== refreshSequence.current) return;
       const retained = nextRuns.filter(r => !removedIds.current.has(r.id));
-      setRuns(retained);
+      setRuns(chronological(retained));
       setSelected(previous => previous.filter(id => retained.some(r => r.id === id)));
       setError("");
     } catch (e) {
@@ -1675,18 +1669,51 @@ function App() {
     window.addEventListener("hashchange", handler);
     return () => window.removeEventListener("hashchange", handler);
   }, []);
+  // A captured list is independent of polling and of later filter/result changes.
+  // Hash entry, reload and newly launched runs have no captured list.
+  useEffect(() => {
+    if (!detail || (sequence && sequence.ids.includes(detail))) return;
+    let live = true;
+    setSequence(null);
+    (async () => {
+      const run = await api<Run>(`/runs/${detail}`);
+      if (!live) return;
+      // Keep Back scoped correctly even if the adjacent-list request fails.
+      setSequence(runSequence([run], run.simulation_id, true));
+      const recent = await api<Run[]>(`/runs?${new URLSearchParams({ simulation: run.simulation_id, limit: "1000" })}`);
+      if (!live) return;
+      const context = runSequence(chronological(recent), run.simulation_id, true);
+      // An older direct-linked run stays viewable, but cannot skip the omitted interval.
+      if (!context.ids.includes(detail)) context.ids = [detail];
+      setSequence(context);
+    })().catch(() => { /* The detail view reports unavailable runs; Back remains usable. */ });
+    return () => { live = false; };
+  }, [detail]);
+  function backToRuns() {
+    if (sequence) setSimulationId(sequence.simulationId);
+    if (sequence?.fallback) {
+      setSearch(""); setStatus(""); setVersion(""); setParam(""); setImagesOnly(false); setLimit(1000);
+    }
+    setPage("runs");
+    setSelected([]);
+    location.hash = "";
+    setDetail("");
+    refresh();
+  }
   function removed(result: RemovalResult) {
     for (const id of result.removed_ids) removedIds.current.add(id);
     setRuns(previous => previous.filter(r => !removedIds.current.has(r.id)));
+    setSequence(previous => previous && ({ ...previous, ids: previous.ids.filter(id => !removedIds.current.has(id)) }));
     setSelected([]);
     setModal("");
     setRemovalRuns(null);
-    if (removedIds.current.has(detail)) { location.hash = ""; setDetail(""); }
+    if (removedIds.current.has(detail)) backToRuns();
     setNotice(`${result.removed_ids.length} run(s) removed. ${result.cleanup_errors.length ? "Managed file cleanup is pending; recovery will retry. " + result.cleanup_errors.join("; ") : "Eligible managed files reclaimed; shared files retained."}`);
     refresh();
   }
   function chooseSimulation(id: string) {
     setSimulationId(id);
+    setSequence(null);
     setPage("runs");
     setSearch("");
     setStatus("");
@@ -1698,6 +1725,11 @@ function App() {
     setDetail("");
   }
   function showRun(id: string) {
+    const opened = visible.find(r => r.id === id);
+    setSequence(opened ? runSequence(visible, opened.simulation_id) : null);
+    navigateRun(id);
+  }
+  function navigateRun(id: string) {
     location.hash = `run/${id}`;
     setDetail(id);
   }
@@ -1859,19 +1891,19 @@ function App() {
             </div>
           )}
           {detail ? (
+            <>
+            <RunNavigation id={detail} sequence={sequence} navigate={navigateRun} close={backToRuns} />
             <RunDetails
+              key={detail}
               id={detail}
               simulation={simulations.find(
                 (s) =>
-                  s.id === runs.find((r) => r.id === detail)?.simulation_id,
+                  s.id === sequence?.simulationId,
               )}
-              close={() => {
-                location.hash = "";
-                setDetail("");
-              }}
               changed={refresh}
               requestRemoval={run => setRemovalRuns([run])}
             />
+            </>
           ) : (
             <>
               <header className="page-heading">

@@ -2112,3 +2112,14 @@ details label {
   margin: 16px 0;
 }
 .source-location span { min-width: 0; overflow-wrap: anywhere; }
+
+.run-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.run-neighbors { display: flex; flex-wrap: wrap; gap: 16px; }
+.run-navigation small { flex-basis: 100%; }

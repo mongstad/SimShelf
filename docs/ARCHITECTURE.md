@@ -417,3 +417,13 @@ references and captured paths are never rewritten. Existing launch checks still
 validate saved execution preferences before use; relocation does not probe Python.
 External directory mutations are not locked by SimShelf: the user must not move
 or replace folders concurrently with review/confirmation/launch.
+
+## Run-detail navigation
+
+Issue #54 captures the loaded visible run IDs and simulation ID when a list item
+opens. Previous/Next use that immutable frontend sequence, independent of polling.
+Client-side timestamp/run-ID ordering resolves ties. Direct-link fallback reads
+at most 1,000 runs scoped to the fetched run's simulation; late fallback responses
+are discarded after navigation. Back scopes the list to the captured simulation.
+RunDetails is keyed by run ID, isolating all detail state and asynchronous updates,
+including nested archive/file components. No API, execution, Git or schema changes.
