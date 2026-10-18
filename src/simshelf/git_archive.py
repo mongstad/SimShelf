@@ -524,7 +524,7 @@ def prepare(recorder):
             return
         saved = connection(store)
         if (plan['workspace'] != workspace_identity(store) or plan['repository'] != saved
-                or plan['capture_config'] != recorder.simulation['config'] or plan['source'] != recorder.simulation['root']):
+                or plan['capture_config'] != recorder.base_capture_config or plan['source'] != recorder.simulation['root']):
             raise ValueError('Archive settings no longer match source, capture settings or repository. Review consent again.')
         # Validate location-bound #44 rules, but do not require existing filenames
         # to remain identical; explicitly consented folder/type rules cover future files.

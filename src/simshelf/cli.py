@@ -32,6 +32,7 @@ def parser() -> argparse.ArgumentParser:
     record.add_argument("--name")
     record.add_argument("--tag", action="append", default=[])
     record.add_argument("--cwd", type=Path, help="Working directory; defaults to your current directory")
+    record.add_argument("--output-policy", choices=("fixed", "per_run"), default="fixed", help="Opt in to a unique capture subfolder; the script must honor SIMSHELF_OUTPUT_DIR")
     record.add_argument("--output-dir", help="Run-specific capture folder relative to the simulation folder")
     record.add_argument("--progress", choices=["off", "step", "percent"], default="off", help="Opt-in whole-line progress parser; requires explicit library enablement")
     record.add_argument("command", nargs=argparse.REMAINDER)
@@ -69,7 +70,7 @@ def main(argv=None) -> int:
             print(f"Registered {sim['name']}\nSimulation ID: {sim['id']}\nSource folder: {sim['root']}")
         elif args.action == "record":
             command = args.command[1:] if args.command[:1] == ["--"] else args.command
-            _, code = record_command(store, args.simulation, command, name=args.name, tags=args.tag, cwd=args.cwd, output_dir=args.output_dir, progress_mode=args.progress)
+            _, code = record_command(store, args.simulation, command, name=args.name, tags=args.tag, cwd=args.cwd, output_dir=args.output_dir, progress_mode=args.progress, output_policy=args.output_policy)
             return code
         elif args.action == "ui":
             import uvicorn

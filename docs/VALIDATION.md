@@ -213,3 +213,10 @@ persistence, unchanged schema and focused browser/download regressions.
 The [review-action revision](validation/issue-56-review-actions-revision.md)
 records mutually exclusive actions, locked reviewed inputs, focus restoration,
 unchanged consent safeguards and focused installed-browser/package validation.
+
+## Coordinated isolated output folders
+
+See [issue #69 isolated outputs](validation/issue-69-isolated-outputs.md) for
+opt-in allocation, environment/API coordination, original-output isolation,
+source/archive preservation, focused tests, installed-package/UI checks and limits.
+Earlier evidence remains unchanged.

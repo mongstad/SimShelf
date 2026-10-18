@@ -356,3 +356,26 @@ binding) uses the existing versioned metadata namespace, without a schema change
 Connection and preference updates share one SQLite transaction under the workspace
 lock. This preference never triggers startup connection, changes scientific run
 records or grants archival consent; reconnection still validates repository identity.
+
+## Coordinated isolated outputs
+
+Issue #69 adds explicit `output_policy="per_run"` execution settings and matching
+CLI/Python options; omitted settings remain `fixed`. Under the recorder start
+lock, the run UUID names an exclusively created child of the configured capture
+parent. Descriptor-relative creation uses no-follow directory opens. Validation
+is passive; allocation happens only at start. The frozen `capture_config` and
+`capture_root` point to that child, while additive `output_policy`/`output_base`
+run metadata retain the choice. `SIMSHELF_OUTPUT_DIR` and joined `run.output_dir`
+use the same child. Argv and cwd are unchanged. No schema upgrade is involved.
+
+Source snapshot exclusion uses the base capture configuration, so sibling run
+outputs cannot enter snapshots merely because isolation is enabled. Archive
+consent is compared against that base configuration; its initial fingerprints,
+final capture and future selection use the exact run folder. Rules and budgets
+remain capture-relative. Existing transactional overlap rejection still applies.
+Directory identity is checked before child execution and final capture; missing,
+symlinked or replaced folders produce failure/incomplete capture instead of
+silently collecting another folder. This does not sandbox arbitrary script writes
+or external directory changes during capture. Failed-start empty directories are
+preserved, and unknown outside writes remain unknown. See the
+[user workflow](RUNNING.md#unique-output-folders-for-cooperating-scripts).

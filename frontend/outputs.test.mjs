@@ -90,3 +90,20 @@ test("candidate hints retain exact indices and do not inspect post-separator opt
     [1, 3],
   );
 });
+
+test("per-run preview and history distinguish allocation from actual capture", () => {
+  const preview = render(OutputPaths, {
+    args: [], mappings: [], change: () => {}, apply: () => {}, error: "",
+    review: { output_path: "/source/results", output_policy: "per_run", targets: [], requires_acknowledgement: false },
+  });
+  assert.match(preview, /Resolved capture parent/);
+  assert.match(preview, /allocated at/);
+  assert.match(preview, /no arguments are rewritten/);
+  const history = render(CaptureSummary, { run: {
+    output_policy: "per_run", output_base: "/source/results", capture_root: "/source/results/run_abc",
+    capture_status: "complete", capture_counts: {copied: 0},
+  }});
+  assert.match(history, /\/source\/results\/run_abc/);
+  assert.match(history, /Writes elsewhere are not inventoried/);
+  assert.match(history, /No eligible files observed/);
+});

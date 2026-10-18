@@ -40,6 +40,7 @@ export function LaunchSimulation({
   const [output, setOutput] = useState(
     initial?.output_dir || simulation.config.output_dir,
   );
+  const [outputPolicy, setOutputPolicy] = useState(initial?.output_policy || "fixed");
   const [mappings, setMappings] = useState<OutputMapping[]>(
     initial?.output_mappings || [],
   );
@@ -51,6 +52,7 @@ export function LaunchSimulation({
     cwd,
     arguments: args,
     output_dir: output,
+    output_policy: outputPolicy,
     output_mappings: mappings,
   });
   useEffect(() => {
@@ -86,6 +88,7 @@ export function LaunchSimulation({
     cwd,
     arguments: args,
     output_dir: output,
+    output_policy: outputPolicy,
     output_mappings: mappings,
   };
   function edited() {
@@ -271,6 +274,22 @@ export function LaunchSimulation({
             capture.
           </small>
         </label>
+        <label>
+          Output folder policy
+          <select value={outputPolicy} onChange={(e) => {
+            setOutputPolicy(e.target.value as "fixed" | "per_run");
+            edited();
+          }}>
+            <option value="fixed">Fixed folder (existing behavior)</option>
+            <option value="per_run">Unique subfolder for each run</option>
+          </select>
+          <small>
+            Unique subfolders require a cooperating script: use SIMSHELF_OUTPUT_DIR
+            or joined run.output_dir. SimShelf creates the folder at launch; use
+            mkdir with exist_ok=True if your script also creates it. Fixed output
+            arguments are not rewritten, and shell variables in arguments are not expanded.
+          </small>
+        </label>
         <ArgumentEditor
           key={argumentRevision}
           initial={args}
@@ -361,7 +380,8 @@ export function LaunchSimulation({
           <p>
             Working directory: <code>{plan.cwd}</code>
             <br />
-            Capture folder: <code>{plan.output_path}</code>
+            {outputPolicy === "per_run" ? "Capture parent" : "Capture folder"}: <code>{plan.output_path}</code>
+            {outputPolicy === "per_run" && <><br />A new run_&lt;unique ID&gt; subfolder is allocated when you start. The exact path appears in the run record.</>}
           </p>
         </div>
       )}

@@ -5,6 +5,7 @@ export type OutputMapping = {
   format: "token" | "equals";
 };
 export type OutputReview = {
+  output_policy?: "fixed" | "per_run";
   output_path: string;
   requires_acknowledgement: boolean;
   targets: (OutputMapping & {
@@ -23,6 +24,7 @@ export type Config = {
   rules: { pattern: string; action: "copy" | "reference" | "ignore" }[];
 };
 export type ExecutionSettings = {
+  output_policy?: "fixed" | "per_run";
   progress_mode?: string;
   output_mappings?: OutputMapping[];
   interpreter: string;
@@ -65,6 +67,8 @@ export type Measurement = {
   unit?: string;
 };
 export type Run = {
+  output_policy?: "per_run";
+  output_base?: string;
   archive_commits?: number;
   progress?: {current: number | null; total: number | null; stage: string | null; source: string; reported_at: string} | null;
   progress_error?: string | null;

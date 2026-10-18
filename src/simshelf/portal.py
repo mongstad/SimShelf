@@ -19,7 +19,7 @@ from .interpreters import probe_interpreter
 
 
 def execution_settings(simulation: dict, data: dict, *, probe=False) -> dict:
-    if not isinstance(data, dict) or set(data) - {"interpreter", "cwd", "arguments", "output_dir", "output_mappings", "progress_mode"}:
+    if not isinstance(data, dict) or set(data) - {"interpreter", "cwd", "arguments", "output_dir", "output_mappings", "progress_mode", "output_policy"}:
         raise ValueError("Use interpreter, cwd, arguments, output_dir and optional output_mappings execution settings")
     interpreter = data.get("interpreter", "")
     if not isinstance(interpreter, str) or not interpreter or "\0" in interpreter:
@@ -58,7 +58,9 @@ def execution_settings(simulation: dict, data: dict, *, probe=False) -> dict:
         raise ValueError("Choose off, step or percent progress parsing")
     settings["progress_mode"] = progress_mode
     mappings = data.get("output_mappings", [])
-    review = output_review(simulation, cwd, arguments, output, mappings)
+    policy = data.get("output_policy", "fixed")
+    review = output_review(simulation, cwd, arguments, output, mappings, policy)
+    settings["output_policy"] = policy
     settings["output_mappings"] = mappings
     result = {"output_review": review, "settings": settings, "command": [str(python), str(script), *arguments],
               "cwd": str(directory), "output_path": str(contained(root, output))}
