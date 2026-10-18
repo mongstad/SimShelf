@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 
-export function SimulationSettings({ name, close, relocate, remove }: {
-  name: string; close: () => void; relocate: () => void; remove: () => void;
+export function SimulationSettings({ close, relocate, remove }: {
+  close: () => void; relocate: () => void; remove: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
@@ -17,7 +17,6 @@ export function SimulationSettings({ name, close, relocate, remove }: {
     onCancel={e => { e.preventDefault(); close(); }}
     onClick={e => { if (e.target === e.currentTarget) close(); }}>
     <h2 id="simulation-settings-title">Simulation settings</h2>
-    <p className="muted">{name}</p>
     <div className="simulation-settings-actions">
       <button onClick={relocate}>Change source location…</button>
       <button onClick={remove}>Remove simulation…</button>

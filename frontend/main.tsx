@@ -2450,7 +2450,7 @@ function App() {
           }}
         />
       )}
-      {modal === "simulation-settings" && simulation && <SimulationSettings name={simulation.name}
+      {modal === "simulation-settings" && simulation && <SimulationSettings
         close={closeSimulationAdministration} relocate={() => setModal("relocate")} remove={() => setModal("remove-simulation")} />}
       {modal === "remove-simulation" && simulation && <Modal title="Remove simulation" close={closeSimulationAdministration}>
         <RemoveSimulation key={simulation.id} id={simulation.id} close={closeSimulationAdministration} removed={simulationRemoved} />

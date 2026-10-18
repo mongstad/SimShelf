@@ -6,9 +6,8 @@ import { SimulationSettings } from './SimulationSettings.tsx';
 import { RemoveSimulation } from './RemoveSimulation.tsx';
 
 test('settings is a labelled dialog with separate workflow actions and safe dismissal', () => {
- const html=renderToStaticMarkup(React.createElement(SimulationSettings,{name:'A <source>',close:()=>{},relocate:()=>{},remove:()=>{}}));
+ const html=renderToStaticMarkup(React.createElement(SimulationSettings,{close:()=>{},relocate:()=>{},remove:()=>{}}));
  assert.match(html,/aria-labelledby="simulation-settings-title"/);
- assert.match(html,/A &lt;source&gt;/);
  assert.match(html,/>Change source location…<\/button>/);
  assert.match(html,/>Remove simulation…<\/button>/);
  assert.match(html,/<button autofocus="">Cancel<\/button>/);
