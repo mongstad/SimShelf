@@ -13,6 +13,16 @@ SimShelf is a free, local-first Python simulation library and run journal. Keep 
 searchable history of experiments, their exact runtime arguments, reported
 parameters and source context, so you can return to past work and compare runs.
 
+## Interface preview
+
+<p align="center">
+  <a href="docs/images/01.png"><img src="docs/images/01.png" alt="SimShelf simulation journal showing run history, parameters and statuses" width="32%"></a>
+  <a href="docs/images/02.png"><img src="docs/images/02.png" alt="SimShelf Git history showing shared master archive connection and automatic archival" width="32%"></a>
+  <a href="docs/images/03.png"><img src="docs/images/03.png" alt="SimShelf completed run record with progress, captured field image and provenance" width="32%"></a>
+</p>
+
+<p align="center"><sub>Run history · Git archive · Run record — select any image for full size</sub></p>
+
 **[Get started: open the portal and record your first run](docs/GETTING_STARTED.md)**
 
 Register existing simulations and launch them from the local browser portal, or
