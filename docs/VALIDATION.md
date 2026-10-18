@@ -272,3 +272,9 @@ responsive checks and fixture limitations. Earlier evidence remains unchanged.
 See [issue #55 sidebar](validation/issue-55-sidebar.md) for bounded pointer/keyboard
 resizing, local preferences, full collapse, responsive/theme checks, installed
 package evidence and limitations. Earlier evidence remains unchanged.
+
+## Removing a registered simulation
+
+See [issue #52 simulation removal](validation/issue-52-simulation-removal.md) for
+schema-1 refusal, atomic removal/retry, retained source/archive/shared data,
+backup recovery, installed browser checks and limitations.

@@ -2154,3 +2154,6 @@ details label {
   .sidebar-frame .sidebar { height: auto; }
   .topbar { flex-wrap: wrap; gap: 10px; }
 }
+
+.simulation-removal-counts { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; }
+.simulation-removal-counts dd { margin: 0; font-variant-numeric: tabular-nums; }

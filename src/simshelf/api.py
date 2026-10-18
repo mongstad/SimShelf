@@ -72,6 +72,13 @@ class RelocationInput(BaseModel):
     confirmed: bool = False
 
 
+class SimulationRemovalInput(BaseModel):
+    model_config = {"extra": "forbid", "strict": True}
+    typed_name: str = Field(max_length=160)
+    revision: str = Field(min_length=64, max_length=64)
+    confirmed: bool = False
+
+
 class SimulationUpdate(BaseModel):
     entrypoint: str | None = None
     config: dict | None = None
@@ -385,6 +392,16 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
     @app.patch("/api/simulations/{ident}")
     def update_simulation(ident: str, body: SimulationUpdate):
         return store.update_simulation(ident, **body.model_dump(exclude_unset=True))
+
+    @app.get("/api/simulations/{ident}/removal-preview")
+    def preview_simulation_removal(ident: str):
+        from .simulation_removal import preview
+        return preview(store, ident)
+
+    @app.post("/api/simulations/{ident}/remove")
+    def remove_simulation(ident: str, body: SimulationRemovalInput):
+        from .simulation_removal import remove
+        return remove(store, ident, **body.model_dump())
 
     @app.post("/api/simulations/{ident}/relocation/preview")
     def preview_relocation(ident: str, body: RelocationInput):

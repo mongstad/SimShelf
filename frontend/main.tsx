@@ -1,3 +1,4 @@
+import { RemoveSimulation, type SimulationRemovalResult } from "./RemoveSimulation";
 import { useSidebar } from "./useSidebar";
 import { RunNavigation, chronological, runSequence, type RunSequence } from "./RunNavigation";
 import { RunProgress } from "./RunProgress";
@@ -1582,6 +1583,8 @@ function App() {
   const [sequence, setSequence] = useState<RunSequence | null>(null);
   const [removalRuns, setRemovalRuns] = useState<Run[] | null>(null);
   const removedIds = useRef(new Set<string>());
+  const removedSimulationIds = useRef(new Set<string>());
+  const simulationRemovalTrigger = useRef<HTMLButtonElement>(null);
   const [quitting, setQuitting] = useState(false);
   const [theme, setTheme] = useState(
     localStorage.getItem("simshelf-theme") || "system",
@@ -1607,7 +1610,7 @@ function App() {
     ]);
     try {
       const sims = await api<Simulation[]>("/simulations");
-      setSimulations(sims);
+      setSimulations(sims.filter(s => !removedSimulationIds.current.has(s.id)));
       const query = new URLSearchParams({ limit: String(limit) });
       if (simulationId) query.set("simulation", simulationId);
       if (status) query.set("status", status);
@@ -1615,7 +1618,7 @@ function App() {
       if (search) query.set("q", search);
       const nextRuns = await api<Run[]>(`/runs?${query}`);
       if (activeQuery.current !== requestKey || sequence !== refreshSequence.current) return;
-      const retained = nextRuns.filter(r => !removedIds.current.has(r.id));
+      const retained = nextRuns.filter(r => !removedIds.current.has(r.id) && !removedSimulationIds.current.has(r.simulation_id));
       setRuns(chronological(retained));
       setSelected(previous => previous.filter(id => retained.some(r => r.id === id)));
       setError("");
@@ -1713,6 +1716,19 @@ function App() {
     if (removedIds.current.has(detail)) backToRuns();
     setNotice(`${result.removed_ids.length} run(s) removed. ${result.cleanup_errors.length ? "Managed file cleanup is pending; recovery will retry. " + result.cleanup_errors.join("; ") : "Eligible managed files reclaimed; shared files retained."}`);
     refresh();
+  }
+  function closeSimulationRemoval() {
+    setModal("");
+    setTimeout(() => simulationRemovalTrigger.current?.focus(), 0);
+  }
+  function simulationRemoved(result: SimulationRemovalResult) {
+    removedSimulationIds.current.add(result.simulation_id);
+    refreshSequence.current++;
+    setSimulations(previous => previous.filter(s => s.id !== result.simulation_id));
+    setRuns(previous => previous.filter(r => r.simulation_id !== result.simulation_id));
+    setModal(""); setRemovalRuns(null); chooseSimulation("");
+    setParamValue(""); setImagesOnly(false); setFilters(false);
+    setNotice(`Simulation removed from this workspace. Original files and Git archive history retained. ${result.cleanup_errors.length ? "Managed file cleanup is pending: " + result.cleanup_errors.join("; ") : "Eligible unshared managed files reclaimed."}`);
   }
   function chooseSimulation(id: string) {
     setSimulationId(id);
@@ -1953,6 +1969,7 @@ function App() {
                 <button onClick={() => setModal("relocate")}>
                   {simulation.available ? "Change source location" : "Locate source folder…"}
                 </button>
+                <button ref={simulationRemovalTrigger} onClick={() => setModal("remove-simulation")}>Remove simulation…</button>
               </div>}
               {simulation && (
                 <nav className="tabs" aria-label="Simulation sections">
@@ -2424,6 +2441,9 @@ function App() {
           }}
         />
       )}
+      {modal === "remove-simulation" && simulation && <Modal title="Remove simulation" close={closeSimulationRemoval}>
+        <RemoveSimulation key={simulation.id} id={simulation.id} close={closeSimulationRemoval} removed={simulationRemoved} />
+      </Modal>}
       {modal === "relocate" && simulation && <RelocateSimulation key={simulation.id}
         simulation={simulation} close={() => setModal("")} relocated={() => {
           setModal(""); setNotice("Source location updated. Review launch settings and Git archival preferences before your next run."); refresh();

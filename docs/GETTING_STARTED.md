@@ -233,3 +233,12 @@ recording remains independent. See [archive limits](GIT_ARCHIVE.md).
 Linux/Chromium is the validated platform family. Other operating systems/browser
 engines, GPU scientific workloads and long/high-volume sessions are not certified.
 See [validation](VALIDATION.md) for dated evidence, not a production guarantee.
+
+## Remove a registration
+
+To remove a simulation and all its library runs, select it and choose
+**Remove simulation…**. Review the scope and type its exact name. Back up first
+if you may need the history. Original source and output folders remain untouched;
+active runs block removal and schema-1 libraries are refused without migration.
+See [simulation removal](SIMULATION_REMOVAL.md) for retained Git archive data,
+recovery and retry behavior.

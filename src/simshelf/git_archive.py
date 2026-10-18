@@ -52,8 +52,14 @@ def get(store, key, default=None):
     return json.loads(row[0]) if row else default
 
 
+@locked_store
 def put(store, key, value):
     with store.connection() as conn:
+        # A late optional finalizer must not recreate associations after removal.
+        from .removal import deleted_run
+        parts = key.split(':')
+        if len(parts) >= 2 and parts[0] in {'initial', 'pending', 'event', 'error'} and deleted_run(conn, parts[1]):
+            return
         conn.execute('INSERT OR REPLACE INTO metadata VALUES (?,?)', (PREFIX + key, json_text(value)))
 
 

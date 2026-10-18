@@ -88,7 +88,7 @@ class Store:
                 if existing["root"] == str(root):
                     return existing
             ident = slugify(name)
-            if conn.execute("SELECT 1 FROM simulations WHERE id=?", (ident,)).fetchone():
+            while conn.execute("SELECT 1 FROM simulations WHERE id=?", (ident,)).fetchone() or conn.execute("SELECT 1 FROM metadata WHERE key=?", ("deleted_simulation:" + ident,)).fetchone():
                 ident += "-" + uuid.uuid4().hex[:6]
             data = {"id": ident, "name": name, "root": str(root), "entrypoint": entrypoint, "version_file": version_file, "config": config, "created_at": now(), "description": project.get("description", "")}
             conn.execute("INSERT INTO simulations VALUES (?,?)", (ident, json_text(data)))
@@ -173,6 +173,8 @@ class Store:
             if deleted_run(conn, run_id):
                 return  # Historical or delayed events must never resurrect removed runs.
             if kind == "start":
+                if not conn.execute("SELECT 1 FROM simulations WHERE id=?", (data["simulation_id"],)).fetchone():
+                    raise ValueError("Simulation was removed or is not registered")
                 data = dict(data)
                 for active in conn.execute("SELECT data FROM runs WHERE status='running'"):
                     existing = json.loads(active[0])
