@@ -136,3 +136,59 @@ if "--fail" in sys.argv: raise SystemExit(3)
     assert restored.run(aligned['id'])['launch'] == before['launch']
     assert restored.run(aligned['id'])['snapshot'] == before['snapshot']
     assert not any(a.get('blob') for a in restored.run(aligned['id'])['artifacts'] if a['policy'] == 'reference')
+
+
+@pytest.mark.parametrize('value,kind,exists', [
+    ('outputs/new.csv', 'file', False),
+    ('outputs/kept.csv', 'file', True),
+    ('outputs/empty', 'directory', True),
+    ('outputs/populated', 'directory', True),
+    ('outputs/future', 'directory', False),
+])
+def test_declared_path_semantics_preview_and_execution_agree(project, value, kind, exists):
+    store, sim, root, source = project
+    (root / 'outputs/empty').mkdir(parents=True)
+    (root / 'outputs/populated').mkdir()
+    (root / 'outputs/populated/kept.csv').write_bytes(b'original')
+    (root / 'outputs/kept.csv').write_bytes(b'original')
+    before = {str(p.relative_to(root)): p.read_bytes() for p in root.rglob('*') if p.is_file()}
+    config = settings(output_mappings=[mapping(value, kind=kind)])
+    with TestClient(create_app(store.path)) as client:
+        auth = headers(client); base = f'/api/simulations/{sim["id"]}'
+        preview = client.post(base + '/execution/outputs', headers=auth, json={k:v for k,v in config.items() if k != 'interpreter'})
+        assert preview.status_code == 200, preview.text
+        validated = client.post(base + '/execution/validate', headers=auth, json=config)
+        assert validated.status_code == 200, validated.text
+        assert validated.json()['output_review'] == preview.json()
+        assert preview.json()['targets'][0]['kind'] == kind
+        assert preview.json()['targets'][0]['covered']
+        assert (root / value).exists() == exists
+        assert client.put(base + '/execution', headers=auth, json=config).status_code == 200
+    assert not store.runs()
+    assert before == {str(p.relative_to(root)): p.read_bytes() for p in root.rglob('*') if p.is_file()}
+
+
+def test_empty_mapping_rejected_by_preview_save_validate_and_launch_then_removed(project):
+    store, sim, root, source = project
+    (root / 'outputs').mkdir()
+    config = settings(output_mappings=[mapping('outputs/first.csv'), mapping('')])
+    before = store.simulation(sim['id'])
+    with TestClient(create_app(store.path)) as client:
+        auth = headers(client); base = f'/api/simulations/{sim["id"]}'
+        for method, route in [('post','/execution/outputs'), ('post','/execution/validate'),
+                              ('put','/execution'), ('post','/launch')]:
+            body = {k:v for k,v in config.items() if k != 'interpreter'} if route == '/execution/outputs' else config
+            response = getattr(client, method)(base + route, headers=auth, json=body)
+            assert response.status_code == 400, response.text
+            assert response.json()['detail'] == 'Output 2: Declare a nonempty output path'
+        # The independent capture review never drops the draft from saved settings.
+        capture = client.post(base + '/execution/outputs', headers=auth,
+                              json={**{k:v for k,v in config.items() if k != 'interpreter'}, 'output_mappings':[]})
+        assert capture.status_code == 200
+        assert capture.json()['output_path'] == str(root / 'outputs')
+        assert capture.json()['targets'] == []
+        removed = client.post(base + '/execution/outputs', headers=auth,
+                              json={**{k:v for k,v in config.items() if k != 'interpreter'}, 'output_mappings':config['output_mappings'][:1]})
+        assert removed.status_code == 200 and removed.json()['targets'][0]['covered']
+    assert store.simulation(sim['id']) == before and not store.runs()
+    assert list((root / 'outputs').iterdir()) == []

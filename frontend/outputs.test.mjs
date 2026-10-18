@@ -107,3 +107,39 @@ test("per-run preview and history distinguish allocation from actual capture", (
   assert.match(history, /Writes elsewhere are not inventoried/);
   assert.match(history, /No eligible files observed/);
 });
+
+import { incompleteOutputMappings } from "./outputCandidates.ts";
+test("new fixed rows are explicit drafts; completing or removing restores eligibility", () => {
+  const draft = { argument_index: null, value: "", kind: "file", format: "token" };
+  assert.deepEqual(incompleteOutputMappings([draft]), [0]);
+  assert.deepEqual(incompleteOutputMappings([{...draft,value:"outputs/new.csv"}]), []);
+  assert.deepEqual(incompleteOutputMappings([]), []);
+  // Mapped empty/stale arguments still go through authoritative backend checks.
+  assert.deepEqual(incompleteOutputMappings([{...draft,argument_index:0}]), []);
+  const html = render(OutputPaths, {
+    args: [], mappings: [draft], change: () => {}, apply: () => {}, error: "",
+    review: null,
+    captureReview: { output_path: "/source/outputs", targets: [], requires_acknowledgement: false },
+  });
+  assert.match(html, /\/source\/outputs/);
+  assert.match(html, /Output 1 is incomplete/);
+  assert.match(html, /Example text is not an entered path/);
+  assert.match(html, /placeholder="Example: outputs\/data.csv"/);
+  assert.match(html, /value=""/);
+  assert.doesNotMatch(html, /Path review unavailable|role="alert"/);
+});
+
+test("mapping errors do not mislabel the independently reviewed capture folder", () => {
+  const props = {args: [], mappings: [], change:()=>{}, apply:()=>{}, review:null,
+    captureReview: { output_path: "/source/new-output", output_policy:"per_run", targets:[], requires_acknowledgement:false },
+    error: "Output 2: Output argument changed: review its mapping again before launching"};
+  const html = render(OutputPaths,props);
+  assert.match(html,/Resolved capture parent/);
+  assert.match(html,/\/source\/new-output/);
+  assert.match(html,/Output 2: Output argument changed/);
+  assert.doesNotMatch(html,/Capture path unavailable/);
+  const unavailable = render(OutputPaths,{...props,captureReview:null,captureError:"Working directory does not exist"});
+  assert.match(unavailable,/Capture path unavailable/);
+  assert.match(unavailable,/Working directory does not exist/);
+  assert.doesNotMatch(unavailable,/\/source\/new-output/);
+});

@@ -6,6 +6,8 @@ export function OutputPaths({
   mappings,
   change,
   review,
+  captureReview = review,
+  captureError = "",
   error,
   apply,
 }: {
@@ -13,6 +15,8 @@ export function OutputPaths({
   mappings: OutputMapping[];
   change: (next: OutputMapping[]) => void;
   review: OutputReview | null;
+  captureReview?: OutputReview | null;
+  captureError?: string;
   error: string;
   apply: (index: number, value: string) => void;
 }) {
@@ -23,15 +27,16 @@ export function OutputPaths({
     <section aria-label="Output destinations" className="output-paths">
       <h3>Output destinations</h3>
       <p>
-        <strong>{review?.output_policy === "per_run" ? "Resolved capture parent:" : "Resolved capture folder:"}</strong>{" "}
+        <strong>{captureReview?.output_policy === "per_run" ? "Resolved capture parent:" : "Resolved capture folder:"}</strong>{" "}
         <code>
-          {review?.output_path ||
-            (error
-              ? "Path review unavailable; correct the error below."
+          {captureReview?.output_path ||
+            (captureError
+              ? "Capture path unavailable; check the capture settings."
               : "Checking capture path…")}
         </code>
       </p>
-      {review?.output_policy === "per_run" && <p className="notice">
+      {captureError && <p className="error-banner" role="alert">{captureError}</p>}
+      {captureReview?.output_policy === "per_run" && <p className="notice">
         Capture will inspect only a new run_&lt;unique ID&gt; subfolder, allocated at
         launch. Your script must use SIMSHELF_OUTPUT_DIR or joined run.output_dir.
         Fixed paths below do not follow that folder; no arguments are rewritten.
@@ -129,8 +134,13 @@ export function OutputPaths({
                 aria-label={`Output ${i + 1} path`}
                 value={m.value}
                 onChange={(e) => edit(i, { value: e.target.value })}
-                placeholder="results/data.csv"
+                placeholder={m.kind === "directory" ? "Example: outputs" : "Example: outputs/data.csv"}
+                aria-describedby={`output-${i}-help`}
               />
+              <small id={`output-${i}-help`}>
+                {m.value === "" ? `Output ${i + 1} is incomplete. Enter a ${m.kind} path or remove this mapping before validating, saving or starting. Example text is not an entered path.` :
+                  "Paths resolve from the working directory. They may be prospective; an empty directory is allowed. This declaration does not create or redirect outputs."}
+              </small>
             </label>
           ) : (
             <>
