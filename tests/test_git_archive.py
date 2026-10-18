@@ -635,3 +635,26 @@ def test_connection_preference_write_is_atomic(setup):
         archive.connect(store, saved['path'], confirmed=True, expected_connection=saved)
     assert archive.get(store, 'connection') is None
     assert archive.get(store, 'last_connection') == saved
+
+
+def test_isolated_outputs_keep_base_consent_and_capture_relative_selection(setup):
+    store, repo, (a, b) = setup
+    ids = []
+    for value in ('first isolated', 'second isolated'):
+        with Run(a['id'], workspace=store.path, capture_console=False, output_policy='per_run') as run:
+            (run.output_dir / 'result.csv').write_text(value)
+            (run.output_dir / 'not-selected.csv').write_text('only managed')
+        ids.append(run.id)
+        view = archive.view(store, run.id)
+        assert not view['error'], view
+        event, = view['events']
+        assert {f['name'] for f in event['files']} == {'sim.py', 'result.csv'}
+        index = next(i for i, f in enumerate(event['files']) if f['name'] == 'result.csv')
+        assert archive.download(store, run.id, event['id'], index)[1] == value.encode()
+    assert store.run(ids[0])['snapshot_id'] == store.run(ids[1])['snapshot_id']
+    assert Path(store.run(ids[0])['capture_root'], 'result.csv').read_text() == 'first isolated'
+    # A genuinely changed base/budget still invalidates consent.
+    with Run(a['id'], workspace=store.path, capture_console=False, output_dir='other', output_policy='per_run') as run:
+        (run.output_dir / 'result.csv').write_text('not consented')
+    assert not archive.entries(store, run.id)
+    assert 'no longer match' in archive.view(store, run.id)['error']

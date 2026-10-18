@@ -268,3 +268,70 @@ threads of one process are not supported.
 Log measurements at a useful interval rather than on every cell update. This
 initial implementation journals each measurement synchronously. Full time-series
 charts are planned for Stage 2; Stage 1 shows the latest retained measurements.
+
+## Unique output folders for cooperating scripts
+
+The default **Output folder policy → Fixed folder (existing behavior)** preserves
+existing launches. To isolate successive or concurrent originals, choose
+**Unique subfolder for each run** in Start simulation. The capture output folder
+becomes the parent; Start creates `run_<unique ID>` beneath it. Validation and
+Save settings create no directories. The preview shows the parent and explains
+allocation; the run's capture summary shows the exact absolute folder.
+
+The script must use that folder for its writes. For a plain Python script, an
+explicit integration can use the environment contract without importing SimShelf:
+
+```python
+import os
+from pathlib import Path
+
+output = Path(os.environ.get("SIMSHELF_OUTPUT_DIR", "outputs"))
+output.mkdir(parents=True, exist_ok=True)
+(output / "result.csv").write_text("value\n1\n")
+```
+
+Adapt your own script deliberately; this example chooses the environment path
+when present and keeps a standalone fallback. Check how your script resolves an
+explicit `--output-dir` argument: SimShelf neither rewrites arguments nor expands
+`$SIMSHELF_OUTPUT_DIR` inside them. A fixed argument that wins over the environment
+can still overwrite earlier originals. Declared fixed paths are flagged for
+acknowledgement in unique-folder mode. Undeclared writes elsewhere cannot be
+detected. No files are moved or imported automatically from outside the exact
+run folder. Zero observed files is reported in the capture summary; even a
+complete inspection is not proof that every scientific output was preserved.
+
+A script joining a recorder through `with simshelf.run("your-simulation") as run:`
+uses the parent's exact `run.output_dir`. Do not append another run folder unless
+you intend a nested directory. The folder already exists, so use `exist_ok=True`
+if your code calls `mkdir`.
+
+The terminal wrapper offers the same explicit policy:
+
+```bash
+simshelf record -s your-simulation --output-dir outputs --output-policy per_run -- \
+  python field.py
+```
+
+Here `field.py` must honor the environment contract above. An independent editor
+recording can opt in with `simshelf.run("your-simulation", output_policy="per_run")`
+and write through `run.output_dir` inside the context. Joined API calls always
+inherit the wrapper's frozen folder. Existing CLI/API calls default to fixed
+folders; saved portal preferences do not change them.
+
+Capture rules and copy/reference budgets apply relative to each allocated folder.
+The configured parent remains excluded from source snapshots, including older
+sibling runs. Automatic Git archive selection remains separately consented; its
+result paths are relative to the run folder. Changing the configured parent or
+capture rules still requires reviewing archive consent. References and original
+folders are not included in library backups.
+
+Allocation rejects traversal, symlink directories, non-directories and collisions;
+it never reuses an existing run folder. The existing overlap guard still rejects
+a fixed-parent recorder while a nested recorder is active. Failed startup may
+leave an empty allocated folder; SimShelf does not delete original output folders.
+Cancellation and solver failures retain their normal status and final-capture
+attempt. A replaced/missing run folder makes capture incomplete. These checks are
+not a sandbox for a script that intentionally replaces paths or writes elsewhere;
+avoid changing output directories while a run is active. Linux is the validated
+platform for this policy. No workspace migration or historical record rewrite
+is performed.

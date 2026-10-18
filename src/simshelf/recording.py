@@ -76,7 +76,10 @@ class ConsoleTee:
 
 
 class Run:
-    def __init__(self, simulation: str, *, workspace=None, name=None, parameters=None, tags=None, command=None, cwd=None, output_dir=None, join=True, capture_console=True, launch=None, progress_mode="off"):
+    def __init__(self, simulation: str, *, workspace=None, name=None, parameters=None, tags=None, command=None, cwd=None, output_dir=None, join=True, capture_console=True, launch=None, progress_mode="off", output_policy="fixed"):
+        from .output_paths import validate_output_policy
+        self.output_policy = validate_output_policy(output_policy)
+        self.output_identity = None
         self.launch = launch
         self.progress_mode = progress_mode
         self.store = Store(workspace)
@@ -122,9 +125,23 @@ class Run:
                 self.log_parameters(self.parameters)
             self.started = True
             return self
+        # Keep source exclusion and archive consent bound to the configured base.
+        source_simulation = self.simulation
+        self.base_capture_config = self.simulation["config"]
+        if self.output_policy == "per_run":
+            from .output_paths import allocate_output, output_review
+            relative, self.output_identity = allocate_output(
+                self.simulation["root"], self.base_capture_config["output_dir"], self.id)
+            self.simulation = {**self.simulation, "config": {**self.base_capture_config, "output_dir": relative}}
+            if self.launch and self.launch.get("output_review"):
+                review = self.launch["output_review"]
+                exact = output_review(self.simulation,
+                    os.path.relpath(self.cwd, self.simulation["root"]), self.command[2:],
+                    relative, [{k: t[k] for k in ("argument_index", "value", "kind", "format")} for t in review["targets"]])
+                self.launch = {**self.launch, "output_review": {**exact, "output_policy": "per_run"}}
         from .git_archive import prepare
         prepare(self)
-        snapshot = source_snapshot(self.store.path, self.simulation)
+        snapshot = source_snapshot(self.store.path, source_simulation)
         version_file = self.simulation.get("version_file")
         captured_version = next((f for f in snapshot["files"] if f["path"] == version_file), None)
         version = read_version(Path(self.simulation["root"]), version_file, captured=blob_path(self.store.path, captured_version["blob"]).read_bytes() if captured_version else None)
@@ -140,6 +157,9 @@ class Run:
                 raise ValueError("The entry file must be included in source capture before portal launch")
             data["launch"] = self.launch
         data["capture_root"] = str(self.output_dir)
+        if self.output_policy == "per_run":
+            data["output_policy"] = "per_run"
+            data["output_base"] = str(Path(self.simulation["root"]) / self.base_capture_config["output_dir"])
         self.store.emit(self.id, "start", data)
         if self.capture_console:
             logdir = self.store.path / "logs" / self.id
@@ -187,6 +207,11 @@ class Run:
     def note(self, text: str):
         self.store.emit(self.id, "annotation", {"notes": text})
 
+    def verify_output(self):
+        if self.output_identity is not None:
+            from .output_paths import verify_output
+            verify_output(self.simulation["root"], self.simulation["config"]["output_dir"], self.output_identity)
+
     def finish(self, exit_code=0, *, status=None, error=None):
         if self.finished:
             return
@@ -196,6 +221,7 @@ class Run:
             return
         status = status or ("completed" if exit_code == 0 else "failed")
         try:
+            self.verify_output()
             capture = capture_outputs(self.store, self.id, self.simulation, self.before, archive_copy_rules=getattr(self, "archive_plan", {}).get("future"))
             capture["capture_errors"] = getattr(self, "initial_capture_errors", []) + capture["capture_errors"]
             if capture["capture_errors"]:
@@ -218,7 +244,7 @@ class Run:
         return False
 
 
-def record_command(store: Store, simulation: str, command: list[str], *, name=None, tags=None, cwd=None, output_dir=None, cancel=None, on_started=None, quiet=False, launch=None, progress_mode="off") -> tuple[str, int]:
+def record_command(store: Store, simulation: str, command: list[str], *, name=None, tags=None, cwd=None, output_dir=None, cancel=None, on_started=None, quiet=False, launch=None, progress_mode="off", output_policy="fixed") -> tuple[str, int]:
     if not command:
         raise ValueError("Pass a command after --, for example: -- python field.py --seed 42")
     from .progress import TEXT_MODES, TextProgressParser, enabled
@@ -228,7 +254,7 @@ def record_command(store: Store, simulation: str, command: list[str], *, name=No
         if progress_mode != "off" and not enabled(conn):
             raise ValueError("Enable progress reporting for this library before selecting a text adapter")
     store.reconcile()
-    recorder = Run(simulation, workspace=store.path, command=command, name=name, tags=tags, cwd=cwd, output_dir=output_dir, join=False, capture_console=False, launch=launch, progress_mode=progress_mode)
+    recorder = Run(simulation, workspace=store.path, command=command, name=name, tags=tags, cwd=cwd, output_dir=output_dir, join=False, capture_console=False, launch=launch, progress_mode=progress_mode, output_policy=output_policy)
     recorder.__enter__()
     store.emit(recorder.id, "environment", {**environment(), "source": "recorder environment (child interpreter not yet reported)"})
     recorder.log_parameters(cli_parameters(command), source="command-line (inferred)")
@@ -299,6 +325,7 @@ def record_command(store: Store, simulation: str, command: list[str], *, name=No
         if cancel is not None and cancel.is_set():
             interrupted, exit_code = True, 130
             return recorder.id, exit_code
+        recorder.verify_output()
         process = subprocess.Popen(command, cwd=recorder.cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=os.name == "posix", shell=False)
         for pipe, target, name_ in ((process.stdout, None if quiet else sys.stdout, "stdout.log"), (process.stderr, None if quiet else sys.stderr, "stderr.log")):
             thread = threading.Thread(target=tee, args=(pipe, target, logdir / name_), daemon=True)

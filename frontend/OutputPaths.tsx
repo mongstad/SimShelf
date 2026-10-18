@@ -23,7 +23,7 @@ export function OutputPaths({
     <section aria-label="Output destinations" className="output-paths">
       <h3>Output destinations</h3>
       <p>
-        <strong>Resolved capture folder:</strong>{" "}
+        <strong>{review?.output_policy === "per_run" ? "Resolved capture parent:" : "Resolved capture folder:"}</strong>{" "}
         <code>
           {review?.output_path ||
             (error
@@ -31,6 +31,11 @@ export function OutputPaths({
               : "Checking capture path…")}
         </code>
       </p>
+      {review?.output_policy === "per_run" && <p className="notice">
+        Capture will inspect only a new run_&lt;unique ID&gt; subfolder, allocated at
+        launch. Your script must use SIMSHELF_OUTPUT_DIR or joined run.output_dir.
+        Fixed paths below do not follow that folder; no arguments are rewritten.
+      </p>}
       <p className="muted">
         SimShelf inspects this folder only. It does not redirect script writes.
         Declare output paths below to check coverage; other writes cannot be

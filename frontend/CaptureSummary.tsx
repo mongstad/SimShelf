@@ -14,6 +14,11 @@ export function CaptureSummary({ run }: { run: Run }) {
         Inspected folder:{" "}
         <code>{run.capture_root || "Not recorded in this older run"}</code>
       </p>
+      {run.output_policy === "per_run" && <p className="muted">
+        Unique per-run folder beneath <code>{run.output_base}</code>. This exact
+        inspected folder was supplied through SIMSHELF_OUTPUT_DIR and joined
+        run.output_dir. Writes elsewhere are not inventoried or retained here.
+      </p>}
       {counts ? (
         <>
           <p>

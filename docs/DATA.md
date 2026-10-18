@@ -218,3 +218,8 @@ Active runs restore as interrupted; stop writers before this migration.
 
 A custom workspace remains available through `SIMSHELF_HOME` or `--workspace`.
 Existing checkout-local `.venv` environments are left alone and are not reused.
+
+For cooperating scripts, [unique per-run output folders](RUNNING.md#unique-output-folders-for-cooperating-scripts)
+automatically coordinate the recorder's capture target with `SIMSHELF_OUTPUT_DIR`
+and joined `run.output_dir`. This is opt-in; it does not redirect fixed script
+paths, preserve outside writes, or change copy/reference/ignore budgets.
