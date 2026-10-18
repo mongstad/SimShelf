@@ -6,6 +6,22 @@ It scans the registered simulation folder, not unrelated simulations in a shared
 repository. No source or result file contents are read; only names, metadata and
 bounded `.gitignore` text are inspected.
 
+The configured **File capture** directory (normally `outputs/`) and all its
+subdirectories are omitted before traversal. Thousands of old run outputs do not
+consume the source inventory budget. A custom capture folder such as
+`results/nested/capture` is treated the same way. Its boundary entry still counts;
+links are never followed. The panel identifies the excluded capture directory.
+Use **Automatic archival settings → Future outputs** for reviewed patterns such
+as `*.csv` and `*.json` inside that directory. Existing saved inclusion rules are
+retained; output capture and explicitly consented output archival remain separate.
+
+SimShelf does not guess from other folder names or apply `.gitignore`, snapshot
+exclusions or a source-extension allowlist to hide source inventory. Those rules
+can exclude useful inputs/configurations. For a genuine source limit, check that
+File capture names the intended generated subtree, or register a smaller source
+folder. Do not move/delete research data just to dismiss a warning. A folder
+outside the configured capture tree still counts, even if named `outputs`.
+
 ## Inclusion preferences
 
 Start with no selections. Review individual files, or expand **Folders and file
@@ -73,12 +89,13 @@ Git tracking or scientific records.
 ## Bounds and persistence
 
 Linux is required for descriptor/lock safeguards. Inventories are limited to
-1,000 directory entries, 20 directory levels and five seconds between directory
-scans. `.git`, independent nested repositories, symlinks, hardlinks, special files
+1,000 directory entries outside the capture subtree, 20 directory levels and five
+seconds between directory scans. `.git`, independent nested repositories, symlinks, hardlinks, special files
 and unsupported filenames are excluded. Exceeding a scan bound refuses the
 inventory instead of presenting a misleading partial selection. Git commands
-retain the provenance layer's three-second/4-MiB limits. Files larger than 10 MiB
-are flagged, not read or automatically excluded. Ignore files must be regular,
+retain the provenance layer's three-second/4-MiB limits per command and inspect
+only inventoried literal file paths in batches of at most 100. Files larger than
+10 MiB are flagged, not read or automatically excluded. Ignore files must be regular,
 singly linked UTF-8 files at most 64 KiB each. Review lists contain at most 100
 inclusion rules or 100 exact ignore additions per action.
 

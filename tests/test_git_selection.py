@@ -189,3 +189,78 @@ def test_target_replacement_race_refused(project, monkeypatch):
     authored = (root/'.gitignore').read_bytes()
     with pytest.raises(ValueError): apply_ignore(store,sims[0]['id'],review)
     assert (root/'.gitignore').read_bytes() == authored
+
+
+@pytest.mark.parametrize('capture', ['outputs', 'results/nested/capture'])
+def test_capture_tree_pruned_before_budget_and_git_listing(project, monkeypatch, capture):
+    store, root, sims = project
+    sim = sims[0]; source = root / 'alpha'
+    store.update_simulation(sim['id'], config={**sim['config'], 'output_dir': capture})
+    output = source / capture; output.mkdir(parents=True)
+    for i in range(3301):
+        folder = output / f'run-{i % 7}' / 'nested'
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / f'{i}.csv').write_text('untouched')
+    (source / 'config.json').write_text('{"scientific":true}')
+    # An unrelated outputs-named folder is not inferred to be generated data.
+    authored = source / 'model/outputs'; authored.mkdir(parents=True)
+    (authored / 'settings.json').write_text('{}')
+    original_scan = os.scandir
+    def guarded_scan(fd):
+        assert not Path(os.readlink(f'/proc/self/fd/{fd}')).is_relative_to(output)
+        return original_scan(fd)
+    monkeypatch.setattr('simshelf.git_selection.os.scandir', guarded_scan)
+    from simshelf import git_selection
+    original_git = git_selection.git
+    calls = []
+    def checked_git(root, *args):
+        if args[0] == 'ls-files':
+            specs = args[args.index('--') + 1:]
+            assert specs and all(p.startswith(':(literal)') for p in specs)
+            assert not any(p.startswith(':(literal)alpha/' + capture + '/') for p in specs)
+            calls.append(args)
+        return original_git(root, *args)
+    monkeypatch.setattr(git_selection, 'git', checked_git)
+    view = inventory(store, sim['id'])
+    assert calls
+    assert {f['path'] for f in view['files']} == {'sim.py', 'config.json', 'model/outputs/settings.json'}
+    assert view['capture_directory'] == capture
+    assert any(capture + '/' in p for p in view['blocked'])
+    rules = [{'kind': 'file', 'value': p} for p in ('sim.py', 'config.json', 'model/outputs/settings.json')]
+    preview = selection_preview(store, sim['id'], view['revision'], rules)
+    assert len(preview['selected']) == 3
+    save_selection(store, sim['id'], preview)
+    assert (output / 'run-0/nested/0.csv').read_text() == 'untouched'
+
+
+def test_genuine_source_limit_and_capture_boundary_changes(project):
+    store, root, sims = project; sim = sims[0]; source = root / 'alpha'
+    (source / 'outputs').mkdir()
+    first = inventory(store, sim['id'])
+    store.update_simulation(sim['id'], config={**sim['config'], 'output_dir':'different'})
+    with pytest.raises(ValueError, match='changed'):
+        selection_preview(store, sim['id'], first['revision'], [])
+    for i in range(1001):
+        (source / f'input-{i}.py').write_text('')
+    with pytest.raises(ValueError, match='1,000 entries.*File capture'):
+        inventory(store, sim['id'])
+
+
+def test_capture_symlink_and_literal_source_pathspecs(project, tmp_path):
+    store, root, sims = project; sim = sims[0]; source = root / 'alpha'
+    outside = tmp_path / 'external'; outside.mkdir()
+    (outside / 'secret.py').write_text('never inspected')
+    (source / 'outputs').symlink_to(outside, target_is_directory=True)
+    (source / 'literal[*].json').write_text('{}')
+    (source / 'literal1.json').write_text('{}')
+    command(root, 'add', 'alpha/literal[*].json')
+    view = inventory(store, sim['id'])
+    assert 'outputs (link or special file)' in view['blocked']
+    states = {f['path']: f['state'] for f in view['files']}
+    assert states['literal[*].json'] == 'tracked'
+    assert states['literal1.json'] == 'untracked'
+    assert not any('secret' in p for p in states)
+    # Replacing the boundary with a real directory still invalidates a review.
+    (source / 'outputs').unlink(); (source / 'outputs').mkdir()
+    with pytest.raises(ValueError, match='changed'):
+        selection_preview(store, sim['id'], view['revision'], [])

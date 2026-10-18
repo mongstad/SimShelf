@@ -159,6 +159,7 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
           <code>{connection.path}</code>
         </p>
       )}
+      {message && <p role="alert">{message}</p>}
       <AutomaticArchiveToggle
         name={simulation.name}
         automatic={automatic}
@@ -190,7 +191,6 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
         independent of scientific versions and source Git history. No uploads or
         remote synchronization.
       </p>
-      {message && <p role="status">{message}</p>}
       <details ref={setupPanel}>
         <summary>Archive location and setup</summary>
         <label>
@@ -289,6 +289,7 @@ export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
             Review archival settings
           </button>
         )}
+        {message && <p role="alert">{message}</p>}
       </details>
       {review && (
         <section aria-label="Automatic archive consent">
