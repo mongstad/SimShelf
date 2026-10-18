@@ -15,7 +15,7 @@
 | Connect an existing source repository without changing it | [Source Git history](GIT_PROVENANCE.md) |
 | Save inclusion preferences or review ignore additions | [Git file selection](GIT_FILE_SELECTION.md) |
 | Configure a separate shared archive and download historical files | [Shared Git archive](GIT_ARCHIVE.md) |
-| Deliberately delete records or manually attached images | [Run removal](RUN_REMOVAL.md), [Screenshot deletion](SCREENSHOT_DELETION.md) |
+| Deliberately delete records or manually attached images | [Simulation removal](SIMULATION_REMOVAL.md), [Run removal](RUN_REMOVAL.md), [Screenshot deletion](SCREENSHOT_DELETION.md) |
 
 ## Technical references
 

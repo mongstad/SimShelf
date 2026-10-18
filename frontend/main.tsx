@@ -1,3 +1,5 @@
+import { SimulationSettings } from "./SimulationSettings";
+import { RemoveSimulation, type SimulationRemovalResult } from "./RemoveSimulation";
 import { useSidebar } from "./useSidebar";
 import { RunNavigation, chronological, runSequence, type RunSequence } from "./RunNavigation";
 import { RunProgress } from "./RunProgress";
@@ -1582,6 +1584,9 @@ function App() {
   const [sequence, setSequence] = useState<RunSequence | null>(null);
   const [removalRuns, setRemovalRuns] = useState<Run[] | null>(null);
   const removedIds = useRef(new Set<string>());
+  const removedSimulationIds = useRef(new Set<string>());
+  const simulationSettingsTrigger = useRef<HTMLButtonElement>(null);
+  const administrationReturnFocus = useRef<HTMLButtonElement | null>(null);
   const [quitting, setQuitting] = useState(false);
   const [theme, setTheme] = useState(
     localStorage.getItem("simshelf-theme") || "system",
@@ -1607,7 +1612,7 @@ function App() {
     ]);
     try {
       const sims = await api<Simulation[]>("/simulations");
-      setSimulations(sims);
+      setSimulations(sims.filter(s => !removedSimulationIds.current.has(s.id)));
       const query = new URLSearchParams({ limit: String(limit) });
       if (simulationId) query.set("simulation", simulationId);
       if (status) query.set("status", status);
@@ -1615,7 +1620,7 @@ function App() {
       if (search) query.set("q", search);
       const nextRuns = await api<Run[]>(`/runs?${query}`);
       if (activeQuery.current !== requestKey || sequence !== refreshSequence.current) return;
-      const retained = nextRuns.filter(r => !removedIds.current.has(r.id));
+      const retained = nextRuns.filter(r => !removedIds.current.has(r.id) && !removedSimulationIds.current.has(r.simulation_id));
       setRuns(chronological(retained));
       setSelected(previous => previous.filter(id => retained.some(r => r.id === id)));
       setError("");
@@ -1713,6 +1718,19 @@ function App() {
     if (removedIds.current.has(detail)) backToRuns();
     setNotice(`${result.removed_ids.length} run(s) removed. ${result.cleanup_errors.length ? "Managed file cleanup is pending; recovery will retry. " + result.cleanup_errors.join("; ") : "Eligible managed files reclaimed; shared files retained."}`);
     refresh();
+  }
+  function closeSimulationAdministration() {
+    setModal("");
+    setTimeout(() => (administrationReturnFocus.current?.isConnected ? administrationReturnFocus.current : simulationSettingsTrigger.current)?.focus(), 0);
+  }
+  function simulationRemoved(result: SimulationRemovalResult) {
+    removedSimulationIds.current.add(result.simulation_id);
+    refreshSequence.current++;
+    setSimulations(previous => previous.filter(s => s.id !== result.simulation_id));
+    setRuns(previous => previous.filter(r => r.simulation_id !== result.simulation_id));
+    setModal(""); setRemovalRuns(null); chooseSimulation("");
+    setParamValue(""); setImagesOnly(false); setFilters(false);
+    setNotice(`Simulation removed from this workspace. Original files and Git archive history retained. ${result.cleanup_errors.length ? "Managed file cleanup is pending: " + result.cleanup_errors.join("; ") : "Eligible unshared managed files reclaimed."}`);
   }
   function chooseSimulation(id: string) {
     setSimulationId(id);
@@ -1914,9 +1932,19 @@ function App() {
           ) : (
             <>
               <header className="page-heading">
-                <div>
+                <div className="page-title-group">
                   <div className="eyebrow">SIMULATION JOURNAL</div>
-                  <h1>{simulation?.name || "All simulations"}</h1>
+                  <div className="simulation-title-row">
+                    <h1>{simulation?.name || "All simulations"}</h1>
+                    {simulation && <button ref={simulationSettingsTrigger} className="icon-button simulation-settings-trigger"
+                      aria-label="Simulation settings" title="Simulation settings" aria-haspopup="dialog"
+                      onClick={e => { administrationReturnFocus.current = e.currentTarget; setModal("simulation-settings"); }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                        <path d="m9 3-.6 2.4-2 .9-2.3-.7-2 3.4 1.7 1.8v2.4L2.1 15l2 3.4 2.3-.7 2 .9L9 21h4l.6-2.4 2-.9 2.3.7 2-3.4-1.7-1.8v-2.4L19.9 9l-2-3.4-2.3.7-2-.9L13 3Z" />
+                        <circle cx="11" cy="12" r="3" />
+                      </svg>
+                    </button>}
+                  </div>
                   {simulation?.description && <p>{simulation.description}</p>}
                 </div>
                 <div className="heading-actions">
@@ -1950,9 +1978,9 @@ function App() {
               )}
               {simulation && <div className="source-location">
                 <span>Source folder: <code style={{ overflowWrap: "anywhere" }}>{simulation.root}</code></span>{" "}
-                <button onClick={() => setModal("relocate")}>
-                  {simulation.available ? "Change source location" : "Locate source folder…"}
-                </button>
+                {!simulation.available && <button onClick={e => {
+                  administrationReturnFocus.current = e.currentTarget; setModal("relocate");
+                }}>Locate source folder…</button>}
               </div>}
               {simulation && (
                 <nav className="tabs" aria-label="Simulation sections">
@@ -2424,9 +2452,15 @@ function App() {
           }}
         />
       )}
+      {modal === "simulation-settings" && simulation && <SimulationSettings
+        close={closeSimulationAdministration} relocate={() => setModal("relocate")} remove={() => setModal("remove-simulation")} />}
+      {modal === "remove-simulation" && simulation && <Modal title="Remove simulation" close={closeSimulationAdministration}>
+        <RemoveSimulation key={simulation.id} id={simulation.id} close={closeSimulationAdministration} removed={simulationRemoved} />
+      </Modal>}
       {modal === "relocate" && simulation && <RelocateSimulation key={simulation.id}
-        simulation={simulation} close={() => setModal("")} relocated={() => {
-          setModal(""); setNotice("Source location updated. Review launch settings and Git archival preferences before your next run."); refresh();
+        simulation={simulation} close={closeSimulationAdministration} relocated={() => {
+          administrationReturnFocus.current = simulationSettingsTrigger.current;
+          closeSimulationAdministration(); setNotice("Source location updated. Review launch settings and Git archival preferences before your next run."); refresh();
         }} />}
       {modal === "launch" && simulation && (
         <Modal title="Start a simulation" close={() => setModal("")} wide>

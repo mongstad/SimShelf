@@ -427,3 +427,18 @@ at most 1,000 runs scoped to the fetched run's simulation; late fallback respons
 are discarded after navigation. Back scopes the list to the captured simulation.
 RunDetails is keyed by run ID, isolating all detail state and asynchronous updates,
 including nested archive/file components. No API, execution, Git or schema changes.
+
+## Simulation removal
+
+`simulation_removal.py` implements explicit unregistering for existing schemas
+2/3/4; schema 1 is refused before recovery or writes. A preview revision covers
+the authoritative simulation, runs, dependent records and relevant metadata.
+The workspace lock spans reconciliation, revalidation and a single database
+transaction. That transaction shares run-removal record/tombstone/cleanup-queue
+logic, removes only the selected simulation's associations and registration, and
+adds a minimal `deleted_simulation:<id>` retry audit. No schema is changed.
+Registration cannot reuse an audited ID, and start events require a live
+registration. Late optional archive results cannot recreate deleted-run metadata.
+Reference-aware managed-file cleanup follows commit and survives interruption;
+source directories and Git archive repositories are never opened by removal.
+See [the user workflow](SIMULATION_REMOVAL.md) and its validation evidence.

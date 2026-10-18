@@ -272,3 +272,15 @@ responsive checks and fixture limitations. Earlier evidence remains unchanged.
 See [issue #55 sidebar](validation/issue-55-sidebar.md) for bounded pointer/keyboard
 resizing, local preferences, full collapse, responsive/theme checks, installed
 package evidence and limitations. Earlier evidence remains unchanged.
+
+## Removing a registered simulation
+
+See [issue #52 simulation removal](validation/issue-52-simulation-removal.md) for
+schema-1 refusal, atomic removal/retry, retained source/archive/shared data,
+backup recovery, installed browser checks and limitations.
+
+See also the [issue #52 settings-dialog review](validation/issue-52-settings-review.md)
+for the owner-requested cogwheel, keyboard focus and missing-source recovery checks.
+
+The [title-placement follow-up](validation/issue-52-title-placement.md) records
+long-title wrapping, title/icon geometry and keyboard checks for the final layout.

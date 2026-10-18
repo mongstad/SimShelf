@@ -107,34 +107,7 @@ def remove_runs(store, identifiers, *, confirmed=False):
             if run["status"] not in {"completed", "failed", "interrupted"} or run.get("capture_status") == "pending":
                 raise ValueError("Running or finalizing runs cannot be removed. Stop them and wait for finalization first.")
             runs.append(run)
-        candidates = set()
-        for run in runs:
-            candidates.update(snapshot_files(store, run["snapshot_id"]))
-            baseline = deleted_run(conn, run.get("baseline_run_id", ""))
-            if baseline:
-                candidates.update(snapshot_files(store, baseline["snapshot_id"]))
-            for row in conn.execute("SELECT data FROM artifacts WHERE run_id=?", (run["id"],)):
-                key = json.loads(row[0]).get("blob")
-                if key:
-                    candidates.add(f"blobs/{key[:2]}/{key}")
-            candidates.update(f"logs/{run['id']}/{name}.log" for name in ("stdout", "stderr"))
-            journal = store.path / "journal" / run["id"]
-            # Never enumerate through a substituted journal directory.
-            if (store.path / "journal").is_symlink() or journal.is_symlink():
-                raise ValueError("Managed journal must not be a symbolic link")
-            candidates.update(p.relative_to(store.path).as_posix() for p in journal.glob("*.json"))
-            tombstone = {key: run[key] for key in ("id", "simulation_id", "version", "started_at", "snapshot_id", "structure_id")}
-            tombstone["deleted_at"] = now()
-            conn.execute("INSERT INTO metadata VALUES (?,?)", ("deleted_run:" + run["id"], json_text(tombstone)))
-            for table in ("artifacts", "metrics", "annotations"):
-                conn.execute(f"DELETE FROM {table} WHERE run_id=?", (run["id"],))
-            if conn.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()[0] == "4":
-                conn.execute("DELETE FROM progress WHERE run_id=?", (run["id"],))
-            conn.execute("DELETE FROM runs WHERE id=?", (run["id"],))
-        for relative in candidates:
-            if not MANAGED.fullmatch(relative):
-                raise ValueError("Invalid managed cleanup path; no runs removed")
-            conn.execute("INSERT OR IGNORE INTO metadata VALUES (?,?)", ("cleanup:" + relative, "pending"))
+        remove_records(store, conn, runs)
         if runs:
             conn.execute("UPDATE metadata SET value='2' WHERE key='schema_version' AND value='1'")
     # After commit failures mean removal succeeded but reclamation needs retry.
@@ -143,3 +116,35 @@ def remove_runs(store, identifiers, *, confirmed=False):
     except (OSError, ValueError, sqlite3.Error) as exc:
         errors = [str(exc)]
     return {"removed_ids": ids, "cleanup_errors": errors}
+
+
+def remove_records(store, conn, runs):
+    """Delete reviewed runs in the caller transaction; caller holds workspace lock."""
+    candidates = set()
+    for run in runs:
+        candidates.update(snapshot_files(store, run["snapshot_id"]))
+        baseline = deleted_run(conn, run.get("baseline_run_id", ""))
+        if baseline:
+            candidates.update(snapshot_files(store, baseline["snapshot_id"]))
+        for row in conn.execute("SELECT data FROM artifacts WHERE run_id=?", (run["id"],)):
+            key = json.loads(row[0]).get("blob")
+            if key:
+                candidates.add(f"blobs/{key[:2]}/{key}")
+        candidates.update(f"logs/{run['id']}/{name}.log" for name in ("stdout", "stderr"))
+        journal = store.path / "journal" / run["id"]
+        # Never enumerate through a substituted journal directory.
+        if (store.path / "journal").is_symlink() or journal.is_symlink():
+            raise ValueError("Managed journal must not be a symbolic link")
+        candidates.update(p.relative_to(store.path).as_posix() for p in journal.glob("*.json"))
+        tombstone = {key: run[key] for key in ("id", "simulation_id", "version", "started_at", "snapshot_id", "structure_id")}
+        tombstone["deleted_at"] = now()
+        conn.execute("INSERT INTO metadata VALUES (?,?)", ("deleted_run:" + run["id"], json_text(tombstone)))
+        for table in ("artifacts", "metrics", "annotations"):
+            conn.execute(f"DELETE FROM {table} WHERE run_id=?", (run["id"],))
+        if conn.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()[0] == "4":
+            conn.execute("DELETE FROM progress WHERE run_id=?", (run["id"],))
+        conn.execute("DELETE FROM runs WHERE id=?", (run["id"],))
+    for relative in candidates:
+        if not MANAGED.fullmatch(relative):
+            raise ValueError("Invalid managed cleanup path; no runs removed")
+        conn.execute("INSERT OR IGNORE INTO metadata VALUES (?,?)", ("cleanup:" + relative, "pending"))
