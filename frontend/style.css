@@ -2163,4 +2163,4 @@ details label {
 .simulation-title-row { display: flex; align-items: center; gap: 14px; }
 .simulation-title-row h1 { min-width: 0; overflow-wrap: anywhere; }
 .simulation-settings-trigger { flex: 0 0 auto; }
-.simulation-settings-actions { display: grid; gap: 12px; }
+.simulation-settings-actions { display: grid; gap: 12px; margin-top: 16px; }
