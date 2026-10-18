@@ -5,6 +5,7 @@ import { argumentError, formatCommand } from "./arguments";
 import { api } from "./api";
 import { InterpreterPicker } from "./InterpreterPicker";
 import { OutputPaths } from "./OutputPaths";
+import { incompleteOutputMappings } from "./outputCandidates";
 import type { Simulation, OutputMapping, OutputReview } from "./types";
 
 type Plan = {
@@ -46,6 +47,30 @@ export function LaunchSimulation({
   );
   const [outputReview, setOutputReview] = useState<OutputReview | null>(null);
   const [outputError, setOutputError] = useState("");
+  const [captureResult, setCaptureResult] = useState<{
+    request: string; review: OutputReview | null; error: string;
+  } | null>(null);
+  // Resolve the capture folder independently: an unfinished declaration does
+  // not invalidate it. Key results to current inputs, never display stale paths.
+  const captureRequest = JSON.stringify({
+    cwd, arguments: [], output_dir: output, output_policy: outputPolicy,
+    output_mappings: [],
+  });
+  const captureKey = simulation.id + captureRequest;
+  const capture = captureResult?.request === captureKey ? captureResult : null;
+  useEffect(() => {
+    let active = true;
+    const timer = setTimeout(() => {
+      api<OutputReview>(`/simulations/${simulation.id}/execution/outputs`, {
+        method: "POST", body: captureRequest,
+      }).then(review => {
+        if (active) setCaptureResult({ request: captureKey, review, error: "" });
+      }).catch((e: Error) => {
+        if (active) setCaptureResult({ request: captureKey, review: null, error: e.message });
+      });
+    }, 250);
+    return () => { active = false; clearTimeout(timer); };
+  }, [captureRequest, simulation.id]);
   const [acknowledge, setAcknowledge] = useState(false);
   const [argumentRevision, setArgumentRevision] = useState(0);
   const outputRequest = JSON.stringify({
@@ -59,6 +84,7 @@ export function LaunchSimulation({
     let active = true;
     setOutputReview(null);
     setOutputError("");
+    if (incompleteOutputMappings(mappings).length) return;
     const timer = setTimeout(() => {
       api<OutputReview>(`/simulations/${simulation.id}/execution/outputs`, {
         method: "POST",
@@ -312,6 +338,8 @@ export function LaunchSimulation({
           args={args}
           mappings={mappings}
           review={outputReview}
+          captureReview={capture?.review || null}
+          captureError={capture?.error || ""}
           error={outputError}
           change={(next) => {
             setMappings(next);

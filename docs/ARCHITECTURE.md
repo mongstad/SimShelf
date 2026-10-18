@@ -90,6 +90,12 @@ cwd without tilde/environment expansion, preserving symlink/parent traversal.
 Targets outside capture or through skipped symlinks require a per-launch
 acknowledgement; both server and supervisor recheck before recording. A missing
 mapping leaves actual output coverage unknown and does not block ordinary runs.
+The launch UI reviews the capture base independently of mapping drafts, keyed to
+current simulation/cwd/capture/policy inputs. Empty fixed-path rows receive inline
+guidance and block validation/save/start until completed or removed; they are
+never silently omitted from persisted settings. Mapping diagnostics identify the
+row. The backend still rejects empty declarations on preview, save and launch;
+prospective paths and existing empty directories remain supported.
 
 Settings preserve mappings in existing simulation JSON. Each portal run freezes
 its launch-time path review and acknowledgement in `launch`, alongside the

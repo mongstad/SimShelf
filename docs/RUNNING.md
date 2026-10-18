@@ -119,6 +119,17 @@ Use **Option=path** for a combined token, or declare a fixed path for scripts
 that have no output argument. Multiple declarations are supported. All paths
 resolve from the selected working directory; no shell expansion is performed.
 
+A new fixed-path row starts empty. The input's example text is a hint, not a
+saved path. Enter the actual file or directory path, or remove the row before
+validating, saving or starting. The resolved capture folder remains visible while
+you complete declarations; capture-setting errors are reported separately. Mapping
+errors identify the output row that needs attention.
+
+Targets may not exist yet, and a declared directory may be empty or populated.
+Choose File or Directory according to how your script uses the path; the declaration
+does not create that target or redirect writes. Actual filesystem access and
+capture rules still apply when the script runs.
+
 Review any **Outside capture folder** warning. **Use suggested path** explicitly
 changes the mapped argument to point inside capture; it does not move files,
 create folders, or change source. Check that your script supports that destination

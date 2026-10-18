@@ -1,3 +1,10 @@
+import type { OutputMapping } from "./types";
+
+/** Empty fixed-path rows are drafts, never omitted from saved or launched settings. */
+export function incompleteOutputMappings(mappings: OutputMapping[]) {
+  return mappings.flatMap((m, index) => m.argument_index === null && m.value === "" ? [index] : []);
+}
+
 /** Suggestions require the user's explicit declaration of file/directory meaning. */
 export function outputCandidates(args: string[]) {
   const result: { index: number; flag: string; format: "token" | "equals" }[] =

@@ -227,3 +227,10 @@ See [issue #61 source inventory](validation/issue-61-source-inventory.md) for
 capture-subtree pruning, separate CSV/JSON archival, unchanged bounds/consent,
 focused regressions, installed desktop/narrow checks and owner verification.
 Earlier evidence remains unchanged.
+
+## Output declaration drafts and capture preview
+
+See [issue #59 output declarations](validation/issue-59-output-declarations.md)
+for the placeholder reproduction, independent capture review, row-specific errors,
+focused regressions, installed desktop/narrow checks and owner verification.
+Earlier evidence remains unchanged.
