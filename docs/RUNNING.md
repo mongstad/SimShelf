@@ -385,3 +385,25 @@ the new location; returning to an earlier path does not restore old consent. The
 independent master archive connection and historical commits stay unchanged.
 If a save response is lost, close the dialog and refresh to inspect the current
 source path before retrying.
+
+## Browse adjacent run records
+
+Open a run from the table or gallery, then use **Previous run** or **Next run**
+beside **Back to runs**. Navigation retains the loaded list's search, filters and
+order, restricted to that run's simulation—even when opened from All simulations.
+Lists use newest-first timestamps with ascending run ID to break equal timestamps.
+Previous moves toward the start of the list (newer); Next moves toward its end
+(older). Boundaries are disabled and never wrap.
+
+The sequence is captured when you open the list item. New runs and polling changes
+do not move its neighbors; return to the list and reopen a run to refresh it.
+Back returns to that simulation's list with your filters and table/gallery choice.
+An unavailable run shows an error; the navigation and Back controls remain usable.
+A run removed through this portal returns you to its simulation list.
+
+Direct links, reloads and newly launched runs have no saved browsing context. They
+use up to the newest 1,000 runs of the same simulation, without filters. A linked
+run outside that window remains viewable with adjacent navigation disabled; Back
+opens the simulation list. The navigation text identifies this fallback. Run
+changes reset the detail tab, source selection and unsaved annotation drafts;
+save edits before moving to another run. Saved records and downloads are unchanged.

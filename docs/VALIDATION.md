@@ -248,3 +248,9 @@ See [issue #60 source relocation](validation/issue-60-source-relocation.md) for
 transactional remapping, path and active-run guards, consent invalidation,
 history/backup preservation, installed browser checks and known limitations.
 Earlier evidence remains unchanged.
+
+## Adjacent run navigation
+
+See [issue #54 run navigation](validation/issue-54-run-navigation.md) for retained
+simulation-scoped browsing context, detail-state isolation, focused tests,
+installed-browser checks and limitations. Earlier evidence remains unchanged.
