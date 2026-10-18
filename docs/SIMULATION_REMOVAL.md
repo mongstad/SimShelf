@@ -2,7 +2,10 @@
 
 [All guides](README.md) · [Run removal](RUN_REMOVAL.md)
 
-Select a simulation, then choose **Remove simulation…** beside its source folder.
+Select a simulation, open the **Simulation settings** cogwheel at the upper-right
+of its overview, then choose **Remove simulation…**. Settings also contains
+**Change source location…**, which opens the separate relocation review. A missing
+source keeps a visible **Locate source folder…** recovery action on the overview.
 Review the simulation name and ID, run count, referenced snapshots, images,
 annotation history, measurements, managed copies, external references and Git
 archive associations. **Cancel** is initially focused. Nothing is removed until

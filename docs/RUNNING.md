@@ -350,8 +350,8 @@ is performed.
 ## Reconnect a moved source folder
 
 Select the existing simulation and choose **Locate source folder…** when its
-source is missing, or **Change source location** while the old path is still
-available. The current path is shown beside the action. Enter the new absolute
+source is missing, or **Simulation settings** (upper-right cogwheel) → **Change source location…** while the old path is still
+available. The current path remains visible on the overview. Enter the new absolute
 folder path on this computer, choose **Review new location**, then verify the
 previous and new paths before **Confirm source location**. Cancel leaves the
 registration unchanged. This is a path-entry workflow; the browser does not have
