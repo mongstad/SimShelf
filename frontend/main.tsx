@@ -113,8 +113,9 @@ function formatBytes(n: number) {
   if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(1)} MB`;
   return `${(n / 1024 ** 3).toFixed(2)} GB`;
 }
-function date(value: string) {
+function date(value: string, includeYear = false) {
   return new Date(value).toLocaleString(undefined, {
+    year: includeYear ? "numeric" : undefined,
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -973,7 +974,7 @@ function RunDetails({
           <div className="run-meta">
             <Status status={run.status} />
             <span>Version {run.version}</span>
-            <span>{date(run.started_at)}</span>
+            <span>{date(run.started_at, true)}</span>
             <span>
               {duration(
                 run.status === "running"
