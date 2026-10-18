@@ -1,3 +1,4 @@
+import { useSidebar } from "./useSidebar";
 import { RunNavigation, chronological, runSequence, type RunSequence } from "./RunNavigation";
 import { RunProgress } from "./RunProgress";
 import { DeleteScreenshot, withoutScreenshots } from "./DeleteScreenshot";
@@ -1550,6 +1551,7 @@ function RunDetails({
 }
 
 function App() {
+  const sidebar = useSidebar();
   const [workspace, setWorkspace] = useState(""),
     [applicationVersion, setApplicationVersion] = useState<string | null>(null),
     [simulations, setSimulations] = useState<Simulation[]>([]),
@@ -1785,8 +1787,9 @@ function App() {
     <p>You can close this tab. Terminal/editor recorders remain independent. Restart using the launcher when needed.</p>
     <p className="muted">Interrupted status does not guarantee detached processes stopped. Check retained runs and capture status after restarting.</p></main>;
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
+    <div className={`app-shell${sidebar.collapsed ? " sidebar-collapsed" : ""}${sidebar.dragging ? " sidebar-dragging" : ""}`} style={sidebar.style}>
+      <div className="sidebar-frame" hidden={sidebar.collapsed}>
+      <aside className="sidebar" id="sidebar-navigation" aria-label="Workspace navigation">
         <a className="brand" href="#" onClick={() => chooseSimulation("")}>
           <span className="brand-row">
             <span className="brand-symbol">
@@ -1866,9 +1869,12 @@ function App() {
           </div>
         </div>
       </aside>
+      {sidebar.separator}
+      </div>
       <main className="main">
         <div className="topbar">
-          <div>
+          {sidebar.toggle}
+          <div className="workspace-breadcrumb">
             Personal workspace <span>/</span>{" "}
             {detail ? "Run record" : simulation?.name || "Overview"}
           </div>

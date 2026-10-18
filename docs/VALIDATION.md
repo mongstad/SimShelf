@@ -266,3 +266,9 @@ desktop/narrow validation. Earlier evidence remains unchanged.
 See [issue #74 duration width](validation/issue-74-duration-width.md) for measured
 baseline movement, stable control positions across duration transitions, installed
 responsive checks and fixture limitations. Earlier evidence remains unchanged.
+
+## Resizable and collapsible navigation
+
+See [issue #55 sidebar](validation/issue-55-sidebar.md) for bounded pointer/keyboard
+resizing, local preferences, full collapse, responsive/theme checks, installed
+package evidence and limitations. Earlier evidence remains unchanged.

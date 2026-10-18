@@ -72,6 +72,14 @@ only for practice. For real work, choose a persistent library and source directo
 3. Add it and select it in the sidebar. Registration inspects files but does not
    execute the simulation or move its source.
 
+On wider windows, drag the sidebar’s right edge to reveal longer names, or focus
+the edge with Tab and use Left/Right arrows (Home/End select the width limits).
+The button beside **Personal workspace** collapses or expands navigation and keeps
+keyboard focus. Your browser remembers the expanded width and collapsed state
+for this portal address. Smaller windows temporarily constrain the width; narrow
+screens keep stacked navigation and hide the resize handle. These preferences
+do not change your library or runs.
+
 ## 4. Choose Python and start
 
 1. Open **Start simulation**. Choose the printed interpreter under **Detected
