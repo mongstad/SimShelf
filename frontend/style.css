@@ -2024,7 +2024,24 @@ details label {
 
 .parameter-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .parameter-heading h3 { margin: 0; }
-.parameter-row { padding: 10px 0; border-bottom: 1px solid var(--border); }
+.parameter-row {
+  padding: 12px;
+  margin: 8px 0;
+  border: 1px solid var(--line);
+  border-inline-start: 3px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.parameter-row[data-enabled="true"] { border-inline-start-color: var(--accent); }
+.parameter-row:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.parameter-row .check-label { min-height: 40px; cursor: pointer; }
+.parameter-row .check-label input { flex: 0 0 auto; width: 18px; height: 18px; }
+.parameter-search { margin: 16px 0; }
+.parameter-search-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.parameter-search-controls input { flex: 1 1 200px; min-width: 0; }
+.parameter-search p { margin: 8px 0; }
+.parameter-group h4 small { font-weight: normal; }
+
 .parameter-row .argument-fields { align-items: start; }
 .parameter-row .check-label { margin: 0; flex-wrap: wrap; gap: 6px; }
 .parameter-row input:not([type="checkbox"]) { width: 100%; min-width: 0; }
