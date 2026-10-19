@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import { Icon } from "./Icon";
 import type { Simulation } from "./types";
 
 export function SimulationSettings({ close, relocate, remove }: {
@@ -19,8 +20,8 @@ export function SimulationSettings({ close, relocate, remove }: {
     onClick={e => { if (e.target === e.currentTarget) close(); }}>
     <h2 id="simulation-settings-title">Simulation settings</h2>
     <div className="simulation-settings-actions">
-      <button onClick={relocate}>Change source location…</button>
-      <button onClick={remove}>Remove simulation…</button>
+      <button onClick={relocate}><Icon name="folder" /><span>Change source location…</span></button>
+      <button onClick={remove}><Icon name="trash" /><span>Remove simulation…</span></button>
     </div>
     <div className="modal-actions"><button ref={cancel} autoFocus onClick={close}>Cancel</button></div>
   </dialog>;
