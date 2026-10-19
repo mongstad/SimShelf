@@ -1,3 +1,4 @@
+import { LogViewer } from "./LogViewer";
 import { SimulationSettings } from "./SimulationSettings";
 import { RemoveSimulation, type SimulationRemovalResult } from "./RemoveSimulation";
 import { useSidebar } from "./useSidebar";
@@ -821,11 +822,7 @@ function RunDetails({
   const [sourcePath, setSourcePath] = useState(""),
     [sourceText, setSourceText] = useState(""),
     [diff, setDiff] = useState(false),
-    [logStream, setLogStream] = useState("stdout"),
-    [log, setLog] = useState<{ text: string; truncated: boolean }>({
-      text: "",
-      truncated: false,
-    });
+    [logStream, setLogStream] = useState("stdout");
   const [deleteImage, setDeleteImage] = useState<Artifact | null>(null);
   const deletedScreenshots = useRef(new Set<string>());
   const screenshotsHeading = useRef<HTMLHeadingElement>(null);
@@ -881,24 +878,6 @@ function RunDetails({
       live = false;
     };
   }, [tab, sourcePath, diff, id, run?.baseline_run_id]);
-  useEffect(() => {
-    if (tab !== "logs") return;
-    let live = true;
-    const load = () =>
-      api<{ text: string; truncated: boolean }>(
-        `/runs/${id}/logs?stream=${logStream}`,
-      )
-        .then((r) => {
-          if (live) setLog(r);
-        })
-        .catch((e) => setError(e.message));
-    load();
-    const timer = setInterval(load, 3000);
-    return () => {
-      live = false;
-      clearInterval(timer);
-    };
-  }, [tab, logStream, id]);
   async function save(data: Partial<Run>) {
     setBusy(true);
     setError("");
@@ -1463,12 +1442,7 @@ function RunDetails({
               <option value="stderr">Standard error</option>
             </select>
           </div>
-          {log.truncated && (
-            <p className="muted small">Showing the most recent 200 KB.</p>
-          )}
-          <pre className="log-block">
-            {log.text || "No output was recorded for this stream."}
-          </pre>
+          <LogViewer key={`${id}:${logStream}`} runId={id} stream={logStream} />
         </section>
       )}
       {tab === "notes" && (

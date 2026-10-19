@@ -2164,3 +2164,33 @@ details label {
 .simulation-title-row h1 { min-width: 0; overflow-wrap: anywhere; }
 .simulation-settings-trigger { flex: 0 0 auto; }
 .simulation-settings-actions { display: grid; gap: 12px; margin-top: 16px; }
+
+/* Log presentation is independent of other preformatted previews. */
+.live-log {
+  margin-bottom: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow-anchor: none;
+  overscroll-behavior: contain;
+  scroll-behavior: auto;
+}
+.live-log.wrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.log-controls {
+  margin-top: 18px;
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+.log-controls label {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  cursor: pointer;
+}
+.log-controls input { width: auto; margin: 0; }

@@ -284,3 +284,9 @@ for the owner-requested cogwheel, keyboard focus and missing-source recovery che
 
 The [title-placement follow-up](validation/issue-52-title-placement.md) records
 long-title wrapping, title/icon geometry and keyboard checks for the final layout.
+
+## Live log presentation controls
+
+See [issue #84 log controls](validation/issue-84-log-controls.md) for persistent
+wrap/follow preferences, user-scroll behavior, installed-package/browser checks,
+owner-requested spacing and label placement, and validation limitations.
