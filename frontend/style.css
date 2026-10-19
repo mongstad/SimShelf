@@ -1916,9 +1916,18 @@ details label {
 }
 .argument-fields {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 12px;
+  align-items: start;
 }
+.argument-fields > div { min-width: 0; }
+.argument-empty { font-weight: normal; }
+.argument-editor .argument-empty input { flex: 0 0 auto; width: auto; }
+.parameter-group { min-width: 0; margin-top: 18px; }
+.parameter-group h4 { margin: 0 0 8px; }
+.parameter-group > p { margin: 6px 0; }
+.parameter-group select { width: 100%; min-width: 0; }
+.parameter-group small { overflow-wrap: anywhere; }
 .argument-fields label {
   min-width: 0;
   margin: 0;
@@ -2016,7 +2025,7 @@ details label {
 .parameter-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .parameter-heading h3 { margin: 0; }
 .parameter-row { padding: 10px 0; border-bottom: 1px solid var(--border); }
-.parameter-row .argument-fields { align-items: center; }
+.parameter-row .argument-fields { align-items: start; }
 .parameter-row .check-label { margin: 0; flex-wrap: wrap; gap: 6px; }
 .parameter-row input:not([type="checkbox"]) { width: 100%; min-width: 0; }
 .parameter-hint { display: block; margin-top: 4px; overflow-wrap: anywhere; }

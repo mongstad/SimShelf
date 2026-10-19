@@ -8,6 +8,11 @@ dependencies. Missing GPU libraries do not prevent static discovery.
 Supported parameters have their name on the left and value on the right, with
 concise help, required/optional status, type/choices and a declared default hint.
 The hint is not the resolved scientific value. No default is inserted into argv.
+The editor groups value-taking parameters, boolean flags and manual arguments for
+display. Grouping never reorders the saved command; review Exact argv for token
+order. Literal choices use a selector; existing values retain their exact spelling
+until deliberately changed.
+Manual row numbers and move/pair actions refer to command order, not group order.
 
 - Enable an optional parameter's checkbox, then enter the value you want. Disable
   it to omit all its tokens; its edited value stays in this open dialog. Disabled
@@ -27,9 +32,14 @@ The hint is not the resolved scientific value. No default is inserted into argv.
   controls. Repeated options remain intact for manual review. Conflicting scalar values
   are not silently resolved by last-wins; identical values and repeated boolean
   flags remain valid. Unsupported repeatable actions can repeat normally.
+- In a manual row, a blank optional value passes only the argument token. Use
+  **Pass empty string** to explicitly append an empty value. Existing saved/pasted
+  empty strings remain explicit; merely opening the editor never removes them.
+  SimShelf does not guess whether an unknown token needs a value: the script's
+  parser decides. Recognized options retain their required-value/type validation.
 
-There is no separate discovered-parameter list, pending-override stage or Apply
-button. Edits immediately update the exact command preview and invalidate launch
+The groups share one ordered argument model, without a pending-override stage or
+Apply button. Edits immediately update the exact command preview and invalidate launch
 validation. Paste still requires explicit Replace or Cancel. Only the existing
 ordered argv array is saved; historical run commands are never rewritten.
 

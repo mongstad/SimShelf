@@ -183,3 +183,98 @@ test("repeated boolean flags and identical scalar values remain valid manual row
   assert.equal(parameterError(rows, [p, flag]), "");
   assert.ok(rows.every((r) => r.manual));
 });
+
+test("grouping changes presentation only, preserving mixed order, aliases and syntax", async () => {
+  const { rowGroup, parameterGroups } = await import("./parameterRows.ts");
+  const args = [
+    "input.txt",
+    "--quiet",
+    "-d",
+    "0.25",
+    "--other",
+    "",
+    "--dt=0.25",
+    "--",
+    "--quiet",
+  ];
+  const rows = parameterRows(args, [p, flag]);
+  const grouped = parameterGroups.map((group) =>
+    rows.filter((r) => rowGroup(r) === group),
+  );
+  assert.equal(grouped.flat().length, rows.length);
+  assert.deepEqual(rowArguments(rows), args);
+  assert.deepEqual(
+    rowArguments(parameterRows(rowArguments(rows), [flag, p], rows)),
+    args,
+  );
+  assert.ok(
+    rows
+      .filter((r) => r.parameter?.name === "--dt")
+      .every((r) => rowGroup(r) === parameterGroups[2]),
+  );
+});
+test("manual blank edits omit values, explicit empties and saved/pasted empties stay exact", async () => {
+  const { manualValue } = await import("./parameterRows.ts");
+  let row = {
+    id: 0,
+    token: "--something",
+    value: null,
+    enabled: true,
+    equals: false,
+    manual: "Manual",
+  };
+  row = { ...row, ...manualValue("") };
+  assert.deepEqual(rowArguments([row]), ["--something"]);
+  assert.equal(parameterError([row], []), "");
+  row = { ...row, ...manualValue("192") };
+  assert.deepEqual(rowArguments([row]), ["--something", "192"]);
+  row = { ...row, value: "" };
+  assert.deepEqual(rowArguments([row]), ["--something", ""]);
+  for (const args of [["--something", ""], ["--something="], [""]])
+    assert.deepEqual(rowArguments(parameterRows(args, [])), args);
+  row = { ...row, ...manualValue("") };
+  assert.deepEqual(rowArguments([row]), ["--something"]);
+  const rescanned = parameterRows(rowArguments([row]), [], [row]);
+  assert.equal(rescanned[0].valueOpen, true);
+});
+test("fixture flags emit tokens only and required discovered values remain validated", async () => {
+  const { rowGroup, parameterGroups, manualValue } =
+    await import("./parameterRows.ts");
+  const wave = { ...flag, name: "--wavez", flags: ["--wavez"] };
+  const plots = {
+    ...flag,
+    name: "--no-plots",
+    flags: ["--no-plots"],
+    action: "store_false",
+  };
+  const n = { ...p, name: "--N", flags: ["--N"], type: "int" };
+  const precision = {
+    ...p,
+    name: "--precision",
+    flags: ["--precision"],
+    type: "str",
+    choices: ["single", "double"],
+  };
+  const args = ["--wavez", "--N", "192", "--no-plots", "--precision=double"];
+  const rows = parameterRows(args, [wave, n, plots, precision]);
+  assert.deepEqual(rowArguments(rows), args);
+  assert.equal(parameterError(rows, [wave, n, plots, precision]), "");
+  assert.equal(
+    rows.filter((r) => rowGroup(r) === parameterGroups[1]).length,
+    2,
+  );
+  assert.equal(
+    rows.filter((r) => rowGroup(r) === parameterGroups[0]).length,
+    2,
+  );
+  const manual = {
+    id: 0,
+    token: "--dt",
+    enabled: true,
+    equals: false,
+    ...manualValue(""),
+  };
+  assert.deepEqual(rowArguments([manual]), ["--dt"]);
+  assert.equal(parameterError([manual], []), "");
+  assert.match(parameterError([manual], [p]), /needs a value/);
+});
