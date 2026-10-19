@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useId } from "react";
 import { parseArguments } from "./arguments";
 import { api } from "./api";
 import type { Discovery } from "./parameters";
+import { parameterPresentation } from "./parameterPresentation";
 import {
-  parameterGroups,
-  rowGroup,
   manualValue,
   parameterRows,
   rowArguments,
@@ -32,6 +31,10 @@ export function ArgumentEditor({
   reviewed: (review: {mode: string; fingerprint: string | null}) => void;
 }) {
   const [rows, setRows] = useState<Row[]>(() => parameterRows(initial, []));
+  const [query, setQuery] = useState("");
+  const searchInput = useRef<HTMLInputElement>(null);
+  const editorId = useId();
+  const presentation = parameterPresentation(rows, query);
   const current = useRef(rows);
   current.current = rows;
   const [discovery, setDiscovery] = useState<Discovery | null>(null);
@@ -192,21 +195,31 @@ export function ArgumentEditor({
           . See declaration notes for limitations.
         </p>
       )}
+      {presentation.total > 0 && (
+        <div className="parameter-search">
+          <label htmlFor={`${editorId}-search`}>Search parameters and flags</label>
+          <div className="parameter-search-controls">
+            <input id={`${editorId}-search`} ref={searchInput} type="search"
+              value={query} onChange={e => setQuery(e.target.value)}
+              placeholder="Option, alias, help or type"
+              aria-describedby={`${editorId}-search-status`} />
+            <button type="button" disabled={!query} onClick={() => {
+              setQuery(""); searchInput.current?.focus();
+            }}>Clear search</button>
+          </div>
+          <p id={`${editorId}-search-status`} role="status" className="muted">
+            {presentation.matches} of {presentation.total} declared controls shown.
+            {" "}Search only changes visibility; arguments and edits are retained. Manual arguments remain below.
+          </p>
+          {presentation.matches === 0 && <p>No matching parameters or flags. Try another term or clear search.</p>}
+        </div>
+      )}
       <fieldset disabled={changed && !manual}>
-      {parameterGroups.map((group) => (
+      {presentation.sections.map(({name: group, rows: visibleRows}) => (
         <section className="parameter-group" aria-label={group} key={group}>
-          <h4>{group}</h4>
-          {!rows.some((row) => rowGroup(row) === group) && (
-            <p className="muted">
-              No{" "}
-              {group === "Manual / undiscovered arguments"
-                ? "manual arguments added"
-                : "supported declarations found"}
-              .
-            </p>
-          )}
-          {rows.map((row, i) => {
-            if (rowGroup(row) !== group) return null;
+          <h4>{group} <small>({visibleRows.length})</small></h4>
+          {!visibleRows.length && <p className="muted">No manual arguments added.</p>}
+          {visibleRows.map(({row, index: i}) => {
             const p =
               row.parameter?.supported && !row.manual
                 ? row.parameter
@@ -215,6 +228,9 @@ export function ArgumentEditor({
             return (
               <div
                 className={p ? "parameter-row" : "argument-row"}
+                data-enabled={p ? row.enabled : undefined}
+                role={p ? "group" : undefined}
+                aria-label={p ? `${p.name} · ${p.required ? "required" : "optional"}` : undefined}
                 key={row.id}
               >
                 <div className="argument-fields">
@@ -225,6 +241,7 @@ export function ArgumentEditor({
                           <input
                             type="checkbox"
                             aria-label={`Enable ${p.name}`}
+                            aria-describedby={`${editorId}-hint-${row.id}`}
                             checked={row.enabled}
                             onChange={(e) =>
                               edit(i, { enabled: e.target.checked })
@@ -261,6 +278,7 @@ export function ArgumentEditor({
                         {p.choices ? (
                           <select
                             aria-label={`Value for ${p.name}`}
+                            aria-describedby={`${editorId}-hint-${row.id}`}
                             disabled={!p.required && !row.enabled}
                             value={
                               row.value === null
@@ -304,6 +322,7 @@ export function ArgumentEditor({
                         ) : (
                           <input
                             aria-label={`Value for ${p.name}`}
+                            aria-describedby={`${editorId}-hint-${row.id}`}
                             inputMode={
                               p.type === "int"
                                 ? "numeric"
@@ -373,7 +392,8 @@ export function ArgumentEditor({
                   </div>
                 </div>
                 {p ? (
-                  <small className="parameter-hint">
+                  <small className="parameter-hint" id={`${editorId}-hint-${row.id}`}>
+                    {p.flags.length > 1 && <>Options: {p.flags.join(", ")} · </>}
                     {p.help}
                     {p.help ? " · " : ""}
                     {flag

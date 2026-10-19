@@ -106,3 +106,18 @@ This is a portable-editor/configuration integration, not certification of a
 simulation's SWSS baseline, scientific export, numerical equivalence, checkpoint
 recovery or independent backup restoration. Existing progress/metric adapters and
 their limits are unchanged.
+
+## Finding controls in long parameter lists
+
+In **New run → Simulation parameters**, search by option spelling, alias, help,
+value type, or `required` / `optional`. Search is case-insensitive; multiple words
+must all match the same control. The count reports visible supported controls.
+**Clear search** restores the list and returns keyboard focus to search.
+
+Each control groups its enable checkbox, value or flag, help and default hints
+within one bordered row. Required declarations appear first when present, followed
+by value parameters and boolean flags. Defaults remain hints, never inserted.
+Search and grouping change only presentation: enabled arguments, disabled drafts,
+token order and spelling remain intact. Manual/undiscovered arguments always stay
+visible below the declared controls, including repeated or unsupported forms.
+Search resets when the dialog closes; saved execution settings do not store it.

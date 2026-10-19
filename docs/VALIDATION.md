@@ -349,3 +349,10 @@ See [issue #101 SWSS v2](validation/issue-101-swss-v2.md) for the single-compani
 reader, exact-argv integration, source binding and provenance, capture failures,
 historical preservation, installed browser/package checks and limitations.
 Earlier evidence remains unchanged.
+
+## Searchable parameter lists
+
+See [issue #104 parameter lists](validation/issue-104-parameter-lists.md) for
+bounded rows, local filtering, required-first presentation, exact-argv checks,
+77-declaration fixtures and installed browser/package validation. Earlier evidence
+remains unchanged.
