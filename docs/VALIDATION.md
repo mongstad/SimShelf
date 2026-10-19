@@ -290,3 +290,9 @@ long-title wrapping, title/icon geometry and keyboard checks for the final layou
 See [issue #84 log controls](validation/issue-84-log-controls.md) for persistent
 wrap/follow preferences, user-scroll behavior, installed-package/browser checks,
 owner-requested spacing and label placement, and validation limitations.
+
+## Simulation settings during activity
+
+See [issue #83 settings activity](validation/issue-83-settings-activity.md) for
+authoritative activity projection, stale-refresh handling, unchanged backend
+guards and installed-browser/package checks. Earlier evidence is unchanged.

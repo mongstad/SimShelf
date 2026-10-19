@@ -11,6 +11,7 @@ from .git_archive import PREFIX as ARCHIVE
 from .git_provenance import KEY as GIT
 from .git_selection import KEY as SELECTION
 from .workspace_lock import locked_store
+from .simulation_activity import blocks_administration
 
 AUDIT = 'deleted_simulation:'
 
@@ -60,7 +61,7 @@ def state(conn, ident):
         'archive_events': sum(k.startswith(ARCHIVE + 'event:') for k, _ in metadata),
         'archive_pending': sum(k.startswith(ARCHIVE + 'pending:') for k, _ in metadata),
     }
-    active = any(r['status'] not in {'completed', 'failed', 'interrupted'} or r.get('capture_status') == 'pending' for r in runs)
+    active = any(blocks_administration(r) for r in runs)
     revision = hashlib.sha256(json_text([version, simulation, runs, records, metadata, mapping]).encode()).hexdigest()
     return {'simulation_id': ident, 'name': simulation['name'], 'revision': revision,
             'counts': counts, 'active': active}, runs, metadata

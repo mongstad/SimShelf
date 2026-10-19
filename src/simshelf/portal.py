@@ -107,7 +107,7 @@ class PortalJobs:
                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                        stderr=subprocess.DEVNULL, start_new_session=True, shell=False)
             self.generation += 1
-            self.jobs[process] = {"run_id": None, "stopping": False}
+            self.jobs[process] = {"run_id": None, "stopping": False, "simulation_id": simulation}
             payload = {"workspace": str(self.store.path), "simulation": simulation,
                        "settings": plan["settings"], "name": name, "acknowledge_outputs": acknowledge_outputs,
                        "source_binding": source_binding(registered)}
@@ -161,6 +161,11 @@ class PortalJobs:
                 raise ValueError("This server does not own an active recorder for this run. CLI/editor runs must be stopped at their original process.")
             self._cancel(process)
         return {"stop_requested": True}
+
+    def active_simulations(self):
+        with self.lock:
+            return {j["simulation_id"] for p, j in self.jobs.items()
+                    if p.poll() is None and j.get("simulation_id")}
 
     def shutdown_status(self):
         with self.lock:

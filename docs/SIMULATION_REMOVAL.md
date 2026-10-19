@@ -41,3 +41,12 @@ by workspace recovery if interrupted. A cleanup warning means records were remov
 but some eligible managed files remain pending cleanup. Minimal deletion records
 prevent old journal events from restoring deleted runs. Registering the same
 source again creates a new simulation ID and does not reattach the removed history.
+
+The **Simulation settings** cogwheel remains visible but disabled while the
+selected simulation has active runs or pending capture/finalization. It becomes
+available again after the last run safely finalizes and the portal refreshes;
+runs belonging to another simulation do not disable it. If activity cannot be
+refreshed, the control stays disabled until connection recovers. The separate
+**Locate source folder…** recovery action remains available with its existing
+checks. An enabled cogwheel does not override removal requirements, including
+the schema-1 restriction or a run starting after the latest refresh.

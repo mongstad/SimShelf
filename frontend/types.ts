@@ -33,6 +33,7 @@ export type ExecutionSettings = {
   output_dir: string;
 };
 export type Simulation = {
+  administration_active?: boolean;
   execution?: ExecutionSettings;
   id: string;
   name: string;
