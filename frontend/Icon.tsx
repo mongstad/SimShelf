@@ -12,6 +12,7 @@ const icons: Record<string, React.ReactNode> = {
   wave: <path d="M2 12c4 0 3-8 7-8s2 16 6 16 3-8 7-8" />,
   trash: <path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7" />,
   plus: <path d="M12 5v14M5 12h14" />,
+  "file-plus": <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9ZM14 3v6h6M12 12v6M9 15h6" />,
   search: (
     <>
       <circle cx="10.5" cy="10.5" r="6.5" />
