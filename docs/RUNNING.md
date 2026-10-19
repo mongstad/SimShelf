@@ -407,3 +407,23 @@ run outside that window remains viewable with adjacent navigation disabled; Back
 opens the simulation list. The navigation text identifies this fallback. Run
 changes reset the detail tab, source selection and unsaved annotation drafts;
 save edits before moving to another run. Saved records and downloads are unchanged.
+
+## Reading live logs
+
+In a run's **Logs** tab, **Word wrap** and **Auto-scroll** appear below the
+output, at the lower right. Both start on. Turn Word wrap off to preserve wide
+columns and scroll horizontally inside the log panel. Explicit newlines and
+whitespace are preserved in either mode.
+
+Auto-scroll follows new output. Scrolling upward with the wheel, keyboard or
+vertical scrollbar pauses it so you can read earlier output. Select Auto-scroll
+again to jump to the latest output and resume following. Horizontal scrolling
+does not pause it; reaching the bottom manually does not switch it back on.
+
+Both choices are remembered for all runs and simulations in this browser's
+portal origin (including its port), including completed runs. If browser storage
+is unavailable, they last for the current page session. Switching streams or
+reopening Logs starts at the bottom when following is on, or at the top when off.
+The existing 200 KB tail preview remains bounded: older text can leave the
+preview as output arrives, even while following is off. These controls only
+change presentation; recording and retained log bytes are unchanged.

@@ -442,3 +442,13 @@ registration. Late optional archive results cannot recreate deleted-run metadata
 Reference-aware managed-file cleanup follows commit and survives interruption;
 source directories and Git archive repositories are never opened by removal.
 See [the user workflow](SIMULATION_REMOVAL.md) and its validation evidence.
+
+## Log viewer presentation
+
+Issue #84 isolates the log viewer by run/stream and serializes its existing
+three-second polling with an unmount guard for late results/errors. Browser-local
+`simshelf-logs` preferences control wrapping and follow, with session fallback
+when storage fails. Follow reacts to explicit upward input, not generic scroll
+events; horizontal position is retained while following. Layout/resize updates
+pin only an enabled follower. No log endpoint, capture, schema or scientific
+record changes are involved. Only the existing stdout/stderr views are exposed.
