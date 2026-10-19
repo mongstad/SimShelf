@@ -296,3 +296,9 @@ owner-requested spacing and label placement, and validation limitations.
 See [issue #83 settings activity](validation/issue-83-settings-activity.md) for
 authoritative activity projection, stale-refresh handling, unchanged backend
 guards and installed-browser/package checks. Earlier evidence is unchanged.
+
+## Run navigation caption cleanup
+
+See [issue #85 navigation caption](validation/issue-85-navigation-caption.md) for
+caption removal, preserved navigation behavior, installed-browser checks and
+package validation. Earlier evidence remains unchanged.
