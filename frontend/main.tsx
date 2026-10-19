@@ -1,5 +1,5 @@
 import { LogViewer } from "./LogViewer";
-import { SimulationSettings } from "./SimulationSettings";
+import { SimulationSettings, SimulationSettingsButton, settingsDisabled } from "./SimulationSettings";
 import { RemoveSimulation, type SimulationRemovalResult } from "./RemoveSimulation";
 import { useSidebar } from "./useSidebar";
 import { RunNavigation, chronological, runSequence, type RunSequence } from "./RunNavigation";
@@ -8,7 +8,7 @@ import { DeleteScreenshot, withoutScreenshots } from "./DeleteScreenshot";
 import { RemoveRuns, type RemovalResult } from "./RemoveRuns";
 import { QuitServer } from "./QuitServer";
 import { CaptureSummary } from "./CaptureSummary";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { api, connect, downloadBackup, uploadFile } from "./api";
 import type {
@@ -1566,6 +1566,7 @@ function App() {
     localStorage.getItem("simshelf-theme") || "system",
   );
   const simulation = simulations.find((s) => s.id === simulationId);
+  const [simulationActivityKey, setSimulationActivityKey] = useState<string | null>(null);
   const refreshSequence = useRef(0);
   const activeQuery = useRef("");
   activeQuery.current = JSON.stringify([
@@ -1575,6 +1576,11 @@ function App() {
     search,
     limit,
   ]);
+  useLayoutEffect(() => {
+    // Invalidate immediately, even for A → B → A navigation before the next poll.
+    refreshSequence.current++;
+    setSimulationActivityKey(null);
+  }, [simulationId, status, version, search, limit]);
   const refresh = useCallback(async () => {
     const sequence = ++refreshSequence.current;
     const requestKey = JSON.stringify([
@@ -1586,6 +1592,8 @@ function App() {
     ]);
     try {
       const sims = await api<Simulation[]>("/simulations");
+      if (activeQuery.current !== requestKey || sequence !== refreshSequence.current) return;
+      setSimulationActivityKey(requestKey);
       setSimulations(sims.filter(s => !removedSimulationIds.current.has(s.id)));
       const query = new URLSearchParams({ limit: String(limit) });
       if (simulationId) query.set("simulation", simulationId);
@@ -1599,9 +1607,11 @@ function App() {
       setSelected(previous => previous.filter(id => retained.some(r => r.id === id)));
       setError("");
     } catch (e) {
+      if (activeQuery.current !== requestKey || sequence !== refreshSequence.current) return;
+      setSimulationActivityKey(null);
       setError((e as Error).message);
     } finally {
-      setLoading(false);
+      if (activeQuery.current === requestKey && sequence === refreshSequence.current) setLoading(false);
     }
   }, [simulationId, status, version, search, limit]);
   useEffect(() => {
@@ -1910,14 +1920,9 @@ function App() {
                   <div className="eyebrow">SIMULATION JOURNAL</div>
                   <div className="simulation-title-row">
                     <h1>{simulation?.name || "All simulations"}</h1>
-                    {simulation && <button ref={simulationSettingsTrigger} className="icon-button simulation-settings-trigger"
-                      aria-label="Simulation settings" title="Simulation settings" aria-haspopup="dialog"
-                      onClick={e => { administrationReturnFocus.current = e.currentTarget; setModal("simulation-settings"); }}>
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                        <path d="m9 3-.6 2.4-2 .9-2.3-.7-2 3.4 1.7 1.8v2.4L2.1 15l2 3.4 2.3-.7 2 .9L9 21h4l.6-2.4 2-.9 2.3.7 2-3.4-1.7-1.8v-2.4L19.9 9l-2-3.4-2.3.7-2-.9L13 3Z" />
-                        <circle cx="11" cy="12" r="3" />
-                      </svg>
-                    </button>}
+                    {simulation && <SimulationSettingsButton ref={simulationSettingsTrigger}
+                      disabled={settingsDisabled(simulation, simulationActivityKey === activeQuery.current)}
+                      onClick={e => { administrationReturnFocus.current = e.currentTarget; setModal("simulation-settings"); }} />}
                   </div>
                   {simulation?.description && <p>{simulation.description}</p>}
                 </div>

@@ -20,3 +20,20 @@ test('removal remains a separate review with initially disabled confirmation', (
  assert.match(html,/<button disabled="">Remove simulation<\/button>/);
  assert.match(html,/>Cancel<\/button>/);
 });
+
+test('cogwheel fails closed until current authoritative activity is available', async () => {
+ const {settingsDisabled, SimulationSettingsButton} = await import('./SimulationSettings.tsx');
+ for (const [simulation,current,blocked] of [
+  [{administration_active:true},true,true], [{administration_active:false},true,false],
+  [{administration_active:false},false,true], [{},true,true],
+  [{administration_active:null},true,true],
+ ]) {
+  assert.equal(settingsDisabled(simulation,current),blocked);
+  const html=renderToStaticMarkup(React.createElement(SimulationSettingsButton,{disabled:blocked,onClick:()=>{}}));
+  assert.equal(html.includes('disabled=""'),blocked);
+  assert.match(html,/aria-label="Simulation settings"/);
+  assert.match(html,/aria-haspopup="dialog"/);
+  assert.match(html,/simulation-settings-trigger/);
+  if(blocked) assert.doesNotMatch(html,/title=/);
+ }
+});

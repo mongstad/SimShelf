@@ -452,3 +452,25 @@ when storage fails. Follow reacts to explicit upward input, not generic scroll
 events; horizontal position is retained while following. Layout/resize updates
 pin only an enabled follower. No log endpoint, capture, schema or scientific
 record changes are involved. Only the existing stdout/stderr views are exposed.
+
+## Simulation settings activity
+
+Issue #83 adds a read-only `administration_active` field to simulation list
+responses. It uses the same predicate as removal: nonterminal runs or pending
+capture block administration. The query checks all runs for each simulation,
+independently of list pagination, filters and recorder ownership. A read
+transaction keeps counts/activity consistent; no new stored field or schema is
+introduced. The API also includes live server-owned supervisors, identified by
+simulation from admission until process exit. Live supervisor sets are sampled
+before and after the database read, using the existing lock only for those
+observations; source/database I/O never holds the lifecycle lock. Their union
+covers startup before a run ID and post-record finalization conservatively.
+
+The title cogwheel uses native disabled semantics until current activity is
+known to be false. Query changes immediately invalidate old refreshes; obsolete
+responses/errors cannot replace newer eligibility, and failed refreshes disable
+the control until a successful poll. Ordinary polls do not blink a known state.
+This remains periodically refreshed guidance, not a reservation or authorization
+boundary: external activity can start after a response. Existing transactional
+removal/relocation guards, already-open dialogs and missing-source recovery stay
+unchanged. Schema-1 removal remains unavailable even when the cogwheel is enabled.

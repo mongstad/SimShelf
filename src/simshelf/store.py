@@ -95,12 +95,15 @@ class Store:
         return data
 
     def simulations(self) -> list[dict]:
+        from .simulation_activity import has_active_runs
         with self.connection() as conn:
+            conn.execute("BEGIN")  # One read snapshot for counts and activity.
             result = [json.loads(row[0]) for row in conn.execute("SELECT data FROM simulations ORDER BY id")]
             for sim in result:
                 sim["run_count"] = conn.execute("SELECT count(*) FROM runs WHERE simulation_id=?", (sim["id"],)).fetchone()[0]
                 sim["last_run"] = conn.execute("SELECT max(started_at) FROM runs WHERE simulation_id=?", (sim["id"],)).fetchone()[0]
                 sim["available"] = Path(sim["root"]).is_dir()
+                sim["administration_active"] = has_active_runs(conn, sim["id"])
             return result
 
     def simulation(self, ident: str) -> dict:

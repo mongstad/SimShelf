@@ -383,7 +383,14 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
 
     @app.get("/api/simulations")
     def simulations():
-        return store.simulations()
+        # Union supervisor observations around the database read: cover admission
+        # and finalization without holding the lifecycle lock over DB/source I/O.
+        active = jobs.active_simulations()
+        result = store.simulations()
+        active |= jobs.active_simulations()
+        for simulation in result:
+            simulation["administration_active"] |= simulation["id"] in active
+        return result
 
     @app.post("/api/simulations", status_code=201)
     def add_simulation(body: SimulationInput):
