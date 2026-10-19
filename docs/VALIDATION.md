@@ -320,3 +320,9 @@ Historical evidence remains unchanged.
 See [issue #93 context actions](validation/issue-93-context-actions.md) for
 registration/launch visibility, focused assertions and installed-browser checks.
 Historical evidence remains unchanged.
+
+## New run document-plus icon
+
+See [issue #95 document-plus](validation/issue-95-document-plus.md) for the scoped
+glyph replacement, installed theme/keyboard checks and package validation.
+Historical evidence remains unchanged.

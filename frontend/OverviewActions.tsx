@@ -20,7 +20,7 @@ export function OverviewActions({ simulation, hasSimulations, add, record, launc
     </button>
     {simulation && <button className="primary" title="Configure and launch this simulation"
       disabled={!simulation.available} onClick={launch}>
-      <Icon name="plus" />
+      <Icon name="file-plus" />
       New run…
     </button>}
   </div>;
