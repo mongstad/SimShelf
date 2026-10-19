@@ -1,6 +1,6 @@
 # Simulation parameters
 
-Open **Start simulation → Simulation parameters**. One editor combines discovered
+Open **New run… → Simulation parameters**. One editor combines discovered
 options with saved and manual arguments. SimShelf reads declarations without
 importing the simulation, probing its interpreter, running `--help`, or installing
 dependencies. Missing GPU libraries do not prevent static discovery.

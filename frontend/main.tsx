@@ -1948,7 +1948,7 @@ function App() {
                     disabled={!simulation || !simulation.available}
                     onClick={() => setModal("launch")}
                   >
-                    Start simulation
+                    New run…
                   </button>
                 </div>
               </header>
