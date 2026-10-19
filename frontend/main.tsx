@@ -1,5 +1,6 @@
 import { OverviewActions } from "./OverviewActions";
 import { RunTitle } from "./RunTitle";
+import { RunHistoryTitle } from "./RunHistoryTitle";
 import { runRequests } from "./runRequests";
 import { Icon } from "./Icon";
 import { LogViewer } from "./LogViewer";
@@ -802,7 +803,7 @@ function RunDetails({
       live = false;
     };
   }, [tab, sourcePath, diff, id, run?.baseline_run_id]);
-  async function save(data: Partial<Run>) {
+  async function save(data: Partial<Run>, showConfirmation = true) {
     const ticket = requests.save();
     if (ticket === null) return;
     setBusy(true);
@@ -817,7 +818,7 @@ function RunDetails({
       setRun(withoutScreenshots(saved, deletedScreenshots.current));
       if (data.tags) setTags(saved.tags.join(", "));
       changed();
-      setNotice("Saved");
+      if (showConfirmation) setNotice("Saved");
     } catch (e) {
       if (requests.current(ticket)) setError((e as Error).message);
     } finally {
@@ -882,7 +883,7 @@ function RunDetails({
           </div>
           <RunTitle name={run.name} favorite={run.tags.includes("favorite")} busy={busy}
             toggle={() => save({ tags: run.tags.includes("favorite")
-              ? run.tags.filter(t => t !== "favorite") : [...run.tags, "favorite"] })} />
+              ? run.tags.filter(t => t !== "favorite") : [...run.tags, "favorite"] }, false)} />
           <div className="run-meta">
             <Status status={run.status} />
             <span>Version {run.version}</span>
@@ -2144,11 +2145,8 @@ function App() {
                                       className="run-link"
                                       onClick={() => showRun(r.id)}
                                     >
-                                      {r.name}
+                                      <RunHistoryTitle name={r.name} favorite={r.tags.includes("favorite")} />
                                       {!!r.archive_commits && <small>{r.archive_commits} archive commits</small>}
-                                      {r.tags.includes("favorite") && (
-                                        <span className="favorite-star">★</span>
-                                      )}
                                       <small>
                                         {date(r.started_at)} <span>·</span>{" "}
                                         {r.id.slice(0, 8)}

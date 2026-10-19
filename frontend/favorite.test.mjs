@@ -3,7 +3,20 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { RunTitle } from './RunTitle.tsx';
+import { RunHistoryTitle } from './RunHistoryTitle.tsx';
 import { runRequests } from './runRequests.ts';
+
+test('history title groups favorite before archive metadata without adding another control', () => {
+  for (const favorite of [false, true]) {
+    const html = renderToStaticMarkup(React.createElement('button', {className:'run-link'},
+      React.createElement(RunHistoryTitle, {name:'Run <title>', favorite}),
+      React.createElement('small', null, '2 archive commits')));
+    assert.match(html, /<span class="run-history-title"><span>Run &lt;title&gt;<\/span>/);
+    assert.equal((html.match(/★/g) || []).length, favorite ? 1 : 0);
+    if (favorite) assert.match(html, /<span class="favorite-star">★<\/span><\/span><small>2 archive commits/);
+    assert.equal((html.match(/<button/g) || []).length, 1);
+  }
+});
 
 test('title is separate from a named, decorative, native pressed-state toggle', () => {
   for (const favorite of [false, true]) {
