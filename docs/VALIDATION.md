@@ -326,3 +326,13 @@ Historical evidence remains unchanged.
 See [issue #95 document-plus](validation/issue-95-document-plus.md) for the scoped
 glyph replacement, installed theme/keyboard checks and package validation.
 Historical evidence remains unchanged.
+
+## Run title favorite toggle
+
+See [issue #96 favorite star](validation/issue-96-favorite-star.md) for accessible
+title placement, save/poll ordering, installed-browser and package validation.
+Historical evidence remains unchanged.
+
+The [issue #96 review revision](validation/issue-96-favorite-review.md) records
+history-table indicator placement and silent favorite-save confirmation, with
+focused regressions and installed-browser checks.
