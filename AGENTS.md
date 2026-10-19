@@ -34,6 +34,13 @@ SimShelf is an independent, local-first Python simulation library and run journa
   remain local; changes to portable contracts need separately authorized standards
   work, not implicit semantics in a SimShelf extension.
 
+### Missing or conflicting portable contracts
+- Before changing a simulation-facing workflow contract, check the **accepted normative** [SWSS specification](https://github.com/mongstad/Simulation-Standards/blob/main/standards/SWSS/v2.0.md) and its applicable capability boundaries. A proposal, open issue or unmerged PR is **not** an accepted contract; check the repository's current authoritative revision before treating it as binding.
+- If an authorized task requires a **new, changed or incompatible portable contract** (such as shared `swss.toml` semantics, portable arguments, lifecycle, capture or provenance rules) that SWSS does not define or support, **do not invent a competing SimShelf-specific standard** or silently extend `[swss]` or an application extension to replace normative rules. Identify the gap, the affected SimShelf work, the intended cross-tool behavior and relevant compatibility, safety, provenance and conformance consequences.
+- **Propose** a dedicated issue in [Simulation-Standards](https://github.com/mongstad/Simulation-Standards) for owner consideration, cross-linking the dependent SimShelf issue/PR. Do **not** automatically create the issue, amend SWSS, or edit another repository without explicit owner authorization. Surface the proposal to the owner and request direction.
+- **Pause only the SWSS-dependent implementation** until the owner authorizes a standards change and the needed contract is accepted. Independent, already-authorized work may continue without expanding scope. After acceptance, implement the contract in SimShelf only through the existing owner-authorized issue/PR workflow. **SWSS specifies; SimShelf conforms.**
+- Ordinary SimShelf-only UI layout, visual grouping, local performance improvements, and implementation details that do **not** change portable meaning remain within SimShelf; they need no standards proposal. Application-specific extension fields may remain local only if they do not redefine SWSS portable fields, argv or guarantees.
+
 ## Validation and handoff
 - Use focused, risk-based tests for the affected subsystem and direct integration boundaries. For storage, capture, migration, backup/restore, process execution, security, or packaging changes, expand coverage to relevant failure paths and fresh-install behavior. Do not run unrelated exhaustive suites just because they exist.
 - Document exact checks, failures, skipped environments and limitations honestly. Validate that release/runtime assets still ship where applicable.
