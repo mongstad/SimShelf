@@ -1,3 +1,4 @@
+import { OverviewActions } from "./OverviewActions";
 import { Icon } from "./Icon";
 import { LogViewer } from "./LogViewer";
 import { SimulationSettings, SimulationSettingsButton, settingsDisabled } from "./SimulationSettings";
@@ -1841,32 +1842,8 @@ function App() {
                   </div>
                   {simulation?.description && <p>{simulation.description}</p>}
                 </div>
-                <div className="heading-actions">
-                  <button onClick={() => setModal("add")}>
-                    <Icon name="plus" />
-                    Add simulation
-                  </button>
-                  <button
-                    onClick={() => setModal("record")}
-                    disabled={!simulations.length}
-                  >
-                    <Icon name="terminal" />
-                    Terminal / editor
-                  </button>
-                  <button
-                    className="primary"
-                    title={
-                      !simulation
-                        ? "Select a simulation in the sidebar first"
-                        : "Configure and launch this simulation"
-                    }
-                    disabled={!simulation || !simulation.available}
-                    onClick={() => setModal("launch")}
-                  >
-                    <Icon name="plus" />
-                    New run…
-                  </button>
-                </div>
+                <OverviewActions simulation={simulation} hasSimulations={!!simulations.length}
+                  add={() => setModal("add")} record={() => setModal("record")} launch={() => setModal("launch")} />
               </header>
               {simulation && !simulation.available && (
                 <ErrorMessage message="This simulation’s source folder is unavailable on this computer. Existing run records and saved copies remain accessible." />
