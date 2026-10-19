@@ -314,3 +314,9 @@ Historical evidence remains unchanged.
 See [issue #91 action icons](validation/issue-91-action-icons.md) for decorative
 icons, unchanged review workflows, wrapping and installed-package/browser checks.
 Historical evidence remains unchanged.
+
+## Context-specific overview actions
+
+See [issue #93 context actions](validation/issue-93-context-actions.md) for
+registration/launch visibility, focused assertions and installed-browser checks.
+Historical evidence remains unchanged.

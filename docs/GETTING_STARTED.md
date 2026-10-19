@@ -66,7 +66,7 @@ only for practice. For real work, choose a persistent library and source directo
 
 ## 3. Register the example
 
-1. Choose **Add simulation**.
+1. In **All simulations**, choose **Add simulation**, or use the sidebar **+**.
 2. Enter the printed **Source folder**, give it the name `First scalar run`,
    and set its entry file to `simulate.py` (relative to that source folder).
 3. Add it and select it in the sidebar. Registration inspects files but does not
