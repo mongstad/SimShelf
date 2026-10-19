@@ -8,9 +8,11 @@ import { RemoveSimulation } from './RemoveSimulation.tsx';
 test('settings is a labelled dialog with separate workflow actions and safe dismissal', () => {
  const html=renderToStaticMarkup(React.createElement(SimulationSettings,{close:()=>{},relocate:()=>{},remove:()=>{}}));
  assert.match(html,/aria-labelledby="simulation-settings-title"/);
- assert.match(html,/>Change source location…<\/button>/);
- assert.match(html,/>Remove simulation…<\/button>/);
+ assert.match(html,/>Change source location…<\/span><\/button>/);
+ assert.match(html,/>Remove simulation…<\/span><\/button>/);
  assert.match(html,/<button autofocus="">Cancel<\/button>/);
+ assert.equal((html.match(/aria-hidden="true"/g)||[]).length,2);
+ assert.equal((html.match(/<svg/g)||[]).length,2);
  assert.doesNotMatch(html,/Confirm source location|Type the exact|method="post"/);
 });
 

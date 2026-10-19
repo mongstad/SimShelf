@@ -2163,6 +2163,9 @@ details label {
 .simulation-title-row h1 { min-width: 0; overflow-wrap: anywhere; }
 .simulation-settings-trigger { flex: 0 0 auto; }
 .simulation-settings-actions { display: grid; gap: 12px; margin-top: 16px; }
+.simulation-settings-actions button { justify-content: flex-start; text-align: left; min-width: 0; }
+.simulation-settings-actions svg { flex: 0 0 auto; }
+.simulation-settings-actions span { min-width: 0; overflow-wrap: anywhere; }
 
 /* Log presentation is independent of other preformatted previews. */
 .live-log {

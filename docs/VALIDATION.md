@@ -308,3 +308,9 @@ package validation. Earlier evidence remains unchanged.
 See [issue #82 New run label](validation/issue-82-new-run-label.md) for the overview
 caption, unchanged explicit launch flow, installed-browser and package checks.
 Historical evidence remains unchanged.
+
+## Settings and New run action icons
+
+See [issue #91 action icons](validation/issue-91-action-icons.md) for decorative
+icons, unchanged review workflows, wrapping and installed-package/browser checks.
+Historical evidence remains unchanged.
