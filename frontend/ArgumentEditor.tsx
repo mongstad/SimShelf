@@ -19,13 +19,17 @@ export function ArgumentEditor({
   simulationId,
   entry,
   validation,
+  reviewed,
+  initialManual = false,
 }: {
   initial: string[];
+  initialManual?: boolean;
   change: (args: string[]) => void;
   pasteEditing: (pending: boolean) => void;
   simulationId: string;
   entry: string;
   validation: (error: string) => void;
+  reviewed: (review: {mode: string; fingerprint: string | null}) => void;
 }) {
   const [rows, setRows] = useState<Row[]>(() => parameterRows(initial, []));
   const current = useRef(rows);
@@ -37,10 +41,12 @@ export function ArgumentEditor({
     [scanError, setScanError] = useState("");
   const [changed, setChanged] = useState(false),
     [paste, setPaste] = useState<string | null>(null);
-  const problem = parameterError(rows, discovery?.parameters || []);
+  const [manual, setManual] = useState(initialManual);
+  const problem = manual ? "" : discovery && !discovery.provenance ? "Choose manual argv or provide valid SWSS declarations before continuing." : parameterError(rows, discovery?.parameters || []);
   useEffect(() => {
-    validation(loading ? "Reading parameter declarations…" : problem);
-  }, [problem, loading]);
+    validation(loading ? "Reading parameter declarations…" : changed && !manual ? "Review changed declarations before typed use." : problem);
+    reviewed({mode: manual || !discovery?.provenance ? "manual" : "typed", fingerprint: discovery?.fingerprint || null});
+  }, [problem, loading, changed, manual, discovery]);
   async function scan() {
     const id = ++request.current;
     setLoading(true);
@@ -59,7 +65,7 @@ export function ArgumentEditor({
       setRows(
         parameterRows(
           rowArguments(current.current),
-          next.parameters,
+          manual ? [] : next.parameters,
           current.current,
         ),
       );
@@ -96,7 +102,7 @@ export function ArgumentEditor({
     setRows(
       parameterRows(
         rowArguments(current.current),
-        discovery?.parameters || [],
+        manual ? [] : discovery?.parameters || [],
         current.current,
       ),
     );
@@ -136,7 +142,15 @@ export function ArgumentEditor({
           {loading ? "Reading parameters…" : "Rescan parameters"}
         </button>
       </div>
+      <label className="check-label">Use manual argv (skip metadata validation)<input type="checkbox" checked={manual} onChange={e => {
+        setManual(e.target.checked);
+        setRows(parameterRows(rowArguments(current.current), e.target.checked ? [] : discovery?.parameters || [], current.current));
+      }} /></label>
+      {discovery && !discovery.provenance && <p role="status" className="text-amber">{discovery.warnings[0]}</p>}
+      {discovery?.provenance && <p role="status">{discovery.provenance.binding_status}</p>}
+      {changed && !manual && <button type="button" onClick={() => setChanged(false)}>I reviewed the changed declarations</button>}
       <p className="muted">
+        New options are inserted before --, otherwise at the end; review the exact command before launch.
         Enable only the options you want to pass. Defaults are hints, never
         inserted. Manual rows retain exact argument order.
       </p>
@@ -155,7 +169,7 @@ export function ArgumentEditor({
         <details className="parameter-notes">
           <summary>Declaration source and limitations</summary>
           <p>
-            {discovery.source}. Static inspection only; no script or --help
+            {discovery.source}. Data-only inspection; no script or --help
             execution.
           </p>
           {discovery.warnings.map((w, i) => (
@@ -178,6 +192,7 @@ export function ArgumentEditor({
           . See declaration notes for limitations.
         </p>
       )}
+      <fieldset disabled={changed && !manual}>
       {parameterGroups.map((group) => (
         <section className="parameter-group" aria-label={group} key={group}>
           <h4>{group}</h4>
@@ -367,7 +382,7 @@ export function ArgumentEditor({
                         : "Sets true"
                       : p.type}{" "}
                     · Default:{" "}
-                    {p.default_known ? JSON.stringify(p.default) : "unknown"}
+                    {p.default_known ? p.type === "int" ? String(p.default) : JSON.stringify(p.default) : "unknown"}
                     {p.choices
                       ? ` · Choices: ${p.choices.map(String).join(", ")}`
                       : ""}
@@ -476,7 +491,7 @@ export function ArgumentEditor({
                         update(
                           parameterRows(
                             rowArguments(rows.filter((_, j) => j !== i)),
-                            discovery?.parameters || [],
+                            manual ? [] : discovery?.parameters || [],
                             rows.filter((_, j) => j !== i),
                           ),
                         )
@@ -491,6 +506,7 @@ export function ArgumentEditor({
           })}
         </section>
       ))}
+      </fieldset>
       {problem && (
         <p className="error-banner" role="alert">
           {problem}
@@ -555,7 +571,7 @@ export function ArgumentEditor({
               type="button"
               disabled={!!error}
               onClick={() => {
-                const next = parameterRows(parsed, discovery?.parameters || []);
+                const next = parameterRows(parsed, manual ? [] : discovery?.parameters || []);
                 update(next);
                 setPaste(null);
                 pasteEditing(false);

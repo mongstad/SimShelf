@@ -105,8 +105,10 @@ def capture_outputs(store, run_id: str, simulation: dict, before: dict | None = 
     root = contained(Path(simulation["root"]), simulation["config"]["output_dir"])
     counts = {"copied": 0, "referenced": 0, "ignored": 0, "unchanged": 0, "skipped": 0}
     copied = 0
+    required = simulation["config"].get("required_logs", [])
+    retained_logs = set()
     for name, metadata in inventory.items():
-        if before is not None and before.get(name) == metadata:
+        if before is not None and before.get(name) == metadata and not any(match(name, p) for p in required):
             counts["unchanged"] += 1
             continue
         action = capture_action(name, simulation["config"])
@@ -124,8 +126,12 @@ def capture_outputs(store, run_id: str, simulation: dict, before: dict | None = 
             counts["copied" if action == "copy" else "referenced"] += 1
             if action == "copy":
                 copied += artifact["size"]
+                retained_logs.add(name)
         except (OSError, ValueError) as exc:
             counts["skipped"] += 1
             errors.append(f"{name}: {exc}")
             store.emit(run_id, "artifact", {"id": uuid.uuid4().hex, "run_id": run_id, "name": name, "policy": "skipped", "size": metadata["size"], "reason": str(exc), "created_at": now(), "media_type": mimetypes.guess_type(name)[0] or "application/octet-stream", "caption": ""})
+    for pattern in required:
+        if not any(match(name, pattern) for name in retained_logs):
+            errors.append(f'Required log capture incomplete: no copied file matched {pattern}; inspect output location, rules and budgets')
     return {"capture_status": "partial" if errors else "complete", "capture_errors": errors, "capture_counts": counts, "capture_bytes": copied}

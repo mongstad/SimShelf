@@ -130,7 +130,11 @@ class Store:
                 data["entrypoint"] = entrypoint
             if execution is not None:
                 from .portal import execution_settings
-                data["execution"] = execution_settings(data, execution)["settings"]
+                plan = execution_settings(data, execution)
+                data["execution"] = plan["settings"]
+                metadata = plan["parameter_metadata"]
+                if metadata["decision"]["mode"] == "typed" and metadata["provenance"]:
+                    data["parameter_provenance"] = metadata["provenance"]
             if name is not None:
                 if not name.strip() or len(name) > 160:
                     raise ValueError("Name must contain 1–160 characters")

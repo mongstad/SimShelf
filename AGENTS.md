@@ -22,6 +22,18 @@ SimShelf is an independent, local-first Python simulation library and run journa
 - Workspace migration authorization never permits Git history rewriting, historical report alteration, or deletion of original source/output folders. Follow `docs/APPLICATION_VERSIONING.md` for incompatible storage changes.
 - Keep changes scoped; avoid unrelated UI redesigns, broad refactoring and documentation churn.
 
+## SWSS contracts
+- For portable simulation-facing contracts, consult the accepted SWSS specification
+  in [Simulation-Standards](https://github.com/mongstad/Simulation-Standards).
+  SimShelf currently consumes [SWSS v2.0 schema 2](https://github.com/mongstad/Simulation-Standards/blob/8157653c58eb055102e587734e3898a43653eba0/standards/SWSS/v2.0.md)
+  through one `swss.toml`; see `docs/PARAMETER_DISCOVERY.md` for tested boundaries
+  and the local extension. Do not imply scientific baseline certification.
+- Preserve exact argv and historical config/source bytes. Never convert scientific
+  files automatically or reintroduce obsolete companion-file readers. Portable
+  fields cannot be overridden by application extensions. Pure internal UI details
+  remain local; changes to portable contracts need separately authorized standards
+  work, not implicit semantics in a SimShelf extension.
+
 ## Validation and handoff
 - Use focused, risk-based tests for the affected subsystem and direct integration boundaries. For storage, capture, migration, backup/restore, process execution, security, or packaging changes, expand coverage to relevant failure paths and fresh-install behavior. Do not run unrelated exhaustive suites just because they exist.
 - Document exact checks, failures, skipped environments and limitations honestly. Validate that release/runtime assets still ship where applicable.

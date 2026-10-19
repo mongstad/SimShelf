@@ -24,6 +24,7 @@ export type Config = {
   rules: { pattern: string; action: "copy" | "reference" | "ignore" }[];
 };
 export type ExecutionSettings = {
+  parameter_review?: {mode: string; fingerprint: string | null} | null;
   output_policy?: "fixed" | "per_run";
   progress_mode?: string;
   output_mappings?: OutputMapping[];

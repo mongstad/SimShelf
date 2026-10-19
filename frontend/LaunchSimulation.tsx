@@ -31,6 +31,7 @@ export function LaunchSimulation({
   const [cwd, setCwd] = useState(initial?.cwd || ".");
   const [args, setArgs] = useState<string[]>(initial?.arguments || []);
   const [pastePending, setPastePending] = useState(false);
+  const [parameterReview, setParameterReview] = useState<{mode: string; fingerprint: string | null} | null>(null);
   const [parameterError, setParameterError] = useState("");
   const argsError = argumentError(args);
   const preview = [
@@ -109,6 +110,7 @@ export function LaunchSimulation({
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const settings = {
+    parameter_review: parameterReview,
     progress_mode: progressMode,
     interpreter,
     cwd,
@@ -317,6 +319,8 @@ export function LaunchSimulation({
           </small>
         </label>
         <ArgumentEditor
+          initialManual={initial?.parameter_review?.mode === "manual"}
+          reviewed={review => {setParameterReview(review); setPlan(null);}}
           key={argumentRevision}
           initial={args}
           simulationId={simulation.id}

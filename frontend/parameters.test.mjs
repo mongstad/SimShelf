@@ -278,3 +278,34 @@ test("fixture flags emit tokens only and required discovered values remain valid
   assert.equal(parameterError([manual], []), "");
   assert.match(parameterError([manual], [p]), /needs a value/);
 });
+
+test('SWSS exact argv survives rescan including aliases empties repeats and delimiter', () => {
+  const number = {...p, name:'--N', flags:['--N','-n'], type:'int'};
+  const label = {...p, name:'--label', flags:['--label'], type:'str'};
+  const args = ['--N','00192','--dt=1e-3','--label','','-n','+192','--unknown','--','--quiet'];
+  const rows = parameterRows(args, [number,p,label,flag]);
+  assert.deepEqual(rowArguments(rows), args);
+  assert.deepEqual(rowArguments(parameterRows(rowArguments(rows), [number,p,label,flag], rows)), args);
+  assert.ok(rows.filter(r=>r.parameter?.name==='--N').every(r=>r.manual));
+  assert.equal(rows.at(-1).parameter, undefined);
+});
+test('SWSS short new options use separate tokens and int64 limits preserve spelling', () => {
+  const n = {...p,name:'-n',flags:['-n'],type:'int'};
+  const rows = parameterRows([], [n]); rows[0].enabled=true; rows[0].value='00192';
+  assert.deepEqual(rowArguments(rows), ['-n','00192']);
+  rows[0].value='9223372036854775808'; assert.match(parameterError(rows,[n]),/integer/);
+  rows[0].value='-9223372036854775808'; assert.equal(parameterError(rows,[n]),'');
+});
+
+test('short attached equals values remain manual and byte-identical', () => {
+  const rows=parameterRows(['-d=1e-3'],[p]);
+  assert.deepEqual(rowArguments(rows),['-d=1e-3']);
+  assert.ok(rows[0].manual);
+});
+test('signed-64-bit choices compare exact integers without JSON precision loss', () => {
+ const n={...p,type:'int',choices:['9223372036854775807']};
+ const rows=parameterRows(['--dt=+09223372036854775807'],[n]);
+ assert.equal(parameterError(rows,[n]),'');
+ assert.deepEqual(rowArguments(rows),['--dt=+09223372036854775807']);
+ rows[0].value='9223372036854775806';assert.match(parameterError(rows,[n]),/choices/);
+});

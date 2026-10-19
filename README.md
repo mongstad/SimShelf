@@ -27,7 +27,7 @@ parameters and source context, so you can return to past work and compare runs.
 
 Register existing simulations and launch them from the local browser portal, or
 keep recording from a terminal or editor. The portal can discover supported,
-exposed parameters and let you selectively override them; dynamic declarations
+parameters declared in a root `swss.toml` (SWSS schema 2) and let you selectively override them; dynamic declarations
 and some argument styles still need manual entry. Follow run status and reported
 progress when available—progress detection is optional and not universal.
 

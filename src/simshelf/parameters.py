@@ -1,12 +1,11 @@
 """Bounded static CLI declarations; never imports or executes project code."""
 import ast
 import hashlib
-import json
 import math
 from pathlib import Path
 import re
 
-SCHEMA = 'simshelf-arguments.json'
+SCHEMA = 'swss.toml'
 LIMIT = 262144
 
 
@@ -100,39 +99,28 @@ def static_parameters(data, name):
     return rows, warnings
 
 
-def discover_parameters(simulation):
+def discover_parameters(simulation, source='swss'):
     root = Path(simulation['root'])
-    schema = root / SCHEMA
-    name = SCHEMA if schema.exists() or schema.is_symlink() else simulation.get('entrypoint')
-    result = {'parameters': [], 'warnings': [], 'source': name or 'No registered entry', 'fingerprint': None}
+    result = {'parameters': [], 'warnings': [], 'source': 'swss.toml', 'fingerprint': None, 'provenance': None}
     try:
-        if not name:
-            raise ValueError('Register an entry file before discovery')
-        data = read_file(root, name)
-        result['fingerprint'] = hashlib.sha256(name.encode() + b'\0' + data).hexdigest()
-        if name == SCHEMA:
-            declaration = json.loads(data)
-            if not isinstance(declaration, dict) or set(declaration) != {'schema_version', 'parameters'} or (type(declaration['schema_version']) is not int or declaration['schema_version'] != 1):
-                raise ValueError('Schema must contain schema_version: 1 and parameters')
-            entries = declaration['parameters']
-            if not isinstance(entries, list) or len(entries) > 128:
-                raise ValueError('Schema parameters must be a list of at most 128 entries')
-            rows = []
-            for entry in entries:
-                if not isinstance(entry, dict) or 'flags' not in entry:
-                    raise ValueError('Each schema parameter needs flags')
-                rows.append(normalize(entry['flags'], {k: v for k, v in entry.items() if k != 'flags'}, SCHEMA))
-            warnings = ['Explicit project schema; declarations may differ from the current script. Review before applying.']
-        else:
+        from .swss import read, reject_legacy
+        reject_legacy(root)
+        if source == 'static':
+            name = simulation.get('entrypoint')
+            data = read_file(root, name)
             rows, warnings = static_parameters(data, name)
-        counts = {}
-        for row in rows:
-            for flag in row['flags']:
-                counts[flag] = counts.get(flag, 0) + 1
-        for row in rows:
-            if any(counts[f] > 1 for f in row['flags']):
-                row.update(supported=False, reason='Conflicting option definitions; use manual arguments.')
-        result.update(parameters=rows, warnings=warnings)
-    except (ValueError, SyntaxError, OSError, TypeError, RecursionError, RuntimeError) as exc:
-        result['warnings'] = [f'Discovery unavailable: {exc}. Existing arguments are unchanged.']
+            counts = {}
+            for row in rows:
+                for flag in row['flags']:
+                    counts[flag] = counts.get(flag, 0) + 1
+            for row in rows:
+                if any(counts[f] > 1 for f in row['flags']):
+                    row.update(supported=False, reason='Conflicting option definitions; use manual arguments.')
+            result.update(parameters=rows, warnings=warnings, source='Explicit static: ' + name,
+                          fingerprint=hashlib.sha256(data).hexdigest())
+            return result
+        document = read(root, simulation.get('entrypoint'), simulation.get('version_file'))
+        result.update({k: v for k, v in document.items() if k != 'raw'})
+    except (ValueError, SyntaxError, OSError, TypeError, UnicodeError, RecursionError, RuntimeError) as exc:
+        result['warnings'] = [f'Discovery unavailable: {exc}. Use explicit manual argv; existing arguments are unchanged.']
     return result

@@ -131,6 +131,8 @@ class Run:
                 self.log_parameters(self.parameters)
             self.started = True
             return self
+        from .swss import review
+        metadata = review(self.simulation, (self.launch or {}).get('parameter_review'))
         # Keep source exclusion and archive consent bound to the configured base.
         source_simulation = self.simulation
         self.base_capture_config = self.simulation["config"]
@@ -151,10 +153,20 @@ class Run:
         version_file = self.simulation.get("version_file")
         captured_version = next((f for f in snapshot["files"] if f["path"] == version_file), None)
         version = read_version(Path(self.simulation["root"]), version_file, captured=blob_path(self.store.path, captured_version["blob"]).read_bytes() if captured_version else None)
+        if metadata['provenance'] and self.output_policy == 'per_run':
+            self.simulation['config'] = {**self.simulation['config'], 'required_logs': ['**/*.log']}
         self.before, initial_errors = output_inventory(self.simulation)
         self.initial_capture_errors = initial_errors
         self.started_clock = time.monotonic()
         data = {"id": self.id, "simulation_id": self.simulation["id"], "name": self.name or time.strftime("Run %b %d · %H:%M:%S"), "status": "running", "started_at": now(), "ended_at": None, "duration": None, "exit_code": None, "version": version, "snapshot_id": snapshot["id"], "structure_id": snapshot["structure_id"], "source_warnings": snapshot["warnings"], "command": self.command, "cwd": self.cwd, "parameters": self.parameters, "parameter_sources": {key: "python" for key in self.parameters}, "tags": self.tags, "notes": "", "version_note": "", "cover_id": None, "git": observe_git(self.store, self.simulation, snapshot), "environment": environment(), "capture_config": self.simulation["config"], "capture_status": "pending", "capture_errors": initial_errors, "owner": {"pid": os.getpid(), "host": socket.gethostname(), "identity": process_identity(os.getpid())}}
+        data["parameter_metadata"] = {
+            'provenance': metadata['provenance'], 'previous_provenance': metadata['previous_provenance'], 'decision': metadata['decision'],
+            'warnings': metadata['warnings'], 'argv': self.command[2:] if self.launch else self.command,
+        }
+        if metadata['provenance']:
+            declaration = next((f for f in snapshot['files'] if f['path'] == 'swss.toml'), None)
+            if declaration is None or declaration['blob'] != metadata['provenance']['sha256']:
+                raise ValueError('SWSS declaration changed or was excluded from source capture; review before recording')
         data["progress_mode"] = self.progress_mode
         if getattr(self, "archive_plan", None):
             data["archive_capture_rules"] = self.archive_plan["future"]

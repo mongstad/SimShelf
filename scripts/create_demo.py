@@ -25,7 +25,7 @@ output_root.mkdir(parents=True, exist_ok=True)
 # Each batch keeps its own source and referenced outputs. Never overwrite a
 # previous batch or copy generated output from an older checkout-local demo.
 example = Path(tempfile.mkdtemp(prefix="scalar-demo-", dir=output_root))
-for name in ("simulate.py", "simshelf.toml"):
+for name in ("simulate.py", "swss.toml"):
     shutil.copy2(ROOT / "examples/scalar_field" / name, example / name)
 store = Store(args.workspace)
 sim = store.add_simulation(example)
