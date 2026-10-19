@@ -10,7 +10,9 @@ Once SimShelf is running, no terminal recording command is needed:
 
 1. Choose **Add simulation**, enter the existing local source folder and its Python
    entry file (relative to that folder), and add it. Registration never executes code.
-2. Select the simulation in the sidebar and choose **Start simulation**. Choose
+2. Select the simulation in the sidebar and choose **New run…** to open the
+   configuration dialog.
+   No run starts until you confirm **Start simulation** inside it. Choose
    an existing interpreter from **Detected interpreters**, or use **Enter custom
    path**. Project environments and system/PATH candidates are listed without
    running them. Your saved selection is preserved; nothing is selected for you.
@@ -62,7 +64,7 @@ runs. SimShelf does not redirect arbitrary script writes or rewrite source.
 
 ### Discover available parameters
 
-**Start simulation → Simulation parameters** combines discovered options and saved
+**New run… → Simulation parameters** combines discovered options and saved
 arguments in one editor. Supported parameters show a name/value pair, concise
 help and a default hint. Enable optional parameters to pass them; disabled defaults
 contribute no arguments. Boolean flags need no value. Required options and known
@@ -111,7 +113,7 @@ if upgrading an older checkout environment without it, explicitly run
 
 ### Check where outputs will land
 
-In **Start simulation → Output destinations**, inspect the resolved capture folder.
+In **New run… → Output destinations**, inspect the resolved capture folder.
 For a recognized option such as `--wvz`, choose **Map argument … as file** only
 if that is how your script uses it. Choose directory for an output-folder option.
 For a custom flag, select **Declare output path**, then its path argument token.
@@ -177,7 +179,7 @@ available, the stored total as both step counts. This completion display never
 rewrites the original report. Reported progress never determines execution status
 or proves success. Enable progress explicitly for a
 library, then use `run.progress(current=..., total=..., stage=...)` or opt in to
-interpreting supported step/percentage text in Start simulation. This optional
+interpreting supported step/percentage text in the **New run…** dialog. This optional
 feature upgrades that library to schema 4; older builds cannot reopen it. Verify
 a backup and stop older writers first. See [progress reporting](PROGRESS.md)
 for consent, formats, recovery and limits.
@@ -284,7 +286,7 @@ charts are planned for Stage 2; Stage 1 shows the latest retained measurements.
 
 The default **Output folder policy → Fixed folder (existing behavior)** preserves
 existing launches. To isolate successive or concurrent originals, choose
-**Unique subfolder for each run** in Start simulation. The capture output folder
+**Unique subfolder for each run** in the **New run…** dialog. The capture output folder
 becomes the parent; Start creates `run_<unique ID>` beneath it. Validation and
 Save settings create no directories. The preview shows the parent and explains
 allocation; the run's capture summary shows the exact absolute folder.

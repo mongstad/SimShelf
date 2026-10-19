@@ -34,7 +34,7 @@ separate new/empty folder: compare simulation/run counts, source snapshots,
 parameters, measurements, notes, screenshots and logs. Reference-only external
 files are not backed up and must be kept separately. Retain the original backup.
 
-In **Start simulation → Progress reporting (optional)**, choose **Enable progress
+In **New run… → Progress reporting (optional)**, choose **Enable progress
 reporting…**. Read the compatibility notice, confirm you verified the backup and
 stopped older writers, then choose **Enable progress reporting for this library**.
 Cancel leaves the library unchanged. Existing active runs block enablement.
@@ -90,7 +90,7 @@ reporting on every particle/cell, and measure overhead in your workload.
 
 ## Interpret an existing script's text
 
-In **Start simulation → Progress reporting**, choose one supported format, or
+In **New run… → Progress reporting**, choose one supported format, or
 leave **Interpret terminal progress** set to **Off**. This setting is saved for
 future launches and frozen in each new run's `progress_mode`. CLI equivalent:
 

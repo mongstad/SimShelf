@@ -302,3 +302,9 @@ guards and installed-browser/package checks. Earlier evidence is unchanged.
 See [issue #85 navigation caption](validation/issue-85-navigation-caption.md) for
 caption removal, preserved navigation behavior, installed-browser checks and
 package validation. Earlier evidence remains unchanged.
+
+## New run entry-point wording
+
+See [issue #82 New run label](validation/issue-82-new-run-label.md) for the overview
+caption, unchanged explicit launch flow, installed-browser and package checks.
+Historical evidence remains unchanged.

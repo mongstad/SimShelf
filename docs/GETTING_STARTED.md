@@ -82,7 +82,7 @@ do not change your library or runs.
 
 ## 4. Choose Python and start
 
-1. Open **Start simulation**. Choose the printed interpreter under **Detected
+1. Open **New run…**. Choose the printed interpreter under **Detected
    interpreters**, or use **Enter custom path** and paste its absolute path.
    SimShelf does not automatically choose an interpreter for you.
 2. Choose **Check selected Python**. Optionally choose **Check dependencies**;
