@@ -65,7 +65,7 @@ export function parameterRows(
       ? []
       : parameters.filter((p) => p.flags.includes(optionName(raw)));
     const p = matches.length === 1 ? matches[0] : undefined;
-    const known = p?.supported;
+    const known = p?.supported && (!raw.includes("=") || raw.startsWith("--"));
     let token = raw,
       value: string | null = null,
       equals = false;
@@ -119,7 +119,7 @@ export function parameterRows(
       id: rows.length,
       token: draft?.token || p.name,
       value: draft?.value ?? null,
-      equals: draft?.equals ?? true,
+      equals: draft?.equals ?? p.name.startsWith("--"),
       enabled: false,
       parameter: p,
     };

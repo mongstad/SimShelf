@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-import tomllib
 from pathlib import Path
 
 DEFAULT_CONFIG = {
@@ -13,6 +12,7 @@ DEFAULT_CONFIG = {
     "rules": [
         {"pattern": "**/*.tmp", "action": "ignore"},
         {"pattern": "cache/**", "action": "ignore"},
+        {"pattern": "**/*.log", "action": "copy"},
         {"pattern": "**/*.png", "action": "copy"},
         {"pattern": "**/*.jpg", "action": "copy"},
         {"pattern": "**/*.jpeg", "action": "copy"},
@@ -43,15 +43,37 @@ def validate_config(config: dict) -> dict:
 
 
 def read_project(root: Path) -> dict:
-    file = root / "simshelf.toml"
-    if not file.exists():
+    from .swss import read, reject_legacy
+    reject_legacy(root)
+    if not (root / "swss.toml").exists() and not (root / "swss.toml").is_symlink():
         return {}
-    raw = tomllib.loads(file.read_text())
-    result = dict(raw.get("simulation", {}))
-    config = {**raw.get("source", {}), **raw.get("capture", {})}
-    if "include" in config:
-        config["source_include"] = config.pop("include")
-    if "exclude" in config:
-        config["source_exclude"] = config.pop("exclude")
-    result["config"] = validate_config(config)
-    return result
+    try:
+        document = read(root)
+    except (ValueError, OSError, UnicodeError, TypeError, RecursionError):
+        # Registration selects source, not a declaration capability. Leave the
+        # invalid companion untouched; discovery diagnoses it and manual launch
+        # remains available using the visibly saved/default capture settings.
+        return {}
+    return extension_project(document)
+
+
+def extension_project(document):
+    """Optional local extension; portable fields cannot be duplicated here."""
+    extension = document['raw'].get('extensions', {}).get('simshelf')
+    if extension is None:
+        return {}
+    if not isinstance(extension, dict) or extension.get('schema_version') != 1 or type(extension.get('schema_version')) is not int:
+        raise ValueError('Unsupported extensions.simshelf schema; supported version is 1')
+    if set(extension) - {'schema_version', 'name', 'description', 'source', 'capture'}:
+        raise ValueError('Unknown/conflicting extensions.simshelf fields')
+    for key in ('name', 'description'):
+        if key in extension and not isinstance(extension[key], str):
+            raise ValueError('Extension name/description must be strings')
+    source, capture = extension.get('source', {}), extension.get('capture', {})
+    if not isinstance(source, dict) or set(source) - {'include', 'exclude'} or not isinstance(capture, dict) or set(capture) - {'output_dir', 'max_file_mb', 'max_run_mb', 'rules'}:
+        raise ValueError('Unsupported SimShelf source/capture fields')
+    config = dict(capture)
+    for key in ('include', 'exclude'):
+        if key in source:
+            config['source_' + key] = source[key]
+    return {**{k: extension[k] for k in ('name', 'description') if k in extension}, 'config': validate_config(config)}

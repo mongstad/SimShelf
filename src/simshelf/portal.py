@@ -19,8 +19,10 @@ from .interpreters import probe_interpreter
 
 
 def execution_settings(simulation: dict, data: dict, *, probe=False) -> dict:
-    if not isinstance(data, dict) or set(data) - {"interpreter", "cwd", "arguments", "output_dir", "output_mappings", "progress_mode", "output_policy"}:
+    if not isinstance(data, dict) or set(data) - {"interpreter", "cwd", "arguments", "output_dir", "output_mappings", "progress_mode", "output_policy", "parameter_review"}:
         raise ValueError("Use interpreter, cwd, arguments, output_dir and optional output_mappings execution settings")
+    from .swss import review
+    metadata = review(simulation, data.get("parameter_review"))
     interpreter = data.get("interpreter", "")
     if not isinstance(interpreter, str) or not interpreter or "\0" in interpreter:
         raise ValueError("Select an absolute path to the simulation's Python interpreter")
@@ -60,9 +62,10 @@ def execution_settings(simulation: dict, data: dict, *, probe=False) -> dict:
     mappings = data.get("output_mappings", [])
     policy = data.get("output_policy", "fixed")
     review = output_review(simulation, cwd, arguments, output, mappings, policy)
+    settings["parameter_review"] = data.get("parameter_review")
     settings["output_policy"] = policy
     settings["output_mappings"] = mappings
-    result = {"output_review": review, "settings": settings, "command": [str(python), str(script), *arguments],
+    result = {"parameter_metadata": metadata, "output_review": review, "settings": settings, "command": [str(python), str(script), *arguments],
               "cwd": str(directory), "output_path": str(contained(root, output))}
     if probe:
         try:

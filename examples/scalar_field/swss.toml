@@ -1,0 +1,130 @@
+[swss]
+schema_version = 2
+entrypoint = "simulate.py"
+simulation_version = "0.1.1"
+
+[[swss.parameters]]
+id = "dt"
+kind = "option"
+options = ["--dt"]
+required = false
+type = "float"
+action = "store"
+help = "dt"
+default = 0.15
+
+[[swss.parameters]]
+id = "damping"
+kind = "option"
+options = ["--damping"]
+required = false
+type = "float"
+action = "store"
+help = "damping"
+default = 0.025
+
+[[swss.parameters]]
+id = "seed"
+kind = "option"
+options = ["--seed"]
+required = false
+type = "integer"
+action = "store"
+help = "seed"
+default = 42
+
+[[swss.parameters]]
+id = "size"
+kind = "option"
+options = ["--size"]
+required = false
+type = "integer"
+action = "store"
+help = "size"
+default = 64
+
+[[swss.parameters]]
+id = "steps"
+kind = "option"
+options = ["--steps"]
+required = false
+type = "integer"
+action = "store"
+help = "steps"
+default = 120
+
+[[swss.parameters]]
+id = "sleep"
+kind = "option"
+options = ["--sleep"]
+required = false
+type = "float"
+action = "store"
+help = "sleep"
+default = 0.0
+
+[[swss.parameters]]
+id = "output"
+kind = "option"
+options = ["--output"]
+required = false
+type = "string"
+action = "store"
+help = "output"
+
+[[swss.parameters]]
+id = "fail_at"
+kind = "option"
+options = ["--fail-at"]
+required = false
+type = "integer"
+action = "store"
+help = "fail-at"
+
+[[swss.parameters]]
+id = "simulation"
+kind = "option"
+options = ["--simulation"]
+required = false
+type = "string"
+action = "store"
+help = "simulation"
+default = "scalar-field-example"
+
+[extensions.simshelf]
+schema_version = 1
+name = "Scalar field (example)"
+description = "A small damped wave simulation. Real runs, generated locally."
+
+[extensions.simshelf.source]
+include = ["*.py", "*.toml"]
+exclude = ["outputs/**"]
+
+[extensions.simshelf.capture]
+output_dir = "outputs"
+max_file_mb = 25
+max_run_mb = 200
+
+[[extensions.simshelf.capture.rules]]
+pattern = "**/*.log"
+action = "copy"
+
+[[extensions.simshelf.capture.rules]]
+pattern = "**/*.png"
+action = "copy"
+
+[[extensions.simshelf.capture.rules]]
+pattern = "**/*.csv"
+action = "copy"
+
+[[extensions.simshelf.capture.rules]]
+pattern = "**/*.json"
+action = "copy"
+
+[[extensions.simshelf.capture.rules]]
+pattern = "**/*.bin"
+action = "reference"
+
+[[extensions.simshelf.capture.rules]]
+pattern = "**/*"
+action = "ignore"

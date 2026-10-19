@@ -102,6 +102,7 @@ class OutputInput(BaseModel):
 
 
 class ExecutionInput(OutputInput):
+    parameter_review: dict | None = None
     interpreter: str
     progress_mode: str = "off"
 
@@ -436,8 +437,10 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
         return store.versions(ident)
 
     @app.get("/api/simulations/{ident}/parameters")
-    def parameter_discovery(ident: str):
-        return discover_parameters(store.simulation(ident))
+    def parameter_discovery(ident: str, source: str = "swss"):
+        if source not in ("swss", "static"):
+            raise ValueError("Choose swss or explicit static discovery")
+        return discover_parameters(store.simulation(ident), source)
 
     @app.get("/api/simulations/{ident}/interpreters")
     def list_interpreters(ident: str):

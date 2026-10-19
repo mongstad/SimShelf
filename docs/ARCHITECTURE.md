@@ -121,19 +121,25 @@ not stored as a second command representation. Paste import tokenizes quotes and
 escapes locally, without expansion or shell execution, and requires a reviewed
 replacement. Pending paste and argument edits invalidate launch validation.
 
-Parameter discovery is a read-only GET over bounded registered entry bytes or an
-explicit `simshelf-arguments.json` file. It parses AST/JSON, never imports modules
-or runs help commands. Declarations have a content fingerprint for in-dialog
-rescan warnings; neither declarations nor drafts are persisted. The optional
-schema takes precedence, with explicit failures rather than silent fallback.
-Unsupported/conflicting definitions require manual argv editing. Discovered metadata is merged into the existing argv editor without changing
-saved token representations/order. Missing optional rows are disabled; defaults
-add no tokens. Boolean flags remain valueless. Required supported values and
-reliable type/choice/duplicate conflicts block save/launch. Manual fallbacks preserve
-ambiguous and repeated argv; edits invalidate validation. Rescans preserve disabled
-edited values in the dialog; only enabled exact argv is persisted.
-No source, scientific version, journal, capture or completed-record changes occur.
-See [parameter discovery](PARAMETER_DISCOVERY.md) for limits and supported syntax.
+Parameter discovery is a read-only GET over the root `swss.toml` schema-2
+companion. A shared bounded, descriptor-relative reader validates portable
+identity, rows and optional source hashes without an AST or code execution.
+No alternate metadata source is silently merged. Missing/invalid data offers
+explicit manual argv; static inspection is a separate explicit API choice.
+The SimShelf version-1 extension initializes registration capture settings;
+portable fields cannot be overridden. Existing saved settings remain deliberate
+user choices. Legacy configuration files are refused for new runs.
+
+Typed previews carry a declaration/binding fingerprint through validation,
+supervisor startup and recording. Runs retain exact companion bytes/hash and
+review provenance in their existing JSON data, separately from resolved values.
+A later manual bypass retains the previously saved typed evidence. Source capture
+must contain the same companion bytes; subsequent source mutation remains possible.
+Old run records and schema versions are untouched. SWSS-described isolated runs
+require a copied log for complete capture; missing/ignored/reference-only/oversized
+logs produce incomplete capture independently of process success.
+See [parameter discovery](PARAMETER_DISCOVERY.md) for schema, limits, extension
+semantics and implementation claims.
 
 The browser sends argument arrays, never shell code. Execution is exactly
 `[selected_python, registered_absolute_script, *arguments]` with `shell=False`.

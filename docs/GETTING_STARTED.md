@@ -43,7 +43,7 @@ In that same terminal:
 ```bash
 SIMSHELF_TUTORIAL="$(mktemp -d /tmp/simshelf-tutorial-XXXXXX)"
 mkdir "$SIMSHELF_TUTORIAL/scalar"
-cp examples/scalar_field/simulate.py examples/scalar_field/simshelf.toml "$SIMSHELF_TUTORIAL/scalar/"
+cp examples/scalar_field/simulate.py examples/scalar_field/swss.toml "$SIMSHELF_TUTORIAL/scalar/"
 SIMSHELF_EXAMPLE_PYTHON="$(dirname "$PWD")/environments/$(basename "$PWD")/bin/python"
 printf 'Source folder: %s\nPython: %s\nLibrary: %s\n' \
   "$SIMSHELF_TUTORIAL/scalar" "$SIMSHELF_EXAMPLE_PYTHON" "$SIMSHELF_TUTORIAL/library"

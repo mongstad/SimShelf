@@ -342,3 +342,10 @@ focused regressions and installed-browser checks.
 See [issue #51 argument editor](validation/issue-51-argument-editor.md) for typed
 groups, manual blank/empty distinctions, exact-argv regressions, safe fixture
 launches and installed responsive/package checks. Earlier evidence is unchanged.
+
+## SWSS schema-2 companion adoption
+
+See [issue #101 SWSS v2](validation/issue-101-swss-v2.md) for the single-companion
+reader, exact-argv integration, source binding and provenance, capture failures,
+historical preservation, installed browser/package checks and limitations.
+Earlier evidence remains unchanged.

@@ -17,11 +17,12 @@ export type Discovery = {
   warnings: string[];
   source: string;
   fingerprint: string | null;
+  provenance?: { binding_status: string; binding_reasons: string[] } | null;
 };
 export function overrideTokens(p: Parameter, value: string): string[] {
   if (!p.supported) throw Error("Use the manual editor for " + p.name);
   if (p.action !== "store") return [p.name];
-  if (p.type === "int" && !/^[+-]?\d+$/.test(value))
+  if (p.type === "int" && (!/^[+-]?\d+$/.test(value) || BigInt(value) < -(2n ** 63n) || BigInt(value) >= 2n ** 63n))
     throw Error(p.name + " needs an integer.");
   if (
     p.type === "float" &&
@@ -34,10 +35,12 @@ export function overrideTokens(p: Parameter, value: string): string[] {
     !p.choices.some((c) =>
       p.type === "str"
         ? typeof c === "string" && c === value
-        : typeof c === "number" && c === Number(value),
+        : p.type === "int"
+          ? (typeof c === "number" || typeof c === "string") && BigInt(c) === BigInt(value)
+          : typeof c === "number" && c === Number(value),
     )
   )
     throw Error(p.name + " needs one of the declared choices.");
   // Equals syntax protects values beginning with '-' and preserves empty/space tokens.
-  return [p.name + "=" + value];
+  return p.name.startsWith("--") ? [p.name + "=" + value] : [p.name, value];
 }
