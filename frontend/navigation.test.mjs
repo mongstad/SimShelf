@@ -29,13 +29,16 @@ test('empty, single, unavailable and removed entries never wrap or cross simulat
  assert.equal(neighbors(sequence,'3').next,'1');
  assert.deepEqual(neighbors(sequence,'deleted'),{previous:undefined,next:undefined});
 });
-test('navigation exposes semantic controls, boundary state and order guidance', () => {
+test('navigation exposes semantic controls, boundary state without a caption', () => {
  const html=renderToStaticMarkup(React.createElement(RunNavigation,{id:'3',sequence:runSequence([run('3'),run('1')],'A'),navigate:()=>{},close:()=>{}}));
  assert.match(html,/nav[^>]+aria-label="Run navigation"/);
  assert.match(html,/disabled="">← Previous run/);
  assert.match(html,/>Next run →/);
  assert.match(html,/Back to runs/);
- assert.match(html,/Following the opened list, within this simulation/);
+ assert.doesNotMatch(html,/<small|Following the opened list/);
  const fallback=renderToStaticMarkup(React.createElement(RunNavigation,{id:'3',sequence:runSequence([run('3')],'A',true),navigate:()=>{},close:()=>{}}));
- assert.match(fallback,/1,000 recent runs/);
+ assert.doesNotMatch(fallback,/<small|Newest-first|1,000 recent runs/);
+ const unavailable=renderToStaticMarkup(React.createElement(RunNavigation,{id:"3",sequence:null,navigate:()=>{},close:()=>{}}));
+ assert.doesNotMatch(unavailable,/<small|Open a run from its list/);
+ assert.equal((unavailable.match(/disabled=""/g)||[]).length,2);
 });

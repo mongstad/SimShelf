@@ -30,9 +30,5 @@ export function RunNavigation({ id, sequence, navigate, close }: {
       <button className="text-button" disabled={!previous} onClick={() => previous && navigate(previous)}>← Previous run</button>
       <button className="text-button" disabled={!next} onClick={() => next && navigate(next)}>Next run →</button>
     </div>
-    <small className="muted">{sequence ? sequence.fallback
-      ? "Newest-first · up to 1,000 recent runs in this simulation. Previous is newer; Next is older."
-      : "Following the opened list, within this simulation. Previous is before; Next is after."
-      : "Open a run from its list to browse adjacent runs."}</small>
   </nav>;
 }

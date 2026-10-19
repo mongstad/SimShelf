@@ -2128,7 +2128,6 @@ details label {
   margin-bottom: 22px;
 }
 .run-neighbors { display: flex; flex-wrap: wrap; gap: 16px; }
-.run-navigation small { flex-basis: 100%; }
 
 /* Sidebar preferences affect presentation only; narrow screens retain stacked navigation. */
 .app-shell.sidebar-collapsed { grid-template-columns: minmax(0, 1fr); }
