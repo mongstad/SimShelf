@@ -3,6 +3,9 @@ import { parseArguments } from "./arguments";
 import { api } from "./api";
 import type { Discovery } from "./parameters";
 import {
+  parameterGroups,
+  rowGroup,
+  manualValue,
   parameterRows,
   rowArguments,
   parameterError,
@@ -104,7 +107,8 @@ export function ArgumentEditor({
       {
         id: Math.max(-1, ...rows.map((r) => r.id)) + 1,
         token: "",
-        value: paired ? "" : null,
+        value: null,
+        valueOpen: paired,
         enabled: true,
         equals: false,
         manual: "Manual argument",
@@ -174,200 +178,319 @@ export function ArgumentEditor({
           . See declaration notes for limitations.
         </p>
       )}
-      {rows.map((row, i) => {
-        const p =
-          row.parameter?.supported && !row.manual ? row.parameter : undefined;
-        const flag = p && p.action !== "store";
-        return (
-          <div className={p ? "parameter-row" : "argument-row"} key={row.id}>
-            <div className="argument-fields">
-              <div>
-                {p ? (
-                  <label className="check-label">
-                    {(!p.required || flag) && (
-                      <input
-                        type="checkbox"
-                        aria-label={`Enable ${p.name}`}
-                        checked={row.enabled}
-                        onChange={(e) => edit(i, { enabled: e.target.checked })}
-                      />
+      {parameterGroups.map((group) => (
+        <section className="parameter-group" aria-label={group} key={group}>
+          <h4>{group}</h4>
+          {!rows.some((row) => rowGroup(row) === group) && (
+            <p className="muted">
+              No{" "}
+              {group === "Manual / undiscovered arguments"
+                ? "manual arguments added"
+                : "supported declarations found"}
+              .
+            </p>
+          )}
+          {rows.map((row, i) => {
+            if (rowGroup(row) !== group) return null;
+            const p =
+              row.parameter?.supported && !row.manual
+                ? row.parameter
+                : undefined;
+            const flag = p && p.action !== "store";
+            return (
+              <div
+                className={p ? "parameter-row" : "argument-row"}
+                key={row.id}
+              >
+                <div className="argument-fields">
+                  <div>
+                    {p ? (
+                      <label className="check-label">
+                        {(!p.required || flag) && (
+                          <input
+                            type="checkbox"
+                            aria-label={`Enable ${p.name}`}
+                            checked={row.enabled}
+                            onChange={(e) =>
+                              edit(i, { enabled: e.target.checked })
+                            }
+                          />
+                        )}
+                        <strong>{row.token}</strong>
+                        <small>{p.required ? "required" : "optional"}</small>
+                      </label>
+                    ) : (
+                      <label>
+                        Parameter / argument {i + 1}
+                        <textarea
+                          rows={1}
+                          aria-label={`Parameter / argument ${i + 1}`}
+                          value={row.token}
+                          onChange={(e) => edit(i, { token: e.target.value })}
+                          onBlur={normalize}
+                        />
+                      </label>
                     )}
-                    <strong>{row.token}</strong>
-                    <small>{p.required ? "required" : "optional"}</small>
-                  </label>
+                  </div>
+                  <div className="argument-value">
+                    {flag ? (
+                      <span className="muted">Flag · no value</span>
+                    ) : p ? (
+                      <label>
+                        Value ·{" "}
+                        {p.type === "int"
+                          ? "integer"
+                          : p.type === "float"
+                            ? "float"
+                            : "string"}
+                        {p.choices ? (
+                          <select
+                            aria-label={`Value for ${p.name}`}
+                            disabled={!p.required && !row.enabled}
+                            value={
+                              row.value === null
+                                ? "unset"
+                                : p.choices.findIndex(
+                                      (c) => String(c) === row.value,
+                                    ) < 0
+                                  ? "current"
+                                  : String(
+                                      p.choices.findIndex(
+                                        (c) => String(c) === row.value,
+                                      ),
+                                    )
+                            }
+                            onChange={(e) =>
+                              edit(i, {
+                                value: String(
+                                  p.choices![Number(e.target.value)],
+                                ),
+                                enabled: true,
+                              })
+                            }
+                          >
+                            <option value="unset" disabled>
+                              Choose a value
+                            </option>
+                            {row.value !== null &&
+                              !p.choices.some(
+                                (c) => String(c) === row.value,
+                              ) && (
+                                <option value="current">
+                                  {row.value} (current)
+                                </option>
+                              )}
+                            {p.choices.map((choice, index) => (
+                              <option key={index} value={String(index)}>
+                                {String(choice) || "Empty string"}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            aria-label={`Value for ${p.name}`}
+                            inputMode={
+                              p.type === "int"
+                                ? "numeric"
+                                : p.type === "float"
+                                  ? "decimal"
+                                  : "text"
+                            }
+                            disabled={!p.required && !row.enabled}
+                            value={row.value ?? ""}
+                            placeholder={
+                              p.default_known
+                                ? String(p.default ?? "")
+                                : "Enter value"
+                            }
+                            onChange={(e) =>
+                              edit(i, { value: e.target.value, enabled: true })
+                            }
+                          />
+                        )}
+                      </label>
+                    ) : (
+                      <>
+                        <label>
+                          Optional value
+                          {row.value === null && !row.valueOpen ? (
+                            <span className="argument-no-value">
+                              No value{" "}
+                              <button
+                                type="button"
+                                aria-label={`Add value to argument ${i + 1}`}
+                                onClick={() => edit(i, { valueOpen: true })}
+                              >
+                                Add value
+                              </button>
+                            </span>
+                          ) : (
+                            <textarea
+                              rows={1}
+                              aria-label={`Value ${i + 1}`}
+                              value={row.value ?? ""}
+                              placeholder={
+                                row.value === ""
+                                  ? "Explicit empty string"
+                                  : "Blank: pass only the argument"
+                              }
+                              onChange={(e) =>
+                                edit(i, manualValue(e.target.value))
+                              }
+                            />
+                          )}
+                        </label>
+                        <label className="check-label argument-empty">
+                          <input
+                            type="checkbox"
+                            checked={row.value === ""}
+                            onChange={(e) =>
+                              edit(i, {
+                                value: e.target.checked ? "" : null,
+                                valueOpen: true,
+                              })
+                            }
+                          />
+                          Pass empty string
+                        </label>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {p ? (
+                  <small className="parameter-hint">
+                    {p.help}
+                    {p.help ? " · " : ""}
+                    {flag
+                      ? p.action === "store_false"
+                        ? "Sets false"
+                        : "Sets true"
+                      : p.type}{" "}
+                    · Default:{" "}
+                    {p.default_known ? JSON.stringify(p.default) : "unknown"}
+                    {p.choices
+                      ? ` · Choices: ${p.choices.map(String).join(", ")}`
+                      : ""}
+                  </small>
                 ) : (
-                  <label>
-                    Parameter / argument {i + 1}
-                    <textarea
-                      rows={1}
-                      aria-label={`Parameter / argument ${i + 1}`}
-                      value={row.token}
-                      onChange={(e) => edit(i, { token: e.target.value })}
-                      onBlur={normalize}
-                    />
-                  </label>
+                  <small>
+                    {row.manual || row.parameter?.reason || "Manual argument"}
+                  </small>
                 )}
-              </div>
-              <div className="argument-value">
-                {flag ? (
-                  <span className="muted">Flag · no value</span>
-                ) : p ? (
-                  <input
-                    aria-label={`Value for ${p.name}`}
-                    disabled={!p.required && !row.enabled}
-                    value={row.value ?? ""}
-                    placeholder={
-                      p.default_known ? String(p.default ?? "") : "Enter value"
-                    }
-                    onChange={(e) =>
-                      edit(i, { value: e.target.value, enabled: true })
-                    }
-                  />
-                ) : row.value === null ? (
-                  <span className="argument-no-value">
-                    No value{" "}
+                {!p && (
+                  <div className="argument-actions">
+                    {!row.enabled && (
+                      <label className="check-label">
+                        <input
+                          type="checkbox"
+                          checked={false}
+                          onChange={() => edit(i, { enabled: true })}
+                        />
+                        Enable preserved value
+                      </label>
+                    )}
                     <button
                       type="button"
-                      onClick={() => edit(i, { value: "" })}
+                      aria-label={`Move row ${i + 1} up`}
+                      disabled={i === 0}
+                      onClick={() => move(i, -1)}
                     >
-                      Add value
+                      ↑
                     </button>
-                  </span>
-                ) : (
-                  <textarea
-                    rows={1}
-                    aria-label={`Value ${i + 1}`}
-                    value={row.value}
-                    onChange={(e) => edit(i, { value: e.target.value })}
-                  />
-                )}
-              </div>
-            </div>
-            {p ? (
-              <small className="parameter-hint">
-                {p.help}
-                {p.help ? " · " : ""}
-                {flag
-                  ? p.action === "store_false"
-                    ? "Sets false"
-                    : "Sets true"
-                  : p.type}{" "}
-                · Default:{" "}
-                {p.default_known ? JSON.stringify(p.default) : "unknown"}
-                {p.choices
-                  ? ` · Choices: ${p.choices.map(String).join(", ")}`
-                  : ""}
-              </small>
-            ) : (
-              <small>
-                {row.manual || row.parameter?.reason || "Manual argument"}
-              </small>
-            )}
-            {!p && (
-              <div className="argument-actions">
-                {!row.enabled && (
-                  <label className="check-label">
-                    <input
-                      type="checkbox"
-                      checked={false}
-                      onChange={() => edit(i, { enabled: true })}
-                    />
-                    Enable preserved value
-                  </label>
-                )}
-                <button
-                  type="button"
-                  aria-label={`Move row ${i + 1} up`}
-                  disabled={i === 0}
-                  onClick={() => move(i, -1)}
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Move row ${i + 1} down`}
-                  disabled={i === rows.length - 1}
-                  onClick={() => move(i, 1)}
-                >
-                  ↓
-                </button>
-                {row.value !== null ? (
-                  <>
                     <button
                       type="button"
-                      onClick={() => {
-                        const tokens = rowArguments([row]);
-                        if (tokens.length === 1) {
-                          edit(i, {
-                            token: tokens[0],
-                            value: null,
-                            equals: false,
-                          });
-                        } else
-                          update([
-                            ...rows.slice(0, i),
-                            { ...row, value: null, equals: false },
-                            {
-                              ...row,
-                              id: Math.max(...rows.map((r) => r.id)) + 1,
-                              token: row.value!,
+                      aria-label={`Move row ${i + 1} down`}
+                      disabled={i === rows.length - 1}
+                      onClick={() => move(i, 1)}
+                    >
+                      ↓
+                    </button>
+                    {row.value !== null || row.valueOpen ? (
+                      <>
+                        <button
+                          type="button"
+                          disabled={row.value === null}
+                          onClick={() => {
+                            const tokens = rowArguments([row]);
+                            if (tokens.length === 1) {
+                              edit(i, {
+                                token: tokens[0],
+                                value: null,
+                                equals: false,
+                              });
+                            } else
+                              update([
+                                ...rows.slice(0, i),
+                                { ...row, value: null, equals: false },
+                                {
+                                  ...row,
+                                  id: Math.max(...rows.map((r) => r.id)) + 1,
+                                  token: row.value!,
+                                  value: null,
+                                  equals: false,
+                                  parameter: undefined,
+                                },
+                                ...rows.slice(i + 1),
+                              ]);
+                          }}
+                        >
+                          Split
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            edit(i, {
                               value: null,
                               equals: false,
-                              parameter: undefined,
-                            },
-                            ...rows.slice(i + 1),
-                          ]);
-                      }}
-                    >
-                      Split
-                    </button>
+                              valueOpen: false,
+                            })
+                          }
+                        >
+                          Remove value
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={
+                          i + 1 >= rows.length ||
+                          rows[i + 1].value !== null ||
+                          !!rows[i + 1].parameter ||
+                          !rows[i + 1].enabled
+                        }
+                        onClick={() =>
+                          update([
+                            ...rows.slice(0, i),
+                            { ...row, value: rows[i + 1].token },
+                            ...rows.slice(i + 2),
+                          ])
+                        }
+                      >
+                        Pair with next
+                      </button>
+                    )}
                     <button
                       type="button"
-                      onClick={() => edit(i, { value: null, equals: false })}
+                      aria-label={`Remove row ${i + 1}`}
+                      onClick={() =>
+                        update(
+                          parameterRows(
+                            rowArguments(rows.filter((_, j) => j !== i)),
+                            discovery?.parameters || [],
+                            rows.filter((_, j) => j !== i),
+                          ),
+                        )
+                      }
                     >
-                      Remove value
+                      Remove row
                     </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={
-                      i + 1 >= rows.length ||
-                      rows[i + 1].value !== null ||
-                      !!rows[i + 1].parameter ||
-                      !rows[i + 1].enabled
-                    }
-                    onClick={() =>
-                      update([
-                        ...rows.slice(0, i),
-                        { ...row, value: rows[i + 1].token },
-                        ...rows.slice(i + 2),
-                      ])
-                    }
-                  >
-                    Pair with next
-                  </button>
+                  </div>
                 )}
-                <button
-                  type="button"
-                  aria-label={`Remove row ${i + 1}`}
-                  onClick={() =>
-                    update(
-                      parameterRows(
-                        rowArguments(rows.filter((_, j) => j !== i)),
-                        discovery?.parameters || [],
-                        rows.filter((_, j) => j !== i),
-                      ),
-                    )
-                  }
-                >
-                  Remove row
-                </button>
               </div>
-            )}
-          </div>
-        );
-      })}
+            );
+          })}
+        </section>
+      ))}
       {problem && (
         <p className="error-banner" role="alert">
           {problem}

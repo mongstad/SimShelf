@@ -336,3 +336,9 @@ Historical evidence remains unchanged.
 The [issue #96 review revision](validation/issue-96-favorite-review.md) records
 history-table indicator placement and silent favorite-save confirmation, with
 focused regressions and installed-browser checks.
+
+## Grouped and aligned simulation arguments
+
+See [issue #51 argument editor](validation/issue-51-argument-editor.md) for typed
+groups, manual blank/empty distinctions, exact-argv regressions, safe fixture
+launches and installed responsive/package checks. Earlier evidence is unchanged.

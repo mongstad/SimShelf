@@ -8,7 +8,25 @@ export type Row = {
   enabled: boolean;
   parameter?: Parameter;
   manual?: string;
+  valueOpen?: boolean;
 };
+export const parameterGroups = [
+  "Parameters requiring values",
+  "Boolean flags",
+  "Manual / undiscovered arguments",
+] as const;
+export function rowGroup(row: Row): (typeof parameterGroups)[number] {
+  return row.parameter?.supported && !row.manual
+    ? row.parameter.action === "store"
+      ? parameterGroups[0]
+      : parameterGroups[1]
+    : parameterGroups[2];
+}
+// Only direct manual editing treats blank as absent. Parsing saved/pasted argv
+// continues to preserve explicit empty strings verbatim.
+export function manualValue(value: string): Partial<Row> {
+  return { value: value === "" ? null : value, valueOpen: true };
+}
 const optionName = (token: string) => token.split("=", 1)[0];
 function possible(token: string, p: Parameter) {
   const name = optionName(token);
@@ -127,7 +145,19 @@ export function parameterRows(
       manual:
         "Declaration changed or removed; review this preserved manual value.",
     });
-  return rows.map((r, id) => ({ ...r, id }));
+  return rows.map((r, id) => ({
+    ...r,
+    id,
+    valueOpen:
+      r.valueOpen ??
+      drafts.find(
+        (d) =>
+          d.enabled === r.enabled &&
+          d.token === r.token &&
+          d.value === r.value &&
+          d.equals === r.equals,
+      )?.valueOpen,
+  }));
 }
 export function parameterError(rows: Row[], parameters: Parameter[]): string {
   const args = rowArguments(rows),

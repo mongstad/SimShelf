@@ -1,3 +1,3 @@
 """Authoritative application version; independent of scientific model tags."""
 
-__version__ = "0.1.0.35"
+__version__ = "0.1.0.36"
