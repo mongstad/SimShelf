@@ -1,4 +1,6 @@
 import { OverviewActions } from "./OverviewActions";
+import { RunTitle } from "./RunTitle";
+import { runRequests } from "./runRequests";
 import { Icon } from "./Icon";
 import { LogViewer } from "./LogViewer";
 import { SimulationSettings, SimulationSettingsButton, settingsDisabled } from "./SimulationSettings";
@@ -745,19 +747,24 @@ function RunDetails({
   const deleteTrigger = useRef<HTMLButtonElement | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const activeRunId = useRef(id);
+  const requests = useRef(runRequests()).current;
   activeRunId.current = id;
   const refresh = useCallback(async () => {
+    const ticket = requests.read();
+    if (ticket === null) return null;
     try {
       const r = await api<Run>(`/runs/${id}`);
+      if (!requests.current(ticket)) return null;
       if (activeRunId.current === id) setRun(withoutScreenshots(r, deletedScreenshots.current));
       return r;
     } catch (e) {
-      if (activeRunId.current === id) { setRun(null); setError((e as Error).message); }
+      if (requests.current(ticket) && activeRunId.current === id) { setRun(null); setError((e as Error).message); }
       return null;
     }
-  }, [id]);
+  }, [id, requests]);
   useEffect(() => {
     let live = true;
+    requests.activate();
     setRun(null);
     setError("");
     setTab("overview");
@@ -777,6 +784,7 @@ function RunDetails({
     }, 3000);
     return () => {
       live = false;
+      requests.dispose();
       clearInterval(timer);
     };
   }, [id, refresh]);
@@ -795,22 +803,26 @@ function RunDetails({
     };
   }, [tab, sourcePath, diff, id, run?.baseline_run_id]);
   async function save(data: Partial<Run>) {
+    const ticket = requests.save();
+    if (ticket === null) return;
     setBusy(true);
     setError("");
+    setNotice("");
     try {
       const saved = await api<Run>(`/runs/${id}`, {
         method: "PATCH",
         body: JSON.stringify(data),
       });
-      if (activeRunId.current !== id) return;
+      if (!requests.current(ticket) || activeRunId.current !== id) return;
       setRun(withoutScreenshots(saved, deletedScreenshots.current));
       if (data.tags) setTags(saved.tags.join(", "));
       changed();
       setNotice("Saved");
     } catch (e) {
-      setError((e as Error).message);
+      if (requests.current(ticket)) setError((e as Error).message);
     } finally {
-      setBusy(false);
+      if (requests.current(ticket)) setBusy(false);
+      requests.finish();
     }
   }
   async function upload(files: FileList | File[] | null) {
@@ -863,12 +875,14 @@ function RunDetails({
   return (
     <div className="detail-page">
       <header className="run-heading">
-        <div>
+        <div className="run-heading-info">
           <div className="eyebrow">
             {simulation?.name || run.simulation_id} <span>/</span>{" "}
             {run.id.slice(0, 8)}
           </div>
-          <h1>{run.name}</h1>
+          <RunTitle name={run.name} favorite={run.tags.includes("favorite")} busy={busy}
+            toggle={() => save({ tags: run.tags.includes("favorite")
+              ? run.tags.filter(t => t !== "favorite") : [...run.tags, "favorite"] })} />
           <div className="run-meta">
             <Status status={run.status} />
             <span>Version {run.version}</span>
@@ -907,17 +921,6 @@ function RunDetails({
             {run.stop_requested ? "Stopping…" : "Stop run"}
           </button>
         )}
-        <button
-          onClick={() =>
-            save({
-              tags: run.tags.includes("favorite")
-                ? run.tags.filter((t) => t !== "favorite")
-                : [...run.tags, "favorite"],
-            })
-          }
-        >
-          {run.tags.includes("favorite") ? "★ Favorited" : "☆ Favorite"}
-        </button>
         <button disabled={busy || run.status === "running" || run.capture_status === "pending"} onClick={() => requestRemoval(run)}>Remove run…</button>
       </header>
       <RunProgress run={run} />

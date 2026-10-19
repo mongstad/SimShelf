@@ -1316,6 +1316,12 @@ details label {
   letter-spacing: 0.4px;
   font-size: 11px;
 }
+.run-heading-info { min-width: 0; max-width: 100%; }
+.run-title-row { display: flex; align-items: center; gap: 10px; }
+.run-title-row h1 { min-width: 0; overflow-wrap: anywhere; }
+.run-favorite { flex: 0 0 36px; width: 36px; height: 36px; color: var(--muted); }
+.run-favorite[aria-pressed="true"] { color: var(--amber); }
+.run-heading > button { flex-shrink: 0; }
 .run-heading .eyebrow > span {
   margin: 0 8px;
   color: var(--line);
