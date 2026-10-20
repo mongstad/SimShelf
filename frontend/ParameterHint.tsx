@@ -13,7 +13,7 @@ export function ParameterHint({ parameter: p, token, value, enabled, id }: {
   const metadata: string[] = [];
   if (aliases.length) metadata.push(`Aliases: ${aliases.join(", ")}`);
   if (p.action !== "store") metadata.push(`${p.action === "store_false" ? "Sets false" : "Sets true"} when enabled`);
-  if (p.default_known && !matchesDeclaredDefault(p, current)) metadata.push(`Default: ${format(p.default)}`);
+  if (current !== null && p.default_known && !matchesDeclaredDefault(p, current)) metadata.push(`Default: ${format(p.default)}`);
   if (p.choices) metadata.push(`Choices: ${p.choices.map(format).join(", ")}`);
   return (
     <small className="parameter-hint" id={id}>

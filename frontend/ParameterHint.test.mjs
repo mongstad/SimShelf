@@ -17,7 +17,7 @@ test('authored help is separate and preserved; unknown defaults add no mandatory
 test('known zero false empty string and int64 defaults remain explicit hints, with legible choices',()=>{
  for(const [type,value,expected] of [['int',0,'0'],['int','9223372036854775807','9223372036854775807'],['str','','&quot;&quot;'],['bool',false,'false']]){
   const p={...base,type,default_known:true,default:value,help:''};
-  assert.ok(render(p).includes(`Default: ${expected}`));
+  assert.ok(render(p,p.name,'custom').includes(`Default: ${expected}`));
   assert.deepEqual(rowArguments(parameterRows([], [p])),[]);
  }
  const html=render({...base,type:'str',default_known:true,default:'A',choices:['A',''],help:''},'-n');
@@ -59,7 +59,7 @@ test('unknown and explicit empty defaults remain distinct without generated plac
  assert.doesNotMatch(render(unknown),/parameter-help|parameter-metadata|unknown|Default:/);
  const empty={...unknown,type:'str',default_known:true,default:''};
  assert.doesNotMatch(render(empty,empty.name,''),/Default:/);
- assert.match(render(empty,empty.name,null),/Default: &quot;&quot;/);
+ assert.doesNotMatch(render(empty,empty.name,null),/Default:/);
  assert.match(render(empty,empty.name,'custom'),/Default: &quot;&quot;/);
  assert.doesNotMatch(render({...empty,default:'x'},empty.name,'x'),/Default:/);
 });
@@ -81,7 +81,25 @@ test('numeric equality preserves int64 and precise decimals without normalizing 
 test('flags retain action metadata and compare only the deliberately enabled action',()=>{
  const p={...base,help:'',type:'bool',action:'store_false',default_known:true,default:false};
  assert.doesNotMatch(render(p,p.name,null,true),/Default:/);
- assert.match(render(p,p.name,null,false),/Default: false/);
+ assert.doesNotMatch(render(p,p.name,null,false),/Default:/);
  assert.match(render({...p,default:true},p.name,null,true),/Default: true/);
  assert.match(render(p,p.name,null,true),/Sets false when enabled/);
+});
+
+test('unset, explicit equal/different and restored optional drafts have independent footer and argv semantics',()=>{
+ const p={...base,help:'',type:'str',default_known:true,default:'baseline'};
+ for(const enabled of [false,true]) {
+  const row={...parameterRows([], [p])[0],enabled};
+  for(const [value,show] of [[null,false],['baseline',false],['custom',true],['',true],['baseline',false],[null,false]]) {
+   row.value=value;
+   const before=JSON.stringify(row), args=rowArguments([row]);
+   const html=render(p,row.token,row.value,row.enabled);
+   assert.equal(html.includes('Default:'),show);
+   assert.equal(JSON.stringify(row),before);
+   assert.deepEqual(rowArguments([row]),args);
+   if(!enabled)assert.deepEqual(args,[]);
+   else assert.deepEqual(args,value===null?[p.name]:[p.name+'='+value]);
+   assert.doesNotMatch(render({...p,default_known:false},row.token,value,enabled),/Default:/);
+  }
+ }
 });

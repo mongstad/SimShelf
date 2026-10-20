@@ -372,3 +372,7 @@ installed theme/package checks. Earlier evidence is unchanged.
 The [conditional-default revision](validation/issue-107-conditional-defaults.md)
 records owner-requested edit/restore visibility, removal of unknown-default labels,
 precision-preserving comparisons and focused installed-browser/package checks.
+
+The [unset-default correction](validation/issue-107-unset-defaults.md) records
+suppression of placeholder-duplicate footers while preserving explicit empty
+strings, disabled drafts and exact argv.
