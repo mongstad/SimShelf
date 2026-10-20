@@ -208,3 +208,66 @@ if "--wait" in sys.argv:
         assert run['status'] == 'interrupted'
         assert run['capture_counts']['copied'] == 1
         assert (folder / 'result.csv').read_text() == 'retained on stop'
+
+
+@pytest.mark.parametrize('path', ['portal', 'cli', 'python'])
+@pytest.mark.parametrize('policy', ['fixed', 'per_run'])
+def test_explicit_child_policy_and_repeated_capture(project, monkeypatch, path, policy):
+    import subprocess
+    store, sim, root, source = project
+    (root / 'work').mkdir()
+    monkeypatch.setenv('SIMSHELF_OUTPUT_POLICY', 'stale-inherited-value')
+    monkeypatch.setenv('SIMSHELF_OUTPUT_DIR', '/not-the-launch-destination')
+    source.write_text('''import json, os, sys
+from pathlib import Path
+parent = Path(os.environ['SIMSHELF_OUTPUT_DIR'])
+policy = os.environ['SIMSHELF_OUTPUT_POLICY']
+existed = parent.exists()
+if policy == 'fixed':
+    output = parent / ('child_' + os.environ['SIMSHELF_RUN_ID'])
+    output.mkdir(parents=True, exist_ok=False)
+elif policy == 'per_run':
+    assert parent.is_dir() and not list(parent.iterdir())
+    output = parent
+else:
+    raise RuntimeError('Unknown output allocation policy')
+(output / 'result.json').write_text(json.dumps(dict(
+    policy=policy, parent=str(parent), existed=existed, argv=sys.argv[1:],
+    run=os.environ['SIMSHELF_RUN_ID'], cwd=str(Path.cwd()))))
+''')
+    args = ['--alias=01.00', '', '--repeat', 'a', '--repeat', 'b', '--', '$literal']
+    command = [sys.executable, str(source), *args]
+    with TestClient(create_app(store.path)) as client:
+        runs = []
+        for _ in range(2):
+            if path == 'portal':
+                ident = launch(client, sim, headers(client), cwd='work', output_dir='results',
+                               output_policy=policy, arguments=args)
+            elif path == 'cli':
+                result = subprocess.run([
+                    sys.executable, '-B', '-m', 'simshelf', '--workspace', str(store.path),
+                    'record', '-s', sim['id'], '--cwd', str(root / 'work'),
+                    '--output-dir', 'results', '--output-policy', policy, '--', *command,
+                ], capture_output=True, timeout=15)
+                assert result.returncode == 0, result.stderr
+                ident, = {r['id'] for r in store.runs()} - {r['id'] for r in runs}
+            else:
+                ident, code = record_command(store, sim['id'], command, cwd=root / 'work',
+                                             output_dir='results', output_policy=policy, quiet=True)
+                assert code == 0
+            run = finish(store, ident)
+            assert run['status'] == 'completed', run
+            assert run['command'] == command
+            artifact, = run['artifacts']
+            data = client.get('/api/artifacts/' + artifact['id'] + '/file').json()
+            parent = root / 'results'
+            if policy == 'per_run':
+                parent /= 'run_' + ident
+            assert data == dict(policy=policy, parent=str(parent), existed=(policy == 'per_run' or bool(runs)),
+                                argv=args, run=ident, cwd=str(root / 'work'))
+            assert run['capture_root'] == str(parent)
+            assert {f['path'] for f in run['snapshot']['files']} == {'field.py'}
+            runs.append(run)
+        assert runs[0]['snapshot_id'] == runs[1]['snapshot_id']
+        assert store.run(runs[0]['id']) == runs[0]
+    assert os.environ['SIMSHELF_OUTPUT_POLICY'] == 'stale-inherited-value'

@@ -389,7 +389,12 @@ parent. Descriptor-relative creation uses no-follow directory opens. Validation
 is passive; allocation happens only at start. The frozen `capture_config` and
 `capture_root` point to that child, while additive `output_policy`/`output_base`
 run metadata retain the choice. `SIMSHELF_OUTPUT_DIR` and joined `run.output_dir`
-use the same child. Argv and cwd are unchanged. No schema upgrade is involved.
+use the same child. At the shared `record_command` child-launch boundary,
+`SIMSHELF_OUTPUT_POLICY` is assigned from the validated recorder policy alongside
+`SIMSHELF_OUTPUT_DIR`, overriding inherited values. `fixed` denotes a shared
+capture parent (possibly absent or occupied); `per_run` denotes the exclusively
+preallocated root. This additive SimShelf adapter does not change SWSS or
+independent in-process API contexts. Argv and cwd are unchanged. No schema upgrade is involved.
 
 Source snapshot exclusion uses the base capture configuration, so sibling run
 outputs cannot enter snapshots merely because isolation is enabled. Archive

@@ -376,3 +376,9 @@ precision-preserving comparisons and focused installed-browser/package checks.
 The [unset-default correction](validation/issue-107-unset-defaults.md) records
 suppression of placeholder-duplicate footers while preserving explicit empty
 strings, disabled drafts and exact argv.
+
+## Explicit output allocation signal
+
+See [issue #112 output policy](validation/issue-112-output-policy.md) for the
+additive child environment discriminator, repeated portal/CLI/Python launches,
+isolation regressions, installed-package checks and limitations.
