@@ -62,3 +62,8 @@ test('required flags stay distinct in semantics and unsupported/repeated declara
  assert.equal(view.total,1);
  assert.deepEqual(rowArguments(rows),['--custom','value','--dt=1','--dt=1']);
 });
+test('inline human-readable types remain searchable without changing argv',()=>{
+ const rows=parameterRows([], [{...p,help:'',type:'int'}, {...p,help:'',name:'--label',flags:['--label'],type:'str'}]);
+ for(const term of ['int','integer','str','string']) assert.equal(parameterPresentation(rows,term).matches,1);
+ assert.deepEqual(rowArguments(rows),[]);
+});

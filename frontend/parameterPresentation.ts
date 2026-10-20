@@ -11,7 +11,7 @@ export function parameterPresentation(rows: Row[], query: string) {
     const p = row.parameter;
     if (!manual && p) {
       total++;
-      const text = [row.token, p.name, ...p.flags, p.help, p.type,
+      const text = [row.token, p.name, ...p.flags, p.help, p.type, p.type === "int" ? "integer" : p.type === "str" ? "string" : p.type,
         p.required ? "required" : "optional", p.action === "store" ? "value parameter" : "boolean flag"].join(" ").toLowerCase();
       if (!terms.every(term => text.includes(term))) return;
       matches++;

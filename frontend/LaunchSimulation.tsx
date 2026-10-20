@@ -32,6 +32,7 @@ export function LaunchSimulation({
   const [args, setArgs] = useState<string[]>(initial?.arguments || []);
   const [pastePending, setPastePending] = useState(false);
   const [parameterReview, setParameterReview] = useState<{mode: string; fingerprint: string | null} | null>(null);
+  const [validationAttempt, setValidationAttempt] = useState(0);
   const [parameterError, setParameterError] = useState("");
   const argsError = argumentError(args);
   const preview = [
@@ -125,6 +126,7 @@ export function LaunchSimulation({
     setNotice("");
   }
   async function validate(save: boolean) {
+    setValidationAttempt(n => n + 1);
     if (pastePending || !!parameterError || argsError) return;
     setBusy(true);
     setError("");
@@ -161,6 +163,7 @@ export function LaunchSimulation({
   }
   async function start(e: React.FormEvent) {
     e.preventDefault();
+    setValidationAttempt(n => n + 1);
     if (
       !plan ||
       busy ||
@@ -319,6 +322,7 @@ export function LaunchSimulation({
           </small>
         </label>
         <ArgumentEditor
+          validationAttempt={validationAttempt}
           initialManual={initial?.parameter_review?.mode === "manual"}
           reviewed={review => {setParameterReview(review); setPlan(null);}}
           key={argumentRevision}
@@ -389,7 +393,7 @@ export function LaunchSimulation({
           <button
             type="button"
             disabled={
-              pastePending || !!parameterError || !!argsError || !outputReview
+              pastePending || !!argsError || !outputReview
             }
             onClick={() => validate(false)}
           >
@@ -398,7 +402,7 @@ export function LaunchSimulation({
           <button
             type="button"
             disabled={
-              pastePending || !!parameterError || !!argsError || !outputReview
+              pastePending || !!argsError || !outputReview
             }
             onClick={() => validate(true)}
           >
@@ -444,9 +448,8 @@ export function LaunchSimulation({
           className="primary"
           disabled={
             busy ||
-            !plan ||
+            (!plan && !parameterError) ||
             pastePending ||
-            !!parameterError ||
             !!argsError ||
             !outputReview ||
             (outputReview.requires_acknowledgement && !acknowledge)

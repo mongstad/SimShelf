@@ -2042,10 +2042,20 @@ details label {
 .parameter-search p { margin: 8px 0; }
 .parameter-group h4 small { font-weight: normal; }
 
-.parameter-row .argument-fields { align-items: start; }
-.parameter-row .check-label { margin: 0; flex-wrap: wrap; gap: 6px; }
+.parameter-row .argument-fields { align-items: center; grid-template-columns: minmax(0, 1fr) minmax(0, 24rem); }
+.parameter-row[data-value-kind="compact"] .argument-value { width: min(100%, 16rem); }
+.parameter-row[data-value-kind="flag"] .argument-fields { grid-template-columns: 1fr; }
+.parameter-row .check-label { margin: 0; gap: 6px; }
+.parameter-name { min-width: 0; flex: 1; overflow-wrap: anywhere; }
 .parameter-row input:not([type="checkbox"]) { width: 100%; min-width: 0; }
-.parameter-hint { display: block; margin-top: 4px; overflow-wrap: anywhere; }
+.parameter-hint { display: block; margin-top: 12px; padding-bottom: 4px; overflow-wrap: anywhere; }
+.parameter-type { font-weight: normal; color: var(--muted); }
+.parameter-required { color: var(--red); font-weight: bold; }
+.parameter-row[data-missing="true"] { border-color: var(--red); background: color-mix(in srgb, var(--red) 7%, var(--surface)); }
+.parameter-error { display: block; margin-top: 8px; color: var(--red); }
+@media (max-width: 600px) {
+  .parameter-row .argument-fields { grid-template-columns: 1fr; gap: 8px; }
+}
 .parameter-notes { margin: 8px 0; font-size: 12px; }
 
 .parameter-row .argument-fields > div { min-width: 0; }

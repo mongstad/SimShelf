@@ -200,3 +200,14 @@ export function parameterError(rows: Row[], parameters: Parameter[]): string {
   }
   return "";
 }
+
+// Project only unambiguous typed omissions. Reuse the accepted validator so
+// aliases, delimiters and ambiguous/manual tokens keep their existing meaning.
+export function missingRequiredRows(rows: Row[]): number[] {
+  return rows.filter(row => {
+    const p = row.parameter;
+    return p?.supported && p.required && !row.manual &&
+      (!row.enabled || p.action === "store" && row.value === null) &&
+      !!parameterError(rows, [p]);
+  }).map(row => row.id);
+}
