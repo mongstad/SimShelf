@@ -7,7 +7,11 @@ dependency installation or scientific source writes occur during discovery.
 A large Python AST does not affect TOML discovery.
 
 Value parameters, boolean flags and manual arguments share the existing editor.
-Defaults are hints only; enabling a flag emits its option, not its resulting
+Declared defaults are hints only, shown separately from authored help and choices.
+An absent default is shown as unknown; it does not make an optional parameter
+required. Disabled optional arguments are omitted, and the simulation determines
+their behavior, including any context-dependent values. SimShelf does not infer
+those values. Enabling a flag emits its option, not its resulting
 boolean value. Aliases retain their spelling. New long options use `--name=value`;
 new short options use two tokens, immediately before `--` or at the end. Review
 **Exact argv** before launch. Choice selections preview their generated token text.
