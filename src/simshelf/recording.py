@@ -280,6 +280,7 @@ def record_command(store: Store, simulation: str, command: list[str], *, name=No
     env["SIMSHELF_HOME"] = str(store.path)
     env["SIMSHELF_RUN_ID"] = recorder.id
     env["SIMSHELF_OUTPUT_DIR"] = str(recorder.output_dir)
+    env["SIMSHELF_OUTPUT_POLICY"] = recorder.output_policy
     env["PYTHONUNBUFFERED"] = "1"
     logdir = store.path / "logs" / recorder.id
     logdir.mkdir(parents=True, exist_ok=True)

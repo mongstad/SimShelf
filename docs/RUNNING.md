@@ -291,6 +291,30 @@ becomes the parent; Start creates `run_<unique ID>` beneath it. Validation and
 Save settings create no directories. The preview shows the parent and explains
 allocation; the run's capture summary shows the exact absolute folder.
 
+### Explicit launcher allocation signal
+
+Portal, CLI wrapper and Python `record_command` launches supply both
+`SIMSHELF_OUTPUT_DIR` and `SIMSHELF_OUTPUT_POLICY` from the effective launch
+configuration, overriding inherited values in the child environment:
+
+| Policy | Meaning of the absolute `SIMSHELF_OUTPUT_DIR` |
+| --- | --- |
+| `fixed` | Shared capture parent resolved against the registered simulation root, not the child working directory. It may be absent or occupied; SimShelf does not allocate a fresh root. A cooperating script may exclusively allocate its own unique child. |
+| `per_run` | Exclusively allocated unique run root, created before child start. Write directly into it; do not allocate another run root beneath it. Artifact subdirectories are allowed. |
+
+This is an opt-in **SimShelf adapter**, not an SWSS-mandated environment variable
+or a claim of SWSS conformance. Fixed capture recursively inspects the shared
+parent under existing changed-file rules and overlap guards. Scripts ignoring
+the signal retain their existing behavior. No argv, output defaults or capture
+rules are changed, and the signal alone does not prevent arbitrary overwrites.
+
+A strict adapter receiving a destination with an absent or unrecognized policy
+(for example from an older launcher) must fail clearly or require explicit trusted
+configuration. Never infer allocation ownership from path existence, emptiness,
+name, or the destination variable alone. Standalone allocation remains the
+script's responsibility. An independent `simshelf.run(...)` context does not
+launch a child or assign these environment variables; use its `run.output_dir`.
+
 The script must use that folder for its writes. For a plain Python script, an
 explicit integration can use the environment contract without importing SimShelf:
 
