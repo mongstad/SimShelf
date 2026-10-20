@@ -368,3 +368,7 @@ installed theme/responsive validation and limitations. Earlier evidence is uncha
 See [issue #107 default hints](validation/issue-107-default-hints.md) for separate
 authored help and declared metadata, unknown-default semantics, exact-argv and
 installed theme/package checks. Earlier evidence is unchanged.
+
+The [conditional-default revision](validation/issue-107-conditional-defaults.md)
+records owner-requested edit/restore visibility, removal of unknown-default labels,
+precision-preserving comparisons and focused installed-browser/package checks.

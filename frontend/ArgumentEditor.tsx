@@ -417,7 +417,7 @@ export function ArgumentEditor({
                   {flag ? "Enable required flag." : "Enter required value."}
                 </small>}
                 {p ? (
-                  <ParameterHint parameter={p} token={row.token} id={`${editorId}-hint-${row.id}`} />
+                  <ParameterHint parameter={p} token={row.token} value={row.value} enabled={row.enabled} id={`${editorId}-hint-${row.id}`} />
                 ) : (
                   <small>
                     {row.manual || row.parameter?.reason || "Manual argument"}

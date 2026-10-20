@@ -8,8 +8,12 @@ A large Python AST does not affect TOML discovery.
 
 Value parameters, boolean flags and manual arguments share the existing editor.
 Declared defaults are hints only, shown separately from authored help and choices.
-An absent default is shown as unknown; it does not make an optional parameter
-required. Disabled optional arguments are omitted, and the simulation determines
+A known default is shown as `Default: …` only when the current value differs
+(or no value is supplied). Equivalent numeric spellings compare without rewriting
+argv; strings compare exactly, including explicit empty strings. Disabled drafts
+use the same comparison but remain omitted. Unknown defaults have no footer label
+and do not make an optional parameter required. An empty input does not prove
+that the simulation has no internal default. Disabled optional arguments are omitted, and the simulation determines
 their behavior, including any context-dependent values. SimShelf does not infer
 those values. Enabling a flag emits its option, not its resulting
 boolean value. Aliases retain their spelling. New long options use `--name=value`;
