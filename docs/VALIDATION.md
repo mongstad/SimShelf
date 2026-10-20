@@ -356,3 +356,9 @@ See [issue #104 parameter lists](validation/issue-104-parameter-lists.md) for
 bounded rows, local filtering, required-first presentation, exact-argv checks,
 77-declaration fixtures and installed browser/package validation. Earlier evidence
 remains unchanged.
+
+## Compact parameter rows and required feedback
+
+See [issue #109 parameter rows](validation/issue-109-parameter-rows.md) for compact
+alignment, required-only markers, omission focus/highlights, exact-argv checks,
+installed theme/responsive validation and limitations. Earlier evidence is unchanged.

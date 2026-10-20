@@ -8,6 +8,7 @@ import {
   parameterRows,
   rowArguments,
   parameterError,
+  missingRequiredRows,
   type Row,
 } from "./parameterRows";
 
@@ -20,8 +21,10 @@ export function ArgumentEditor({
   validation,
   reviewed,
   initialManual = false,
+  validationAttempt = 0,
 }: {
   initial: string[];
+  validationAttempt?: number;
   initialManual?: boolean;
   change: (args: string[]) => void;
   pasteEditing: (pending: boolean) => void;
@@ -35,6 +38,9 @@ export function ArgumentEditor({
   const searchInput = useRef<HTMLInputElement>(null);
   const editorId = useId();
   const presentation = parameterPresentation(rows, query);
+  const editor = useRef<HTMLElement>(null);
+  const focusMissing = useRef(false);
+  const [attempted, setAttempted] = useState(false);
   const current = useRef(rows);
   current.current = rows;
   const [discovery, setDiscovery] = useState<Discovery | null>(null);
@@ -45,6 +51,19 @@ export function ArgumentEditor({
   const [changed, setChanged] = useState(false),
     [paste, setPaste] = useState<string | null>(null);
   const [manual, setManual] = useState(initialManual);
+  const missing = manual ? [] : missingRequiredRows(rows);
+  useEffect(() => {
+    if (!validationAttempt || !missing.length) return;
+    focusMissing.current = true;
+    setAttempted(true);
+    // Reveal filtered omissions before moving focus; changing visibility never edits argv.
+    setQuery("");
+  }, [validationAttempt]);
+  useEffect(() => {
+    if (!focusMissing.current || !attempted || query) return;
+    focusMissing.current = false;
+    editor.current?.querySelector<HTMLElement>('[data-missing="true"] input, [data-missing="true"] select')?.focus();
+  }, [validationAttempt, attempted, query]);
   const problem = manual ? "" : discovery && !discovery.provenance ? "Choose manual argv or provide valid SWSS declarations before continuing." : parameterError(rows, discovery?.parameters || []);
   useEffect(() => {
     validation(loading ? "Reading parameter declarations…" : changed && !manual ? "Review changed declarations before typed use." : problem);
@@ -134,7 +153,7 @@ export function ArgumentEditor({
       (p) => !p.supported && !rows.some((r) => r.parameter?.name === p.name),
     ) || [];
   return (
-    <section className="argument-editor" aria-label="Simulation parameters">
+    <section ref={editor} className="argument-editor" aria-label="Simulation parameters">
       <div className="parameter-heading">
         <h3>Simulation parameters</h3>
         <button
@@ -225,9 +244,13 @@ export function ArgumentEditor({
                 ? row.parameter
                 : undefined;
             const flag = p && p.action !== "store";
+            const invalid = attempted && missing.includes(row.id);
+            const description = `${editorId}-hint-${row.id}${invalid ? ` ${editorId}-error-${row.id}` : ""}`;
             return (
               <div
                 className={p ? "parameter-row" : "argument-row"}
+                data-missing={invalid || undefined}
+                data-value-kind={p ? flag ? "flag" : p.type === "str" && !p.choices ? "long" : "compact" : undefined}
                 data-enabled={p ? row.enabled : undefined}
                 role={p ? "group" : undefined}
                 aria-label={p ? `${p.name} · ${p.required ? "required" : "optional"}` : undefined}
@@ -241,15 +264,17 @@ export function ArgumentEditor({
                           <input
                             type="checkbox"
                             aria-label={`Enable ${p.name}`}
-                            aria-describedby={`${editorId}-hint-${row.id}`}
+                            aria-describedby={description}
+                            aria-invalid={invalid || undefined}
                             checked={row.enabled}
                             onChange={(e) =>
                               edit(i, { enabled: e.target.checked })
                             }
                           />
                         )}
-                        <strong>{row.token}</strong>
-                        <small>{p.required ? "required" : "optional"}</small>
+                        <span className="parameter-name"><strong>{row.token}</strong>{" "}
+                        {!flag && <span className="parameter-type">({p.type === "int" ? "integer" : p.type === "str" ? "string" : p.type})</span>}
+                        {p.required && <span className="parameter-required" role="img" aria-label="Required" title="Required">*</span>}</span>
                       </label>
                     ) : (
                       <label>
@@ -266,19 +291,14 @@ export function ArgumentEditor({
                   </div>
                   <div className="argument-value">
                     {flag ? (
-                      <span className="muted">Flag · no value</span>
+                      null
                     ) : p ? (
                       <label>
-                        Value ·{" "}
-                        {p.type === "int"
-                          ? "integer"
-                          : p.type === "float"
-                            ? "float"
-                            : "string"}
                         {p.choices ? (
                           <select
                             aria-label={`Value for ${p.name}`}
-                            aria-describedby={`${editorId}-hint-${row.id}`}
+                            aria-describedby={description}
+                            aria-invalid={invalid || undefined}
                             disabled={!p.required && !row.enabled}
                             value={
                               row.value === null
@@ -322,7 +342,8 @@ export function ArgumentEditor({
                         ) : (
                           <input
                             aria-label={`Value for ${p.name}`}
-                            aria-describedby={`${editorId}-hint-${row.id}`}
+                            aria-describedby={description}
+                            aria-invalid={invalid || undefined}
                             inputMode={
                               p.type === "int"
                                 ? "numeric"
@@ -391,6 +412,9 @@ export function ArgumentEditor({
                     )}
                   </div>
                 </div>
+                {invalid && <small className="parameter-error" id={`${editorId}-error-${row.id}`} role="alert">
+                  {flag ? "Enable required flag." : "Enter required value."}
+                </small>}
                 {p ? (
                   <small className="parameter-hint" id={`${editorId}-hint-${row.id}`}>
                     {p.flags.length > 1 && <>Options: {p.flags.join(", ")} · </>}
@@ -527,7 +551,7 @@ export function ArgumentEditor({
         </section>
       ))}
       </fieldset>
-      {problem && (
+      {problem && !(missing.length > 0) && (
         <p className="error-banner" role="alert">
           {problem}
         </p>

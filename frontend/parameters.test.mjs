@@ -309,3 +309,29 @@ test('signed-64-bit choices compare exact integers without JSON precision loss',
  assert.deepEqual(rowArguments(rows),['--dt=+09223372036854775807']);
  rows[0].value='9223372036854775806';assert.match(parameterError(rows,[n]),/choices/);
 });
+
+test("required omission projection preserves argv and ignores optional defaults/manual ambiguity", async () => {
+  const { missingRequiredRows } = await import('./parameterRows.ts');
+  const required = { ...p, required: true };
+  const requiredFlag = { ...flag, required: true };
+  const label = { ...required, name: '--label', flags: ['--label'], type: 'str' };
+  const optionalUnknown = { ...p, name: '--unknown', flags: ['--unknown'], default_known: false };
+  const declarations = [required, requiredFlag, label, optionalUnknown];
+  const rows = parameterRows([], declarations);
+  assert.deepEqual(missingRequiredRows(rows), [0, 1, 2]);
+  assert.deepEqual(rowArguments(rows), []);
+  for (const args of [ ['-d','1e-3','--quiet','--label='], ['--dt=001','--quiet','--label',''] ]) {
+    const supplied = parameterRows(args, declarations);
+    assert.deepEqual(missingRequiredRows(supplied), []);
+    assert.deepEqual(rowArguments(supplied), args);
+  }
+  const noValue = parameterRows(['--dt'], [required]);
+  assert.deepEqual(missingRequiredRows(noValue), [0]);
+  assert.deepEqual(rowArguments(noValue), ['--dt']);
+  const afterDelimiter = parameterRows(['--','--quiet'], [requiredFlag]);
+  assert.equal(missingRequiredRows(afterDelimiter).length, 1);
+  assert.deepEqual(rowArguments(afterDelimiter), ['--','--quiet']);
+  assert.deepEqual(missingRequiredRows(parameterRows(['--dt','1','--dt','2'], [required])), []);
+  assert.deepEqual(missingRequiredRows(parameterRows(['--d=1'], [required])), []);
+  assert.deepEqual(missingRequiredRows(parameterRows([], [])), []);
+});
