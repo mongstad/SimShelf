@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useId } from "react";
 import { parseArguments } from "./arguments";
 import { api } from "./api";
 import type { Discovery } from "./parameters";
+import { ParameterHint } from "./ParameterHint";
 import { parameterPresentation } from "./parameterPresentation";
 import {
   manualValue,
@@ -173,8 +174,8 @@ export function ArgumentEditor({
       {changed && !manual && <button type="button" onClick={() => setChanged(false)}>I reviewed the changed declarations</button>}
       <p className="muted">
         New options are inserted before --, otherwise at the end; review the exact command before launch.
-        Enable only the options you want to pass. Defaults are hints, never
-        inserted. Manual rows retain exact argument order.
+        Disabled optional arguments are omitted; the simulation determines their behavior.
+        Declared defaults are hints, never inserted. Manual rows retain exact argument order.
       </p>
       {scanError && (
         <p role="alert" className="error-banner">
@@ -416,21 +417,7 @@ export function ArgumentEditor({
                   {flag ? "Enable required flag." : "Enter required value."}
                 </small>}
                 {p ? (
-                  <small className="parameter-hint" id={`${editorId}-hint-${row.id}`}>
-                    {p.flags.length > 1 && <>Options: {p.flags.join(", ")} · </>}
-                    {p.help}
-                    {p.help ? " · " : ""}
-                    {flag
-                      ? p.action === "store_false"
-                        ? "Sets false"
-                        : "Sets true"
-                      : p.type}{" "}
-                    · Default:{" "}
-                    {p.default_known ? p.type === "int" ? String(p.default) : JSON.stringify(p.default) : "unknown"}
-                    {p.choices
-                      ? ` · Choices: ${p.choices.map(String).join(", ")}`
-                      : ""}
-                  </small>
+                  <ParameterHint parameter={p} token={row.token} value={row.value} enabled={row.enabled} id={`${editorId}-hint-${row.id}`} />
                 ) : (
                   <small>
                     {row.manual || row.parameter?.reason || "Manual argument"}

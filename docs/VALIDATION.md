@@ -362,3 +362,17 @@ remains unchanged.
 See [issue #109 parameter rows](validation/issue-109-parameter-rows.md) for compact
 alignment, required-only markers, omission focus/highlights, exact-argv checks,
 installed theme/responsive validation and limitations. Earlier evidence is unchanged.
+
+## Declared default hint clarity
+
+See [issue #107 default hints](validation/issue-107-default-hints.md) for separate
+authored help and declared metadata, unknown-default semantics, exact-argv and
+installed theme/package checks. Earlier evidence is unchanged.
+
+The [conditional-default revision](validation/issue-107-conditional-defaults.md)
+records owner-requested edit/restore visibility, removal of unknown-default labels,
+precision-preserving comparisons and focused installed-browser/package checks.
+
+The [unset-default correction](validation/issue-107-unset-defaults.md) records
+suppression of placeholder-duplicate footers while preserving explicit empty
+strings, disabled drafts and exact argv.

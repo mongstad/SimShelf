@@ -2049,6 +2049,8 @@ details label {
 .parameter-name { min-width: 0; flex: 1; overflow-wrap: anywhere; }
 .parameter-row input:not([type="checkbox"]) { width: 100%; min-width: 0; }
 .parameter-hint { display: block; margin-top: 12px; padding-bottom: 4px; overflow-wrap: anywhere; }
+.parameter-help, .parameter-metadata { display: block; }
+.parameter-help + .parameter-metadata { margin-top: 4px; }
 .parameter-type { font-weight: normal; color: var(--muted); }
 .parameter-required { color: var(--red); font-weight: bold; }
 .parameter-row[data-missing="true"] { border-color: var(--red); background: color-mix(in srgb, var(--red) 7%, var(--surface)); }
