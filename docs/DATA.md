@@ -65,7 +65,10 @@ retained separately.
 
 ## Choose which outputs to preserve
 
-In a simulation's **File capture** tab, configure its output subfolder and rules.
+In a simulation's **Preservation settings**, configure its output parent and rules,
+then review and confirm capture and optional Git inclusion together. See
+[the preservation guide](GIT_ARCHIVE.md) for recursive output selection, truthful
+completeness and later note/caption events.
 Rules are tested in order; **the first match wins**. Patterns use `/` separators,
 and `**/*.png` includes both nested PNGs and PNGs at the output folder's root.
 

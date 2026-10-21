@@ -25,8 +25,10 @@ import type {
   Version,
 } from "./types";
 import "./style.css";
-import { RunArchive } from "./GitArchive";
+import { RunArchive, PreservationSummary } from "./GitArchive";
 import { RelocateSimulation } from "./RelocateSimulation";
+import { ArchiveSettings } from "./GitArchive";
+import { PreservationSettings } from "./PreservationSettings";
 import { GitHistory } from "./GitHistory";
 import { LaunchSimulation } from "./LaunchSimulation";
 
@@ -364,269 +366,6 @@ function Comparison({ runs, close }: { runs: Run[]; close: () => void }) {
   );
 }
 
-function CaptureSettings({
-  simulation,
-  onSaved,
-}: {
-  simulation: Simulation;
-  onSaved: () => void;
-}) {
-  const [config, setConfig] = useState<Config>(
-    structuredClone(simulation.config),
-  );
-  const [result, setResult] = useState<CapturePreview | null>(null),
-    [error, setError] = useState(""),
-    [busy, setBusy] = useState(false),
-    [saved, setSaved] = useState(false);
-  useEffect(() => {
-    setConfig(structuredClone(simulation.config));
-    setResult(null);
-    setSaved(false);
-  }, [simulation.id]);
-  function update(next: Config) {
-    setConfig(next);
-    setSaved(false);
-    setResult(null);
-  }
-  async function action(save: boolean) {
-    setBusy(true);
-    setError("");
-    try {
-      if (save) {
-        await api(`/simulations/${simulation.id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ config }),
-        });
-        setSaved(true);
-        onSaved();
-      } else
-        setResult(
-          await api<CapturePreview>(
-            `/simulations/${simulation.id}/capture-preview`,
-            { method: "POST", body: JSON.stringify({ config }) },
-          ),
-        );
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <div className="settings-layout">
-      <div className="surface">
-        <h2>Keep the results that matter</h2>
-        <p className="muted">
-          Rules apply to new or changed outputs from future runs. The first
-          matching rule wins.
-        </p>
-        <label>
-          Output folder
-          <input
-            value={config.output_dir}
-            onChange={(e) => update({ ...config, output_dir: e.target.value })}
-          />
-          <small>
-            Relative to the simulation folder. Concurrent runs should use
-            different output subfolders.
-          </small>
-        </label>
-        <div className="rules-heading">
-          <span>Filename or pattern</span>
-          <span>Capture policy</span>
-        </div>
-        {config.rules.map((rule, i) => (
-          <div className="rule-row" key={i}>
-            <input
-              aria-label={`Rule ${i + 1} pattern`}
-              value={rule.pattern}
-              onChange={(e) =>
-                update({
-                  ...config,
-                  rules: config.rules.map((r, j) =>
-                    i === j ? { ...r, pattern: e.target.value } : r,
-                  ),
-                })
-              }
-            />
-            <select
-              aria-label={`Rule ${i + 1} policy`}
-              value={rule.action}
-              onChange={(e) =>
-                update({
-                  ...config,
-                  rules: config.rules.map((r, j) =>
-                    i === j ? { ...r, action: e.target.value as "copy" } : r,
-                  ),
-                })
-              }
-            >
-              <option value="copy">Keep a copy</option>
-              <option value="reference">Reference only</option>
-              <option value="ignore">Ignore</option>
-            </select>
-            <button
-              className="icon-button"
-              aria-label={`Remove rule ${i + 1}`}
-              onClick={() =>
-                update({
-                  ...config,
-                  rules: config.rules.filter((_, j) => j !== i),
-                })
-              }
-            >
-              <Icon name="close" size={16} />
-            </button>
-          </div>
-        ))}
-        <button
-          className="text-button"
-          onClick={() =>
-            update({
-              ...config,
-              rules: [...config.rules, { pattern: "", action: "copy" }],
-            })
-          }
-        >
-          <Icon name="plus" size={16} />
-          Add rule
-        </button>
-        <div className="form-grid">
-          <label>
-            Maximum file size to copy (MB)
-            <input
-              type="number"
-              min="0.001"
-              step="any"
-              value={config.max_file_mb}
-              onChange={(e) =>
-                update({ ...config, max_file_mb: Number(e.target.value) })
-              }
-            />
-          </label>
-          <label>
-            Copy budget per run (MB)
-            <input
-              type="number"
-              min="0.001"
-              step="any"
-              value={config.max_run_mb}
-              onChange={(e) =>
-                update({ ...config, max_run_mb: Number(e.target.value) })
-              }
-            />
-          </label>
-        </div>
-        <details>
-          <summary>Source snapshot patterns</summary>
-          <label>
-            Include patterns, one per line
-            <textarea
-              value={config.source_include.join("\n")}
-              onChange={(e) =>
-                update({
-                  ...config,
-                  source_include: e.target.value.split("\n").filter(Boolean),
-                })
-              }
-            />
-          </label>
-          <label>
-            Exclude patterns, one per line
-            <textarea
-              value={config.source_exclude.join("\n")}
-              onChange={(e) =>
-                update({
-                  ...config,
-                  source_exclude: e.target.value.split("\n").filter(Boolean),
-                })
-              }
-            />
-          </label>
-        </details>
-        <ErrorMessage message={error} />
-        <div className="settings-actions">
-          <span aria-live="polite">
-            {saved ? "Settings saved for future runs." : ""}
-          </span>
-          <button disabled={busy} onClick={() => action(false)}>
-            Preview matches
-          </button>
-          <button
-            className="primary"
-            disabled={busy}
-            onClick={() => action(true)}
-          >
-            Save rules
-          </button>
-        </div>
-      </div>
-      <aside className="policy-guide">
-        <h3>Three ways to handle a file</h3>
-        <dl>
-          <dt>Keep a copy</dt>
-          <dd>Preserve it inside SimShelf. Copies are included in backups.</dd>
-          <dt>Reference only</dt>
-          <dd>
-            Remember its path and metadata. The original file stays in your
-            output folder.
-          </dd>
-          <dt>Ignore</dt>
-          <dd>
-            Leave it out of the run record. The original is never removed.
-          </dd>
-        </dl>
-        <div className="callout">
-          Filtering the file list is separate from these rules. Hiding a file
-          never changes what is saved.
-        </div>
-      </aside>
-      {result && (
-        <div className="surface capture-results">
-          <h3>Current output-folder preview</h3>
-          <p className="muted">
-            {result.total_files} files · {result.counts.copy} copy matches ·{" "}
-            {result.counts.reference} references · {result.counts.ignore}{" "}
-            ignored · {formatBytes(result.copy_bytes)} within copy limits
-          </p>
-          {result.errors.map((e) => (
-            <ErrorMessage key={e} message={e} />
-          ))}
-          {result.truncated && <p>Showing the first 1,000 matches.</p>}
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>File</th>
-                  <th>Size</th>
-                  <th>Policy</th>
-                  <th>Limit</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.files.map((f) => (
-                  <tr key={f.path}>
-                    <td>
-                      <code>{f.path}</code>
-                    </td>
-                    <td>{formatBytes(f.size)}</td>
-                    <td>{f.action}</td>
-                    <td>{f.reason || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {result.total_files === 0 && (
-            <p className="muted">
-              No output files yet. The rules are ready for your next run.
-            </p>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function Versions({
   simulation,
@@ -922,6 +661,7 @@ function RunDetails({
         <button disabled={busy || run.status === "running" || run.capture_status === "pending"} onClick={() => requestRemoval(run)}>Remove run…</button>
       </header>
       <RunProgress run={run} />
+      <PreservationSummary key={run.id} run={run} />
       <nav className="tabs" aria-label="Run detail sections">
         {[
           "overview",
@@ -1027,7 +767,7 @@ function RunDetails({
                     )[run.source_change]
                   }
                 </dd>
-                <dt>Git commit</dt>
+                <dt>Source Git commit</dt>
                 <dd>
                   {run.git.commit ? (
                     <code>
@@ -1039,7 +779,7 @@ function RunDetails({
                   )}
                 </dd>
                 {run.git.availability && <>
-                  <dt>Git observation</dt><dd>{run.git.availability === "available" ? (run.git.branch || "Detached HEAD") : (run.git.reason || run.git.availability)}</dd>
+                  <dt>Source Git observation</dt><dd>{run.git.availability === "available" ? (run.git.branch || "Detached HEAD") : (run.git.reason || run.git.availability)}</dd>
                   <dt>Captured source vs Git</dt><dd>{run.git.snapshot_relation === "captured_files_match_commit" ? "Captured files match commit bytes; uncaptured files are not compared" : run.git.snapshot_relation === "captured_files_differ" ? "Captured files differ from commit" : "Not compared"}</dd>
                 </>}
                 <dt>Exit code</dt>
@@ -1195,6 +935,7 @@ function RunDetails({
           <div className="section-heading">
             <div>
               <h2 ref={screenshotsHeading} tabIndex={-1}>Screenshots & visual results</h2>
+              <button onClick={() => setTab("files")}>Review preservation in Files</button>
               <p className="muted">
                 Drop images here, paste from your clipboard, or choose files.
               </p>
@@ -1300,6 +1041,7 @@ function RunDetails({
       {tab === "source" && (
         <section className="surface">
           <h2>Exact source snapshot</h2>
+          <button onClick={() => setTab("files")}>View preservation and downloads in Files</button>
           <p className="muted">
             Saved at the start of the run. Changes you make afterward do not
             replace these files.
@@ -1365,7 +1107,8 @@ function RunDetails({
       {tab === "notes" && (
         <section className="surface notes-surface">
           <h2>Keep the context</h2>
-          <p className="muted">Notes are preserved in this workspace; they are not exported to the Git archive.</p>
+          <button onClick={() => setTab("files")}>Review preservation in Files</button>
+          <p className="muted">Saved notes remain separate from execution. Review their revisions in Files to preserve them in Git.</p>
           <label>
             Run name
             <input value={name} onChange={(e) => setName(e.target.value)} />
@@ -1721,12 +1464,15 @@ function App() {
         <div className="sidebar-section">
           <span className="nav-caption">WORKSPACE</span>
           <button
-            className={`nav-item ${!simulationId ? "active" : ""}`}
+            className={`nav-item ${!simulationId && page !== "archive" ? "active" : ""}`}
             onClick={() => chooseSimulation("")}
           >
             <Icon name="grid" />
             All simulations
             <span className="nav-count">{simulations.length}</span>
+          </button>
+          <button className={`nav-item ${page === "archive" ? "active" : ""}`} onClick={() => { chooseSimulation(""); setPage("archive"); }}>
+            <Icon name="folder" />Master Git Archive
           </button>
         </div>
         <div className="sidebar-section simulation-nav">
@@ -1795,7 +1541,7 @@ function App() {
           {sidebar.toggle}
           <div className="workspace-breadcrumb">
             Personal workspace <span>/</span>{" "}
-            {detail ? "Run record" : simulation?.name || "Overview"}
+            {detail ? "Run record" : page === "archive" ? "Master Git Archive" : simulation?.name || "Overview"}
           </div>
           <span className="local-badge">
             <span />
@@ -1830,7 +1576,7 @@ function App() {
               requestRemoval={run => setRemovalRuns([run])}
             />
             </>
-          ) : (
+          ) : page === "archive" ? <ArchiveSettings /> : (
             <>
               <header className="page-heading">
                 <div className="page-title-group">
@@ -1855,7 +1601,7 @@ function App() {
                   administrationReturnFocus.current = e.currentTarget; setModal("relocate");
                 }}>Locate source folder…</button>}
               </div>}
-              {simulation && (
+              {simulation && <PreservationSettings key={`preservation:${simulation.id}:${simulation.root}`} simulation={simulation} onSaved={refresh} showOptions={page === "capture"}>
                 <nav className="tabs" aria-label="Simulation sections">
                   <button
                     className={page === "runs" ? "active" : ""}
@@ -1869,15 +1615,15 @@ function App() {
                   >
                     Version history
                   </button>
-                  <button className={page === "git" ? "active" : ""} onClick={() => setPage("git")}>Git history</button>
+                  <button className={page === "git" ? "active" : ""} onClick={() => setPage("git")}>Source Git</button>
                   <button
                     className={page === "capture" ? "active" : ""}
                     onClick={() => setPage("capture")}
                   >
-                    File capture
+                    Preservation settings
                   </button>
                 </nav>
-              )}
+              </PreservationSettings>}
               {page === "runs" && (
                 <>
                   {!simulation && simulations.length > 0 && (
@@ -2303,10 +2049,7 @@ function App() {
                   }}
                 />
               )}
-              {page === "git" && simulation && <GitHistory key={`${simulation.id}:${simulation.root}`} simulation={simulation} simulations={simulations} />}
-              {page === "capture" && simulation && (
-                <CaptureSettings key={`${simulation.id}:${simulation.root}`} simulation={simulation} onSaved={refresh} />
-              )}
+              {page === "git" && simulation && <GitHistory key={`source-git:${simulation.id}:${simulation.root}`} simulation={simulation} simulations={simulations} />}
             </>
           )}
         </div>

@@ -64,7 +64,8 @@ def cleanup_removed(store):
         pending = [row[0] for row in conn.execute("SELECT key FROM metadata WHERE key LIKE 'cleanup:%'")]
         if not pending:
             return errors
-        protected = set()
+        from .preservation import pending_blobs
+        protected = {f"blobs/{key[:2]}/{key}" for key in pending_blobs(conn)}
         # Fail closed if any retained source manifest cannot be read.
         for ident in snapshot_ids(conn):
             protected.update(snapshot_files(store, ident))

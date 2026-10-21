@@ -157,6 +157,7 @@ def test_api_preview_confirmation_and_origin_protection(project):
 def test_git_consent_invalidated_history_downloads_and_master_preserved(project,tmp_path):
     store,sim,root,_=project
     repo=tmp_path/'archive';repo.mkdir();archive.connect(store,str(repo),True,True)
+    archive.set_global_enabled(store, True)
     inv=inventory(store,sim['id']);save_selection(store,sim['id'],selection_preview(store,sim['id'],inv['revision'],[{'kind':'file','value':'field.py'}]))
     archive.enable(store,sim['id'],archive.settings_preview(store,sim['id'],[]),True)
     with store.connection() as c:

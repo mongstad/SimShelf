@@ -3,26 +3,16 @@ import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
-  FutureOutputHelp,
   RunFilesTable,
   runFileRows,
   MasterArchiveStatus,
   RunArchive,
   archiveLimits,
+  PreservationStatus,
+  ArchiveSettings,
 } from "./GitArchive.tsx";
 const render = (component, props) =>
   renderToStaticMarkup(React.createElement(component, props));
-test("future rules explain capture-relative paths and manual outside attachments", () => {
-  const html = render(FutureOutputHelp, { directory: "outputs" });
-  for (const phrase of [
-    "capture directory",
-    "outputs",
-    "not the Python source folder",
-    "manual post-run attachment",
-    "logs/*.csv",
-  ])
-    assert.ok(html.includes(phrase));
-});
 test("running runs cannot add attachments; finalized states retain explicit review", () => {
   for (const status of ["completed", "failed", "interrupted"]) {
     const html = render(RunArchive, {
@@ -106,7 +96,8 @@ test("same-name events retain exact historical downloads, including removed atta
     2,
   );
   // Even an identical repeated archival event remains individually addressable.
-  assert.equal(runFileRows(run, [event, { ...event, id: "again" }]).length, 2);
+  assert.equal(runFileRows(run, [event, { ...event, id: "again" }]).length, 1);
+  assert.equal(runFileRows(run, [event, { ...event, id: "again" }])[0].revisions.length, 2);
 });
 test("disconnected or wrong archive never removes workspace download or serves wrong Git revision", () => {
   for (const c of [
@@ -116,9 +107,9 @@ test("disconnected or wrong archive never removes workspace download or serves w
     { state: "connected", identity: "other" },
   ]) {
     const html = render(RunFilesTable, { run, events: [event], connection: c });
-    assert.match(html, /Download workspace copy/);
+    assert.match(html, /Download library copy/);
     assert.doesNotMatch(html, /href="[^" ]*archive/);
-    assert.match(html, /Archived in Git/);
+    assert.match(html, /Preserved in Git/);
   }
   const html = render(RunFilesTable, {
     run: { ...run, artifacts: [{ ...artifact, availability: "missing" }] },
@@ -126,7 +117,7 @@ test("disconnected or wrong archive never removes workspace download or serves w
     connection,
   });
   assert.match(html, /Download Git revision/);
-  assert.doesNotMatch(html, /Download workspace copy/);
+  assert.doesNotMatch(html, /Download library copy/);
 });
 test("references, skipped files, filtering and source-only entries remain visible", () => {
   const r = {
@@ -175,7 +166,7 @@ test("references, skipped files, filtering and source-only entries remain visibl
     /No files match/,
   );
 });
-test("selection is limited to unarchived manual copies on finalized runs", () => {
+test("selection allows later caption revisions of manual copies on finalized runs", () => {
   assert.match(
     render(RunFilesTable, { run, events: [] }),
     /Select for archive/,
@@ -188,7 +179,7 @@ test("selection is limited to unarchived manual copies on finalized runs", () =>
       render(RunFilesTable, { run: r, events: [] }),
       /Select for archive/,
     );
-  assert.doesNotMatch(
+  assert.match(
     render(RunFilesTable, { run, events: [event] }),
     /Select for archive/,
   );
@@ -204,11 +195,11 @@ test("connection success is explicit, green-classed and never inferred during lo
   );
   assert.match(
     render(MasterArchiveStatus, { status: connection }),
-    /Master simulation archive — Connected/,
+    /Repository — Connected/,
   );
   assert.match(
     render(MasterArchiveStatus, { status: { state: "disconnected" } }),
-    /Master simulation archive — Disconnected/,
+    /Repository — Disconnected/,
   );
   for (const status of [null, { state: "unavailable", reason: "missing" }])
     assert.doesNotMatch(
@@ -235,116 +226,48 @@ test("archived source identifies its exact matching workspace snapshot", () => {
     connection: null,
     openSource: () => {},
   });
-  assert.match(html, /Matching workspace source snapshot/);
+  assert.match(html, /Retained source snapshot/);
   assert.match(html, /View in Source/);
   assert.doesNotMatch(html, /No downloadable copy available/);
-  assert.doesNotMatch(
-    render(RunFilesTable, {
-      run: {
-        ...r,
-        snapshot: { files: [{ path: "sim.py", blob: "other", size: 3 }] },
-      },
-      events: [source],
-      connection: null,
-    }),
-    /Matching workspace source snapshot/,
-  );
+  const mismatched = {...r, snapshot:{files:[{path:"sim.py",blob:"other",size:3}]}};
+  assert.equal(runFileRows(mismatched, [source]).length, 2);
+
 });
 
-test("automatic archival has one accessible authoritative switch", async () => {
-  const { AutomaticArchiveToggle, ArchiveSettings } =
-    await import("./GitArchive.tsx");
-  for (const state of ["enabled", "disabled", "review_required"]) {
-    const html = render(AutomaticArchiveToggle, {
-      name: "Alpha",
-      automatic: { state },
-      busy: false,
-      available: true,
-      onChange: () => {},
-    });
-    assert.equal((html.match(/role="switch"/g) || []).length, 1);
-    assert.match(html, new RegExp(`aria-checked="${state === "enabled"}"`));
-    assert.match(html, /Automatic archival for Alpha/);
-    assert.match(html, /role="status"/);
-    assert.doesNotMatch(
-      html,
-      /Disable for future runs|Enable automatic archive for this simulation/,
-    );
-  }
-  const props = {
-    name: "Alpha",
-    automatic: { state: "disabled" },
-    busy: false,
-    available: false,
-    onChange: () => {},
-  };
-  assert.match(render(AutomaticArchiveToggle, props), /disabled/);
-  assert.match(
-    render(AutomaticArchiveToggle, {
-      ...props,
-      automatic: { state: "enabled" },
-    }),
-    /aria-checked="true"/,
-  );
-  assert.doesNotMatch(
-    render(AutomaticArchiveToggle, {
-      ...props,
-      automatic: { state: "enabled" },
-    }),
-    / disabled=/,
-  );
-  assert.match(
-    render(AutomaticArchiveToggle, { ...props, available: true, busy: true }),
-    / disabled=/,
-  );
-  const html = render(ArchiveSettings, {
-    simulation: { id: "a", name: "Alpha", config: { output_dir: "outputs" } },
-  });
-  assert.doesNotMatch(
-    html,
-    /Automatic archive consent|Confirm changes|Disable for future runs|Enable automatic archive for this simulation/,
-  );
-  assert.match(html, /<details><summary>Automatic archival settings/);
-  assert.equal(
-    (html.match(/>Review archival settings<\/button>/g) || []).length,
-    1,
-  );
-  assert.doesNotMatch(html, />Cancel<\/button>/);
-});
-
-test("master connection switch is distinct and only reflects confirmed availability", () => {
+test("repository availability is information, never another activation switch", () => {
   for (const state of ["connected", "disconnected", "unavailable"]) {
-    const html = render(MasterArchiveStatus, {
-      status: { state },
-      onChange: () => {},
-    });
-    assert.match(html, /aria-label="Master simulation archive connection"/);
-    assert.match(html, new RegExp(`aria-checked="${state === "connected"}"`));
+    const html = render(MasterArchiveStatus, {status: {state}, configured: true});
+    assert.doesNotMatch(html, /role="switch"|aria-checked/);
     assert.equal(html.includes("archive-connected"), state === "connected");
-    assert.match(html, /Automatic archival is set separately/);
-    assert.doesNotMatch(html, /Disconnect archive|Connect archive locally/);
   }
-  assert.match(
-    render(MasterArchiveStatus, { status: null, onChange: () => {} }),
-    / disabled=/,
-  );
-  assert.match(
-    render(MasterArchiveStatus, {
-      status: connection,
-      busy: true,
-      onChange: () => {},
-    }),
-    / disabled=/,
-  );
+});
+test("global archive area has exactly one activation switch", () => {
+  const html = render(ArchiveSettings, {});
+  assert.equal((html.match(/role="switch"/g) || []).length, 1);
+  assert.match(html, /aria-label="Master Git Archive"/);
+  assert.match(html, /Repository location and setup/);
+  assert.match(html, /always captures runs in your local library/);
+  assert.doesNotMatch(html, /Archive this simulation/);
 });
 
-test("configured unavailable archive remains explicitly disconnectable", () => {
-  const html = render(MasterArchiveStatus, {
-    status: { state: "unavailable", reason: "Missing archive" },
-    configured: true,
-    onChange: () => {},
-  });
-  assert.match(html, /aria-checked="true"/);
-  assert.match(html, /Unavailable — configured/);
-  assert.doesNotMatch(html, /archive-connected| disabled=/);
+test("one source row exists before archival and joins exact source revisions", () => {
+  const r={...run,artifacts:[],snapshot:{files:[{path:"sim.py",blob:"hash1",size:3}]}};
+  const source={...event,files:[{...entry,artifact_id:null,category:"source",name:"sim.py"}]};
+  assert.equal(runFileRows(r,[]).length,1);
+  assert.equal(runFileRows(r,[source]).length,1);
+  const html=render(RunFilesTable,{run:r,events:[],connection:null});
+  assert.match(html,/source-file\?path=sim.py/);
+  assert.match(html,/No Git copy recorded/);
+});
+test("execution and capture never imply Git output preservation", () => {
+  const html=render(PreservationStatus,{run:{...run,capture_status:"complete",capture_counts:{copied:3}},value:{state:"partial",reason:"Legacy manifest only: no scientific payloads.",source_files:0,output_files:0,copied_outputs:3,events:1,annotations:0,connection:"connected"}});
+  assert.match(html,/Execution:/); assert.match(html,/Workspace capture:/);
+  assert.match(html,/Master Git preservation:/); assert.match(html,/Legacy manifest only/);
+  assert.match(html,/0 of 3 copied outputs/); assert.doesNotMatch(html,/Verified for the reviewed scope/);
+});
+test("archive setup is global and has no per-simulation consent editor", () => {
+  const html = render(ArchiveSettings, {});
+  assert.match(html, /Global Master Git Archive/);
+  assert.match(html, /No uploads or remote synchronization/);
+  assert.doesNotMatch(html, /Review preservation settings|Archive this simulation/);
 });

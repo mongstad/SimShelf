@@ -25,6 +25,8 @@ from .source import blob_path
 from .workspace_lock import locked_store
 
 PREFIX = 'archive_v1:'
+PRESERVATION_PREFIX = 'preservation_v2:'
+NAMESPACES = (PREFIX, PRESERVATION_PREFIX)
 FILE_LIMIT = 25 * 1024**2
 RUN_LIMIT = 100 * 1024**2
 COUNT_LIMIT = 1000
@@ -46,21 +48,21 @@ def checked_review(review):
         raise ValueError('Invalid or oversized archive review. Refresh and review again.')
 
 
-def get(store, key, default=None):
+def get(store, key, default=None, *, namespace=PREFIX):
     with store.connection() as conn:
-        row = conn.execute('SELECT value FROM metadata WHERE key=?', (PREFIX + key,)).fetchone()
+        row = conn.execute('SELECT value FROM metadata WHERE key=?', (namespace + key,)).fetchone()
     return json.loads(row[0]) if row else default
 
 
 @locked_store
-def put(store, key, value):
+def put(store, key, value, *, namespace=PREFIX):
     with store.connection() as conn:
         # A late optional finalizer must not recreate associations after removal.
         from .removal import deleted_run
         parts = key.split(':')
         if len(parts) >= 2 and parts[0] in {'initial', 'pending', 'event', 'error'} and deleted_run(conn, parts[1]):
             return
-        conn.execute('INSERT OR REPLACE INTO metadata VALUES (?,?)', (PREFIX + key, json_text(value)))
+        conn.execute('INSERT OR REPLACE INTO metadata VALUES (?,?)', (namespace + key, json_text(value)))
 
 
 def save_connection(store, active, remembered):
@@ -74,6 +76,23 @@ def save_connection(store, active, remembered):
 def disconnect(store):
     saved = get(store, 'connection') or get(store, 'last_connection')
     save_connection(store, None, saved)
+
+
+def global_enabled(store):
+    # Missing/invalid state fails closed, including libraries from older builds.
+    return get(store, 'automatic_enabled') is True
+
+
+@locked_store
+def set_global_enabled(store, enabled):
+    if type(enabled) is not bool:
+        raise ValueError('Choose ON or OFF explicitly.')
+    if enabled:
+        status = connection_status(store)
+        if status['state'] != 'connected':
+            raise ValueError(status['reason'] or 'Connect the shared repository before enabling Master Git Archive.')
+    put(store, 'automatic_enabled', enabled)
+    return {'enabled': global_enabled(store), 'status': connection_status(store)}
 
 
 def hash_bytes(data):
@@ -275,9 +294,9 @@ def connection_status(store):
 
 
 @locked_store
-def automatic_status(store, ident):
+def legacy_status(store, ident, plan=None):
     """Mirror start-time consent checks without creating a plan or writing data."""
-    plan = get(store, 'settings:' + ident)
+    plan = plan if plan is not None else get(store, 'settings:' + ident)
     if not plan:
         return {'state': 'disabled', 'reason': None}
     try:
@@ -295,6 +314,12 @@ def automatic_status(store, ident):
         return {'state': 'enabled', 'reason': None}
     except (ValueError, OSError, KeyError, TypeError) as exc:
         return {'state': 'review_required', 'reason': str(exc)}
+
+
+def automatic_status(store, ident):
+    # Compatibility entry point; UI and recording share the same effective gate.
+    from .preservation import status
+    return status(store, ident)
 
 
 def future_rules(values):
@@ -328,24 +353,34 @@ def settings_preview(store, ident, future):
 @unavailable_errors
 @locked_store
 def enable(store, ident, review, confirmed=False):
+    from .preservation import get as preservation_get
+    if preservation_get(store, 'settings:' + ident) is not None:
+        raise ValueError('Use Preservation settings to review this simulation’s policy.')
     checked_review(review)
     if confirmed is not True or review != settings_preview(store, ident, review.get('future')):
         raise ValueError('Settings changed. Preview and explicitly confirm archive consent again.')
     put(store, 'settings:' + ident, {k: v for k, v in review.items() if k != 'previous'})
+    put(store, 'paused_settings:' + ident, None)
     return {'enabled': True}
 
 
 def entries(store, run_id):
     store.run(run_id, False)
     with store.connection() as conn:
-        rows = conn.execute('SELECT value FROM metadata WHERE key LIKE ?', (PREFIX + 'event:' + run_id + ':%',)).fetchall()
+        rows = conn.execute('SELECT value FROM metadata WHERE key LIKE ? OR key LIKE ?',
+                            tuple(prefix + 'event:' + run_id + ':%' for prefix in NAMESPACES)).fetchall()
     return sorted([json.loads(row[0]) for row in rows], key=lambda e: (e['created_at'], e['id']))
 
 
 def view(store, run_id):
+    from . import preservation
     events = entries(store, run_id)
-    return {'events': events, 'connection_status': connection_status(store), 'initial': get(store, 'initial:' + run_id),
-            'pending': get(store, 'pending:' + run_id), 'error': get(store, 'error:' + run_id)}
+    status = connection_status(store)
+    return {'events': events, 'connection_status': status,
+            'initial': preservation.get(store, 'initial:' + run_id) or get(store, 'initial:' + run_id),
+            'pending': preservation.get(store, 'pending:' + run_id) or get(store, 'pending:' + run_id),
+            'error': preservation.get(store, 'error:' + run_id) or get(store, 'error:' + run_id),
+            'preservation': preservation.summary(store, run_id, events, status)}
 
 
 def managed_entry(store, name, blob, size, category, artifact_id=None):
@@ -378,8 +413,10 @@ def additions_preview(store, run_id, artifact_ids):
 
 
 def budget(store, run_id, files):
-    existing = [f for e in entries(store, run_id) for f in e['files']]
-    if len(existing) + len(files) > COUNT_LIMIT or sum(f['size'] for f in existing + files) > RUN_LIMIT or any(f['size'] > FILE_LIMIT for f in files):
+    events = entries(store, run_id)
+    existing = [f for e in events for f in e['files']]
+    record_total = sum(len(json_text(e['record']).encode()) for e in events if e.get('record'))
+    if len(existing) + len(files) > COUNT_LIMIT or sum(f['size'] for f in existing + files) + record_total > RUN_LIMIT or any(f['size'] > FILE_LIMIT for f in files):
         raise ValueError('Cumulative run archive limit: 1,000 files, 25 MiB each, 100 MiB total, including additions.')
 
 
@@ -391,12 +428,12 @@ def additions(store, run_id, review, operation, confirmed=False):
         raise ValueError('Invalid archive operation ID.')
     if confirmed is not True:
         raise ValueError('Explicitly confirm the reviewed attachments.')
-    prior = get(store, 'event:' + run_id + ':' + operation)
+    prior = next((e for e in entries(store, run_id) if e['id'] == operation), None)
     if prior:
         if prior.get('review') != review:
             raise ValueError('Operation ID already belongs to another request.')
         return prior
-    pending = get(store, 'pending:' + run_id)
+    pending = get(store, 'pending:' + run_id) or get(store, 'pending:' + run_id, namespace=PRESERVATION_PREFIX)
     if pending:
         if pending['id'] != operation or pending.get('review') != review:
             raise ValueError('Resolve the pending archive operation first.')
@@ -408,19 +445,35 @@ def additions(store, run_id, review, operation, confirmed=False):
     return publish(store, run_id)
 
 
+def candidate_bytes(store, run_id, file):
+    if file.get('category') == 'process_log':
+        if file.get('stream') not in ('stdout', 'stderr'):
+            raise ValueError('Unsupported process log identity.')
+        return safe_read(store.path / 'logs' / run_id / (file['stream'] + '.log'))
+    return safe_read(blob_path(store.path, file['blob']))
+
+
 @unavailable_errors
 @locked_store
 def publish(store, run_id):
     run = store.run(run_id, False)
     if run['status'] == 'running':
         raise ValueError('Archive publication requires a finalized run.')
-    pending = get(store, 'pending:' + run_id)
-    if not pending:
+    candidates = [(prefix, get(store, 'pending:' + run_id, namespace=prefix)) for prefix in NAMESPACES]
+    candidates = [(prefix, value) for prefix, value in candidates if value]
+    if not candidates:
         return {'status': 'nothing pending'}
+    if len(candidates) != 1:
+        raise ValueError('Conflicting pending operations; inspect before retrying.')
+    namespace, pending = candidates[0]
     saved = connection(store)
     if saved['identity'] != pending['repository']['identity']:
         raise ValueError('Reconnect the archive associated with this operation.')
-    budget(store, run_id, pending['files'])
+    if pending.get('record'):
+        from .preservation import budget as preservation_budget
+        preservation_budget(store, run_id, pending['files'], pending['record'])
+    else:
+        budget(store, run_id, pending['files'])
     deadline = time.monotonic() + 120
     def within_budget():
         if time.monotonic() > deadline:
@@ -449,7 +502,7 @@ def publish(store, run_id):
                     within_budget()
                     data = f.get('data')
                     if data is None:
-                        data = safe_read(blob_path(store.path, f['blob']))
+                        data = candidate_bytes(store, run_id, f)
                         if len(data) != f['size'] or hash_bytes(data) != f['blob']:
                             raise ValueError('Managed archive candidate changed or is missing.')
                     oid = git(root, 'hash-object', '-w', '--stdin', data=data).decode().strip()
@@ -470,8 +523,8 @@ def publish(store, run_id):
         event = {**pending, 'files': files, 'commit': commit}
         # Association and pending removal are atomic; events never updated.
         with store.connection() as conn:
-            conn.execute('INSERT INTO metadata VALUES (?,?)', (PREFIX + 'event:' + run_id + ':' + pending['id'], json_text(event)))
-            conn.execute('DELETE FROM metadata WHERE key IN (?,?)', (PREFIX + 'pending:' + run_id, PREFIX + 'error:' + run_id))
+            conn.execute('INSERT INTO metadata VALUES (?,?)', (namespace + 'event:' + run_id + ':' + pending['id'], json_text(event)))
+            conn.execute('DELETE FROM metadata WHERE key IN (?,?)', (namespace + 'pending:' + run_id, namespace + 'error:' + run_id))
         return event
 
 
@@ -493,6 +546,9 @@ def download(store, run_id, event_id, index):
 
 
 def selected_output(name, plan):
+    if plan.get('format') == 2:
+        from .preservation import selected_output as selected
+        return selected(name, plan)
     relative = plan['capture_config']['output_dir'].rstrip('/') + '/' + name
     return future_match(name, plan['future']) or any(matches(relative, r) for r in plan['rules'])
 
@@ -523,6 +579,25 @@ def fingerprint_outputs(simulation, plan):
 
 def prepare(recorder):
     """Called under start lock; optional failures must never prevent execution."""
+    from .preservation import prepare as prepare_preservation, status
+    try:
+        effective = status(recorder.store, recorder.simulation['id'])
+        if effective['state'] != 'enabled':
+            put(recorder.store, 'initial:' + recorder.id,
+                {'state': 'not_enabled' if effective['state'] == 'disabled' else 'unavailable'},
+                namespace=PRESERVATION_PREFIX)
+            if effective['state'] != 'disabled':
+                put(recorder.store, 'error:' + recorder.id, effective['reason'], namespace=PRESERVATION_PREFIX)
+            return
+        if prepare_preservation(recorder):
+            return
+    except Exception as exc:
+        try:
+            put(recorder.store, 'initial:' + recorder.id, {'state': 'unavailable'}, namespace=PRESERVATION_PREFIX)
+            put(recorder.store, 'error:' + recorder.id, str(exc), namespace=PRESERVATION_PREFIX)
+        except Exception:
+            pass
+        return
     store = recorder.store
     try:
         plan = get(store, 'settings:' + recorder.simulation['id'])
@@ -622,10 +697,33 @@ def finalize(store, run_id):
 
 
 def finish_safely(store, run_id):
+    from . import preservation
+    namespace = PRESERVATION_PREFIX if preservation.get(store, 'initial:' + run_id) else PREFIX
     try:
-        finalize(store, run_id)
+        if namespace == PRESERVATION_PREFIX:
+            preservation.finalize(store, run_id)
+        else:
+            finalize(store, run_id)
     except Exception as exc:
         try:
-            put(store, 'error:' + run_id, str(exc))
+            put(store, 'error:' + run_id, str(exc), namespace=namespace)
         except Exception:
-            pass  # Optional archive failure must not replace scientific exit status.
+            pass  # Optional preservation failure never replaces scientific outcome.
+
+
+@unavailable_errors
+@locked_store
+def download_record(store, run_id, event_id):
+    event = next((e for e in entries(store, run_id) if e['id'] == event_id), None)
+    if not event:
+        raise ValueError('No preservation manifest for this event.')
+    saved = connection(store)
+    if saved['identity'] != event['repository']['identity']:
+        raise ValueError('Connect the original archive for this record.')
+    path = f"simulations/{event['simulation']}/runs/{run_id}/{event_id}/manifest.json"
+    expected = {k: v for k, v in event.items() if k not in ('review', 'repository', 'commit')}
+    with repo_lock(store, saved) as root:
+        raw = git(root, 'show', f"{event['commit']}:{path}", limit=16 * 1024**2)
+    if raw != json_text(expected).encode():
+        raise ValueError('Historical preservation record failed verification.')
+    return raw

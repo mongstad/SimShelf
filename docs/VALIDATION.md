@@ -395,3 +395,31 @@ is introduced; earlier evidence remains unchanged.
 See [issue #116 simulation versions](validation/issue-116-swss-versions.md) for
 companion-derived versions, legacy-only fallback, capture-time checks, preserved
 history, source/installed tests and owner verification.
+
+
+## Library preservation architecture audit
+
+See [issue #118 Phase 1](validation/issue-118-library-preservation-audit.md) for
+read-only inspection of the reported Git commit and managed/original bytes,
+selection-gap reproductions, A/B/A history, pinned standalone reference launches,
+focused regressions and the original one-library proposal. That dated report
+remains unchanged. See [issue #118 implementation](validation/issue-118-library-preservation.md)
+for the subsequent approved workflow, records, integrity/recovery checks, UI,
+package validation and limitations.
+
+The [issue #118 activation UX revision](validation/issue-118-preservation-activation.md)
+records prominent per-simulation status and controls, explicit confirmation,
+legacy/cancellation safety, theme and narrow-browser checks, and unchanged history.
+
+The [two-level archive revision](validation/issue-118-two-level-archive.md) supersedes
+that interaction model with one global toggle and one participation toggle, and
+records effective-state, actual Git contents, legacy/recovery, packaged-browser
+and backup/lifecycle checks. Earlier dated reports remain unchanged.
+
+
+## Issue #118 journal duplication regression
+
+The [journal duplication report](validation/issue-118-journal-duplication.md)
+records the reproduced sibling-key collision, full-App browser regressions,
+all-theme desktop/narrow verification and unchanged historical evidence. Earlier
+reports retain their original review-time findings.

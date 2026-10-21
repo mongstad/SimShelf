@@ -2124,7 +2124,7 @@ details label {
 .git-files button { margin-block: .25rem; }
 .git-file-warning { font-weight: 600; }
 
-.git-archive { border-top: 1px solid var(--border); margin-top: 1.25rem; padding-top: 1rem; overflow-wrap: anywhere; min-width: 0; }
+.git-archive { border-top: 1px solid var(--line); margin-top: 1.25rem; padding-top: 1rem; overflow-wrap: anywhere; min-width: 0; }
 .git-archive input:not([type=checkbox]), .git-archive textarea { max-width: 100%; }
 .git-archive .archive-choice { display: flex; flex-direction: row; align-items: center; gap: .5rem; }
 .git-archive .archive-choice input { flex: 0 0 auto; width: auto; }
@@ -2133,7 +2133,7 @@ details label {
 .git-archive button { margin-block: .3rem; }
 .git-archive h3 { margin-top: 1rem; }
 .git-archive p { margin-block: .55rem; }
-.git-archive fieldset { border: 1px solid var(--border); border-radius: 8px; padding: .75rem; margin-block: .75rem; }
+.git-archive fieldset { border: 1px solid var(--line); border-radius: 8px; padding: .75rem; margin-block: .75rem; }
 
 /* One historical inventory; status never depends on color alone. */
 .archive-connected { color: light-dark(#16804a, #64d99b); font-weight: 600; }
@@ -2243,3 +2243,30 @@ details label {
   cursor: pointer;
 }
 .log-controls input { width: auto; margin: 0; }
+
+/* One reviewed preservation workflow and consistent historical evidence state. */
+.preservation-settings fieldset { min-width: 0; }
+.preservation-settings .git-archive { margin-bottom: 1.5rem; }
+.preservation-settings .archive-choice, .git-archive .archive-choice { display: flex; align-items: flex-start; gap: .6rem; }
+.preservation-settings .archive-choice input, .git-archive .archive-choice input { width: auto; flex: none; margin-top: .25rem; }
+.preservation-status { padding: .75rem 1rem; border: 1px solid var(--line); border-radius: .75rem; margin: .75rem 0; }
+.preservation-status p { margin: .35rem 0; }
+.preservation-review { border: 1px solid var(--line); border-radius: .75rem; padding: 1rem; margin-top: 1rem; }
+.preservation-review code, .preservation-settings code, .run-file-download code { overflow-wrap: anywhere; }
+.preservation-review pre { max-height: 24rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .preservation-settings .rule-row { grid-template-columns: minmax(0, 1fr); }
+  .preservation-settings .settings-actions, .preservation-review .settings-actions { flex-wrap: wrap; }
+}
+
+/* Simulation activation stays directly beneath the shared archive connection. */
+.simulation-preservation { border: 1px solid var(--line); border-radius: 8px; padding: .75rem 1rem; margin: .75rem 0; }
+.simulation-preservation h3 { margin-top: 0; }
+.simulation-preservation .automatic-archive-line { margin-bottom: 0; }
+.preservation-unavailable { color: var(--amber); }
+.preservation-options > summary { font-weight: 600; }
+.preservation-review > h3:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.master-archive-settings h2 { margin: 0; }
+.preservation-settings > .surface { margin-bottom: 1rem; }
+.preservation-settings > .preservation-review { padding: 1rem; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }

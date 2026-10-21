@@ -304,8 +304,8 @@ audit tombstones, journal replay exclusion, queued file cleanup, shared baseline
 retention and schema-2 compatibility. Managed-data locks serialize snapshot/start,
 attachment publication, event replay, backups and reclamation across Linux
 threads/processes. Live simulations do not hold the lock for their lifetime.
-Source/log reads hold it while resolving and reading; artifact downloads retain an
-open inode so concurrent unlink cannot break bytes or range requests. Removal
+Source/log reads hold it while resolving and reading; artifact downloads freeze verified bytes into an
+open temporary stream so concurrent unlink cannot break bytes or range requests. Removal
 never mutates surviving execution metadata or traverses original output paths.
 
 
@@ -348,11 +348,12 @@ Restored/moved library bindings require reconnection. No-Git recording remains
 independent; local commits and remote synchronization are deferred follow-ups.
 
 
-## Reviewed Git file preferences
+## Legacy Git file preferences
 
-[Git file selection](GIT_FILE_SELECTION.md) is separate from recorder provenance:
+[Legacy Git file selection](GIT_FILE_SELECTION.md) is separate from recorder provenance:
 bounded metadata inventories and typed file/folder/extension rules produce exact
-current-path previews. The configured base capture subtree is pruned before source
+current-path previews. These endpoints preserve existing clients; current UI
+configuration uses the combined preservation review below. The configured base capture subtree is pruned before source
 inventory traversal;
 its boundary metadata and configured path participate in the review revision.
 Git classification is scoped to inventoried literal files; output descendants
@@ -381,7 +382,8 @@ Issue #56 adds read-only archive/consent status projections and a unified Run fi
 presentation. Attachment associations require identity, size and hash; separate
 archive events keep their historical download addresses. The source Git section
 retains its independent connection. Publication, recovery, storage and scientific
-records are unchanged; portable manifests/notes remain design-only. See the
+records remain unchanged. The later format-2 local records described below add
+reviewed notes without defining portable semantics. See the
 [approved Stage A design](MASTER_ARCHIVE_UX_DESIGN.md).
 
 Archive connection changes require explicit disconnection first. A location-bound
@@ -496,3 +498,32 @@ This remains periodically refreshed guidance, not a reservation or authorization
 boundary: external activity can start after a response. Existing transactional
 removal/relocation guards, already-open dialogs and missing-source recovery stay
 unchanged. Schema-1 removal remains unavailable even when the cogwheel is enabled.
+
+
+## One-library preservation workflow
+
+[Library preservation](LIBRARY_PRESERVATION_DESIGN.md) implements one capture/Git
+review, recursive managed-output inclusion and format-2 local records. Separate
+`preservation_v2:` policies, pending operations and events preserve legacy consent
+semantics without a schema migration. Explicit adoption saves capture and new
+consent atomically and disables the legacy active setting; old plans/events stay
+unchanged. Existing publication locks, operation refs and byte verification apply.
+
+Automatic preservation now uses one effective-state gate: global ON, verified
+shared repository, individual participation, and valid reviewed scope. The global
+preference defaults OFF when absent; connection alone never activates Git. The
+single simulation switch retains exact reviewed choices when paused, including
+legacy consent. Both preferences are included in backups; location/identity checks
+still prevent implicit activation after restore. Active runs retain frozen plans.
+See [two-level state details](LIBRARY_PRESERVATION_DESIGN.md#two-level-automatic-participation).
+
+Run summaries distinguish execution, capture and policy-relative Git completeness.
+Legacy manifest-only events remain unchanged and explicitly have no scientific
+payloads. Files joins snapshots, copies and Git revisions by exact identity/hash;
+source/artifact retrieval verifies retained bytes. Later saved notes, captions and
+manual attachments require reviewed append-only events, with bounded records and
+cumulative budgets. Pending attachment blobs survive existing cleanup and backup.
+Backups still exclude the external Git repository; Git alone cannot restore a
+workspace. Source Git remains independent. See the unchanged
+[Phase 1 audit](validation/issue-118-library-preservation-audit.md) and the
+[implementation validation](validation/issue-118-library-preservation.md).

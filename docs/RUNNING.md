@@ -58,7 +58,7 @@ launch, including after restoring a backup.
 The capture folder is relative to the registered source root, even with a different
 working directory. Point the script at the same output location using its own
 arguments or `SIMSHELF_OUTPUT_DIR`. It must not overwrite another job's results.
-The existing **File capture** rules control copies/references/ignored files. Runs
+The existing **Preservation settings** capture rules control copies/references/ignored files. Runs
 with overlapping capture folders are rejected; distinct folders allow concurrent
 runs. SimShelf does not redirect arbitrary script writes or rewrite source.
 
@@ -359,9 +359,9 @@ folders; saved portal preferences do not change them.
 
 Capture rules and copy/reference budgets apply relative to each allocated folder.
 The configured parent remains excluded from source snapshots, including older
-sibling runs. Automatic Git archive selection remains separately consented; its
-result paths are relative to the run folder. Changing the configured parent or
-capture rules still requires reviewing archive consent. References and original
+sibling runs. The combined Preservation settings review includes explicit Git
+inclusion; result paths are relative to the actual run capture folder. Changing
+the configured parent or capture rules requires reviewing the policy again. References and original
 folders are not included in library backups.
 
 Allocation rejects traversal, symlink directories, non-directories and collisions;

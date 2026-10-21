@@ -41,6 +41,7 @@ export function OutputPaths({
         launch. Your script must use SIMSHELF_OUTPUT_DIR or joined run.output_dir.
         Fixed paths below do not follow that folder; no arguments are rewritten.
       </p>}
+      {captureReview?.output_policy !== "per_run" && <p className="muted">Simulation-owned unique output directories beneath this fixed parent are inspected recursively. No launcher coordination is required.</p>}
       <p className="muted">
         SimShelf inspects this folder only. It does not redirect script writes.
         Declare output paths below to check coverage; other writes cannot be

@@ -13,8 +13,8 @@
 | Expose parameters and understand discovery limits | [Simulation parameters](PARAMETER_DISCOVERY.md) |
 | Enable optional progress and understand unknown reports | [Progress reporting](PROGRESS.md) |
 | Connect an existing source repository without changing it | [Source Git history](GIT_PROVENANCE.md) |
-| Save inclusion preferences or review ignore additions | [Git file selection](GIT_FILE_SELECTION.md) |
-| Configure a separate shared archive and download historical files | [Shared Git archive](GIT_ARCHIVE.md) |
+| Understand retained legacy file-selection preferences | [Legacy Git file selection](GIT_FILE_SELECTION.md) |
+| Review preservation settings, later annotations and historical files | [Shared Git archive](GIT_ARCHIVE.md) |
 | Deliberately delete records or manually attached images | [Simulation removal](SIMULATION_REMOVAL.md), [Run removal](RUN_REMOVAL.md), [Screenshot deletion](SCREENSHOT_DELETION.md) |
 
 ## Technical references
@@ -25,7 +25,8 @@
 - [Validation evidence](VALIDATION.md): dated checks and their limitations; historical reports
   retain their original review-time wording and are not current installation instructions.
 - Design boundaries: [progress storage](PROGRESS_DESIGN.md),
-  [Git archive](GIT_ARCHIVE_DESIGN.md), [master archive Stage A](MASTER_ARCHIVE_UX_DESIGN.md).
+  [Git archive](GIT_ARCHIVE_DESIGN.md), [master archive Stage A](MASTER_ARCHIVE_UX_DESIGN.md),
+  [one-library preservation implementation](LIBRARY_PRESERVATION_DESIGN.md).
   Design documents can describe deferred work; use the user guides for available features.
 
 For command syntax run `./start.sh --cli --help` from the checkout, then
