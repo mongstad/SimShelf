@@ -21,7 +21,10 @@ parameters and source context, so you can return to past work and compare runs.
   <a href="docs/images/03.png"><img src="docs/images/03.png" alt="SimShelf completed run record with progress, captured field image and provenance" width="32%"></a>
 </p>
 
-<p align="center"><sub>Run history · Git archive · Run record — select any image for full size</sub></p>
+<p align="center"><sub>Earlier interface: run history · Git archive · Run record — select any image for full size</sub></p>
+
+Current builds combine capture and archive choices in **Preservation settings**;
+source development history is under **Source Git**.
 
 **[Get started: open the portal and record your first run](docs/GETTING_STARTED.md)**
 
@@ -53,9 +56,12 @@ From a checkout, `./start.sh --setup` explicitly installs SimShelf's dedicated
 environment; `./start.sh` opens the portal. This does not install scientific
 packages into simulation interpreters. Follow the guide for a disposable first run.
 
-## Optional local Git archive
+## One preservation workflow
 
-Keep selected source, configuration and modest text results such as CSV in a
+Use **Preservation settings** to review capture and Git inclusion together.
+Recursive copied JSON/CSV/log output can include simulation-created subdirectories.
+Run views separate execution, capture and Git completeness; later notes and
+captions require explicit append-only review. Keep selected evidence in a
 shared local archive, with separate per-run commits and exact historical file
 downloads. Git is not cloud storage: local commits upload nothing. Repeated large
 binary results such as NPZ/WVZ files can rapidly grow history and slow cloning,

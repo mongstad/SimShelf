@@ -402,5 +402,7 @@ history, source/installed tests and owner verification.
 See [issue #118 Phase 1](validation/issue-118-library-preservation-audit.md) for
 read-only inspection of the reported Git commit and managed/original bytes,
 selection-gap reproductions, A/B/A history, pinned standalone reference launches,
-focused regressions and the owner-reviewable one-library proposal. No Phase 2
-workflow, runtime or storage correction is implemented; earlier reports are unchanged.
+focused regressions and the original one-library proposal. That dated report
+remains unchanged. See [issue #118 implementation](validation/issue-118-library-preservation.md)
+for the subsequent approved workflow, records, integrity/recovery checks, UI,
+package validation and limitations.

@@ -8,7 +8,7 @@ of Git. Existing recorded Git fields are retained as historical observations.
 
 1. Register each simulation using its existing source folder. Prefer a folder per
    simulation project, with all its Python/configuration files together.
-2. Select a simulation and open **Git history**. SimShelf discovers its containing
+2. Select a simulation and open **Source Git**. SimShelf discovers its containing
    local repository from the registered source folder, including parent repositories
    and standard linked worktrees. **Repository found** shows the resolved root.
    An independent nested repository is proposed instead of its parent.
