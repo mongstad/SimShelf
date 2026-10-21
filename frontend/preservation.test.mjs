@@ -143,3 +143,13 @@ test("legacy participation displays retained scope without reinterpreting it", (
   assert.match(html, /Existing legacy scope is retained/);
   assert.deepEqual(state, before);
 });
+
+test("unknown status never reports a confirmed OFF or active state", () => {
+  const html = control(null);
+  assert.match(html, /Checking archive status/);
+  assert.match(html, /disabled=""/);
+  assert.doesNotMatch(html, />OFF<|Local library only|Git active/);
+  const failed = control(null, "Status request failed");
+  assert.match(failed, /Git unavailable/);
+  assert.doesNotMatch(failed, /Checking archive status|Local library only|Git active/);
+});

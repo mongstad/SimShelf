@@ -1601,7 +1601,7 @@ function App() {
                   administrationReturnFocus.current = e.currentTarget; setModal("relocate");
                 }}>Locate source folder…</button>}
               </div>}
-              {simulation && <PreservationSettings key={`${simulation.id}:${simulation.root}`} simulation={simulation} onSaved={refresh} showOptions={page === "capture"}>
+              {simulation && <PreservationSettings key={`preservation:${simulation.id}:${simulation.root}`} simulation={simulation} onSaved={refresh} showOptions={page === "capture"}>
                 <nav className="tabs" aria-label="Simulation sections">
                   <button
                     className={page === "runs" ? "active" : ""}
@@ -2049,7 +2049,7 @@ function App() {
                   }}
                 />
               )}
-              {page === "git" && simulation && <GitHistory key={`${simulation.id}:${simulation.root}`} simulation={simulation} simulations={simulations} />}
+              {page === "git" && simulation && <GitHistory key={`source-git:${simulation.id}:${simulation.root}`} simulation={simulation} simulations={simulations} />}
             </>
           )}
         </div>

@@ -415,3 +415,11 @@ The [two-level archive revision](validation/issue-118-two-level-archive.md) supe
 that interaction model with one global toggle and one participation toggle, and
 records effective-state, actual Git contents, legacy/recovery, packaged-browser
 and backup/lifecycle checks. Earlier dated reports remain unchanged.
+
+
+## Issue #118 journal duplication regression
+
+The [journal duplication report](validation/issue-118-journal-duplication.md)
+records the reproduced sibling-key collision, full-App browser regressions,
+all-theme desktop/narrow verification and unchanged historical evidence. Earlier
+reports retain their original review-time findings.

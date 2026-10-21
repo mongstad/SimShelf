@@ -147,7 +147,7 @@ export function SimulationPreservationControl({
   actionRef: React.RefObject<HTMLButtonElement | null>;
 }) {
   const status = state?.status;
-  const active = status?.state === "enabled",
+  const active = !error && status?.state === "enabled",
     participating = !!status?.participating;
   const unavailable =
     !!error || (!!status && !["enabled", "disabled"].includes(status.state));
@@ -160,9 +160,10 @@ export function SimulationPreservationControl({
         <strong>Archive this simulation</strong>
         <ArchiveSwitch
           label="Archive this simulation"
-          checked={participating}
+          checked={status ? participating : null}
           disabled={
             busy ||
+            !!error ||
             !status?.global_enabled ||
             (!participating && status?.connection !== "connected")
           }
@@ -183,11 +184,13 @@ export function SimulationPreservationControl({
             ? "✓ Git active"
             : unavailable
               ? "⚠ Git unavailable"
-              : "Local library only"}
+              : !status
+                ? "Checking archive status…"
+                : "Local library only"}
         </span>
       </div>
-      {(!state || !status?.global_enabled || unavailable) && (
-        <p>{error || (!state ? "Checking archive status…" : status?.reason)}</p>
+      {(error || status?.reason) && (!status?.global_enabled || unavailable) && (
+        <p>{error || status?.reason}</p>
       )}
       {status?.legacy && (
         <small>
@@ -254,6 +257,7 @@ export function PreservationSettings({
   }
   useEffect(() => {
     void load(true).catch((e) => setMessage(e.message));
+    return () => { request.current++; };
   }, [simulation.id]);
   useEffect(() => {
     if (busy || review) return;

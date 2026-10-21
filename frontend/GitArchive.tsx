@@ -13,7 +13,7 @@ export function ArchiveSwitch({
   actionRef,
 }: {
   label: string;
-  checked: boolean;
+  checked: boolean | null;
   disabled: boolean;
   onChange: () => void;
   actionRef?: React.RefObject<HTMLButtonElement | null>;
@@ -24,13 +24,13 @@ export function ArchiveSwitch({
       type="button"
       role="switch"
       aria-label={label}
-      aria-checked={checked}
+      aria-checked={checked === true}
       className="archive-toggle"
       disabled={disabled}
       onClick={onChange}
     >
       <span className="archive-toggle-knob" aria-hidden="true" />
-      {checked ? "ON" : "OFF"}
+      {checked === null ? "—" : checked ? "ON" : "OFF"}
     </button>
   );
 }
