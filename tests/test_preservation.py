@@ -383,3 +383,29 @@ def test_pinned_standalone_reference_new_policy_fixed_and_uncoordinated(tmp_path
         original.append((run, event))
     for run, event in original: assert verify(store, repo, run) == event
     for name, digest in hashes.items(): assert hashlib.sha256((root / name).read_bytes()).hexdigest() == digest
+
+
+def test_browser_review_roundtrip_keeps_exact_timestamps_and_large_parameters(library):
+    store, repo, (sim, _) = library
+    # Emulate JavaScript Number's loss of precision beyond 2**53, including
+    # real output mtime_ns and exact scientific parameter values in the preview.
+    def browser(value):
+        return json.loads(json.dumps(value), parse_int=lambda x: int(float(x)) if abs(int(x)) > 2**53 else int(x))
+    (Path(sim['root']) / 'outputs').mkdir()
+    (Path(sim['root']) / 'outputs' / 'previous.json').write_text('{}')
+    review = preservation.preview(store, sim['id'], sim['config'], options())
+    preservation.save(store, sim['id'], browser(review), True)
+    integer = 2**60 + 1
+    with Run(sim['id'], workspace=store.path, capture_console=False, parameters={'exact_integer': integer}) as recorder:
+        pass
+    store.emit(recorder.id, 'annotation', {'notes': 'Reviewed interpretation'})
+    review = preservation.additions_preview(store, recorder.id, [], True)
+    assert str(integer) in review['record_json']
+    rounded = browser(review)
+    assert rounded['record']['execution']['parameters']['exact_integer'] != integer
+    op = uuid.uuid4().hex
+    event = preservation.additions(store, recorder.id, rounded, op, True)
+    assert preservation.additions(store, recorder.id, rounded, op, True) == event
+    assert event['record']['execution']['parameters']['exact_integer'] == integer
+    manifest = json.loads(archive.download_record(store, recorder.id, event['id']))
+    assert manifest['record']['execution']['parameters']['exact_integer'] == integer

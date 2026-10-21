@@ -100,6 +100,7 @@ def preview(store, ident, config, options):
               'legacy': archive.get(store, 'settings:' + ident),
               'record_scope': ['exact argv and cwd', 'outcome and simulation version', 'snapshot identities and modes',
                                'recorded parameters and their sources', 'capture result', 'selected evidence and omissions']}
+    result['fingerprint'] = archive.hash_bytes(json_text(result).encode())
     archive.checked_review(result)
     return result
 
@@ -108,8 +109,12 @@ def preview(store, ident, config, options):
 @locked_store
 def save(store, ident, review, confirmed=False):
     archive.checked_review(review)
-    if confirmed is not True or review != preview(store, ident, review.get('config'), review.get('options')):
+    fresh = preview(store, ident, review.get('config'), review.get('options'))
+    if confirmed is not True or review.get('fingerprint') != fresh['fingerprint']:
         raise ValueError('Preservation choices or files changed. Review again before confirming.')
+    # Browser numbers can round nanosecond timestamps or scientific integers.
+    # The digest binds the exact server review; persist only freshly checked values.
+    review = fresh
     policy = {k: review[k] for k in ('format', 'config', 'options', 'repository', 'workspace', 'binding')}
     policy['revision'] = uuid.uuid4().hex
     # Preserve the previous legacy consent as evidence, while preventing old builds
@@ -344,7 +349,9 @@ def additions_preview(store, run_id, artifact_ids, include_notes=False):
     review = {'run': run_id, 'simulation': run['simulation_id'], 'repository': saved, 'files': files,
               'artifact_ids': artifact_ids, 'include_notes': include_notes, 'record': record,
               'events': [e['id'] for e in archive.entries(store, run_id)]}
-    if len(json_text(review).encode()) > 2 * RECORD_LIMIT:
+    review['record_json'] = json_text(record)
+    review['fingerprint'] = archive.hash_bytes(json_text(review).encode())
+    if len(json_text(review).encode()) > 3 * RECORD_LIMIT:
         raise ValueError('Preservation review exceeds its bounded size.')
     return review
 
@@ -352,23 +359,26 @@ def additions_preview(store, run_id, artifact_ids, include_notes=False):
 @archive.unavailable_errors
 @locked_store
 def additions(store, run_id, review, operation, confirmed=False):
-    if not isinstance(review, dict) or len(json_text(review).encode()) > 2 * RECORD_LIMIT:
+    if not isinstance(review, dict) or len(json_text(review).encode()) > 3 * RECORD_LIMIT:
         raise ValueError('Invalid or oversized preservation review.')
     if not isinstance(operation, str) or not re.fullmatch('[0-9a-f]{32}', operation) or confirmed is not True:
         raise ValueError('Explicitly confirm the reviewed preservation operation.')
+    receipt = {k: review.get(k) for k in ('run', 'simulation', 'fingerprint', 'artifact_ids', 'include_notes')}
     prior = next((e for e in archive.entries(store, run_id) if e['id'] == operation), None)
     if prior:
-        if prior.get('review') != review:
+        if prior.get('review') != receipt:
             raise ValueError('Operation ID belongs to different reviewed evidence.')
         return prior
     pending = get(store, 'pending:' + run_id) or archive.get(store, 'pending:' + run_id)
     if pending:
-        if pending['id'] != operation or pending.get('review') != review:
+        if pending['id'] != operation or pending.get('review') != receipt:
             raise ValueError('Resolve the pending preservation operation first.')
         return archive.publish(store, run_id)
-    if review != additions_preview(store, run_id, review.get('artifact_ids'), review.get('include_notes')):
+    fresh = additions_preview(store, run_id, review.get('artifact_ids'), review.get('include_notes'))
+    if review.get('fingerprint') != fresh['fingerprint'] or receipt != {k: fresh[k] for k in receipt}:
         raise ValueError('Evidence, notes or archive changed. Review again.')
-    put(store, 'pending:' + run_id, {'id': operation, 'created_at': now(), 'kind': 'addition', 'review': review,
+    review = fresh
+    put(store, 'pending:' + run_id, {'id': operation, 'created_at': now(), 'kind': 'addition', 'review': receipt,
         'repository': review['repository'], 'simulation': review['simulation'], 'run': run_id,
         'files': review['files'], 'skipped': [], 'record': review['record']})
     return archive.publish(store, run_id)
