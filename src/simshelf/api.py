@@ -160,6 +160,17 @@ class GitConnectInput(BaseModel):
     confirmed: bool = False
 
 
+class PreservationRequest(BaseModel):
+    model_config = {"extra": "forbid", "strict": True}
+    config: dict = Field(default_factory=dict)
+    options: dict = Field(default_factory=dict)
+    review: dict = Field(default_factory=dict)
+    confirmed: bool = False
+    artifact_ids: list[str] = Field(default_factory=list, max_length=1000)
+    include_notes: bool = False
+    operation: str = Field(default="", max_length=32)
+
+
 class RunUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=160)
     notes: str | None = Field(None, max_length=50000)
@@ -223,7 +234,7 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
         from .progress import enable_progress
         return enable_progress(store, confirmed=body.confirmed)
 
-    from . import git_archive as archive
+    from . import git_archive as archive, preservation
 
     @app.get("/api/workspace/archive")
     def archive_connection():
@@ -245,9 +256,14 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
     @app.get("/api/simulations/{ident}/archive")
     def archive_settings(ident: str):
         store.simulation(ident)
-        return {"settings": archive.get(store, 'settings:' + ident), "automatic_status": archive.automatic_status(store, ident),
-                "runs": [{"run": r['id'], "name": r['name'], "events": archive.entries(store, r['id'])}
-                         for r in store.runs(simulation=ident, limit=200)]}
+        connection = archive.connection_status(store)
+        runs = []
+        for run in store.runs(simulation=ident, limit=200):
+            events = archive.entries(store, run['id'])
+            runs.append({'run': run['id'], 'name': run['name'], 'events': events,
+                         'preservation': preservation.summary(store, run['id'], events, connection)})
+        return {"settings": archive.get(store, 'settings:' + ident),
+                "automatic_status": preservation.status(store, ident), "runs": runs}
 
     @app.post("/api/simulations/{ident}/archive/preview")
     def archive_settings_preview(ident: str, body: ArchiveRequest):
@@ -259,8 +275,13 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
 
     @app.post("/api/simulations/{ident}/archive/disable")
     def archive_disable(ident: str):
-        store.simulation(ident)
-        archive.put(store, 'settings:' + ident, None)
+        with workspace_lock(store.path):
+            store.simulation(ident)
+            archive.put(store, 'settings:' + ident, None)
+            policy = preservation.get(store, 'settings:' + ident)
+            if policy:
+                policy['options']['enabled'] = False
+                preservation.put(store, 'settings:' + ident, policy)
         return {"disabled": True}
 
     @app.get("/api/runs/{ident}/archive")
@@ -287,6 +308,42 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
         name, data = archive.download(store, ident, event_id, index)
         return Response(data, media_type='application/octet-stream', headers={
             'Content-Disposition': "attachment; filename*=UTF-8''" + quote(clean_name(name), safe='')})
+
+    @app.get("/api/simulations/{ident}/preservation")
+    def preservation_settings(ident: str):
+        sim = store.simulation(ident)
+        return {"policy": preservation.get(store, 'settings:' + ident),
+                "legacy": archive.get(store, 'settings:' + ident), "config": sim['config'],
+                "status": preservation.status(store, ident), "connection": archive.connection_status(store)}
+
+    @app.post("/api/simulations/{ident}/preservation/preview")
+    def preservation_preview(ident: str, body: PreservationRequest):
+        return preservation.preview(store, ident, body.config, body.options)
+
+    @app.post("/api/simulations/{ident}/preservation/save")
+    def preservation_save(ident: str, body: PreservationRequest):
+        return preservation.save(store, ident, body.review, body.confirmed)
+
+    @app.post("/api/runs/{ident}/preservation/preview")
+    def preservation_additions_preview(ident: str, body: PreservationRequest):
+        return preservation.additions_preview(store, ident, body.artifact_ids, body.include_notes)
+
+    @app.post("/api/runs/{ident}/preservation/add")
+    def preservation_additions(ident: str, body: PreservationRequest):
+        return preservation.additions(store, ident, body.review, body.operation, body.confirmed)
+
+    @app.get("/api/runs/{ident}/archive/{event_id}/record")
+    def preservation_record(ident: str, event_id: str):
+        data = archive.download_record(store, ident, event_id)
+        return Response(data, media_type='application/octet-stream', headers={
+            'Content-Disposition': 'attachment; filename="preservation-record.json"'})
+
+    @app.get("/api/runs/{ident}/source-file")
+    def retained_source_file(ident: str, path: str):
+        from urllib.parse import quote
+        data = preservation.retained_source(store, ident, path)
+        return Response(data, media_type='application/octet-stream', headers={
+            'Content-Disposition': "attachment; filename*=UTF-8''" + quote(clean_name(path), safe='')})
 
     @app.get("/api/workspace")
     def workspace_info():
@@ -491,7 +548,7 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
                 images = [json.loads(r[0]) for r in conn.execute("SELECT data FROM artifacts WHERE run_id=?", (run["id"],))]
                 images = [a for a in images if a["policy"] == "copy" and a.get("media_type", "") in {"image/png", "image/jpeg", "image/webp", "image/gif"}]
                 run["image_count"] = len(images)
-                run["archive_commits"] = conn.execute("SELECT count(*) FROM metadata WHERE key LIKE ?", (archive.PREFIX + "event:" + run["id"] + ":%",)).fetchone()[0]
+                run["archive_commits"] = conn.execute("SELECT count(*) FROM metadata WHERE key LIKE ? OR key LIKE ?", tuple(prefix + "event:" + run["id"] + ":%" for prefix in archive.NAMESPACES)).fetchone()[0]
                 run["cover_id"] = run.get("cover_id") if any(a["id"] == run.get("cover_id") for a in images) else (images[0]["id"] if images else None)
         return result
 
@@ -550,7 +607,7 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
                 raise ValueError("Source file not found in this snapshot")
             if entry["size"] > 1024 * 1024:
                 raise ValueError("Source preview is limited to 1 MB per file")
-            text = blob_path(store.path, entry["blob"]).read_bytes().decode(errors="replace")
+            text = preservation.retained_source(store, ident, path).decode(errors="replace")
             if compare:
                 with store.connection() as conn:
                     removed = deleted_run(conn, compare)
@@ -559,7 +616,12 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
                 else:
                     other_snapshot = store.run(compare)["snapshot"]
                 previous = next((f for f in other_snapshot["files"] if f["path"] == path), None)
-                old = blob_path(store.path, previous["blob"]).read_text(errors="replace") if previous and previous["size"] <= 1024 * 1024 else ""
+                old = ""
+                if previous and previous["size"] <= 1024 * 1024:
+                    raw = archive.safe_read(blob_path(store.path, previous["blob"]), 1024 * 1024)
+                    if len(raw) != previous['size'] or archive.hash_bytes(raw) != previous['blob']:
+                        raise ValueError('Comparison source failed integrity verification.')
+                    old = raw.decode(errors="replace")
                 return {"text": "".join(difflib.unified_diff(old.splitlines(True), text.splitlines(True), fromfile=f"{compare[:8]}/{path}", tofile=f"{ident[:8]}/{path}")) or "No changes in this file."}
             return {"text": text}
 
@@ -605,9 +667,7 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
             artifact = store.artifact(ident)
             safe_inline = {"image/png", "image/jpeg", "image/webp", "image/gif", "video/mp4", "text/plain", "text/csv", "application/json"}
             media = artifact.get("media_type", "application/octet-stream")
-            path = store.artifact_file(ident)
-            # Open under the lock; unlinking later cannot invalidate this stream.
-            stream = path.open("rb")
+            stream = preservation.retained_artifact(store, ident)
             return OpenFileResponse(stream, media_type=media if media in safe_inline else "application/octet-stream", filename=clean_name(artifact["name"]), content_disposition_type="attachment" if download or media not in safe_inline else "inline")
 
     @app.post("/api/backup")

@@ -69,9 +69,11 @@ def saved_settings(store, ident, binding):
     return saved if saved and saved.get('binding') == binding else None
 
 
-def inventory(store, ident):
+def inventory(store, ident, *, config=None):
     """Metadata only, except bounded .gitignore text; never read scientific files."""
     simulation = store.simulation(ident)
+    if config is not None:
+        simulation = {**simulation, 'config': validate_config(config)}
     source = Path(simulation['root'])
     # Use the declared base, never resolve links or infer output semantics from names.
     capture = Path(validate_config(simulation['config'])['output_dir']).as_posix()

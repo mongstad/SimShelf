@@ -7,7 +7,7 @@ import sqlite3
 
 from .common import json_text, now
 from . import removal
-from .git_archive import PREFIX as ARCHIVE
+from .git_archive import PREFIX as ARCHIVE, NAMESPACES
 from .git_provenance import KEY as GIT
 from .git_selection import KEY as SELECTION
 from .workspace_lock import locked_store
@@ -43,9 +43,9 @@ def state(conn, ident):
             f'SELECT t.* FROM {table} t JOIN runs r ON t.run_id=r.id WHERE r.simulation_id=? ORDER BY t.rowid', (ident,))]
     metadata = []
     for key, value in conn.execute('SELECT key,value FROM metadata ORDER BY key'):
-        suffix = key[len(ARCHIVE):] if key.startswith(ARCHIVE) else ''
+        suffix = next((key[len(prefix):] for prefix in NAMESPACES if key.startswith(prefix)), '')
         parts = suffix.split(':')
-        if key in {SELECTION + ident, ARCHIVE + 'settings:' + ident} or (
+        if key in {SELECTION + ident, *(prefix + 'settings:' + ident for prefix in NAMESPACES)} or (
             len(parts) >= 2 and parts[0] in {'event', 'initial', 'pending', 'error'} and parts[1] in all_ids
         ):
             metadata.append([key, value])
@@ -58,8 +58,8 @@ def state(conn, ident):
         'annotations': len(records['annotations']), 'measurements': len(records['metrics']),
         'copies': sum(bool(a.get('blob')) for a in artifacts),
         'references': sum(a.get('policy') == 'reference' for a in artifacts),
-        'archive_events': sum(k.startswith(ARCHIVE + 'event:') for k, _ in metadata),
-        'archive_pending': sum(k.startswith(ARCHIVE + 'pending:') for k, _ in metadata),
+        'archive_events': sum(any(k.startswith(prefix + 'event:') for prefix in NAMESPACES) for k, _ in metadata),
+        'archive_pending': sum(any(k.startswith(prefix + 'pending:') for prefix in NAMESPACES) for k, _ in metadata),
     }
     active = any(blocks_administration(r) for r in runs)
     revision = hashlib.sha256(json_text([version, simulation, runs, records, metadata, mapping]).encode()).hexdigest()

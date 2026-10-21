@@ -39,9 +39,11 @@ def create_backup(store: Store, destination: Path) -> Path:
             runs = [json.loads(r[0]) for r in conn.execute("SELECT data FROM runs")]
             artifacts = [json.loads(r[0]) for r in conn.execute("SELECT data FROM artifacts")]
             retained_snapshots = snapshot_ids(conn)
+            from .preservation import pending_blobs
+            retained_pending = pending_blobs(conn)
             conn.execute("DELETE FROM metadata WHERE key LIKE 'cleanup:%'")
         files = {"simshelf.sqlite3": snapshot_db}
-        keys = {a["blob"] for a in artifacts if a.get("blob")}
+        keys = {a["blob"] for a in artifacts if a.get("blob")} | retained_pending
         for ident in retained_snapshots:
             snapshot = read_snapshot(store.path, ident)
             files[f"snapshots/{snapshot['id']}.json"] = store.path / "snapshots" / f"{snapshot['id']}.json"
