@@ -20,6 +20,43 @@ A Git event describes exactly what was preserved under a reviewed scope. These
 are complementary parts of one library; none proves complete scientific
 reproducibility. Git alone is not a restorable SimShelf workspace.
 
+## Two-level automatic participation
+
+`preservation.status` is the effective-state authority for both UI and recording
+start. Automatic Git requires global ON, a connected identity-verified repository,
+individual participation and a valid reviewed policy. Every other state continues
+ordinary library recording. `git_archive.automatic_status` delegates to it; both
+legacy and format-2 recorders pass the same gate before freezing a run plan.
+Changing switches never rewrites a frozen plan, pending approved operation or
+historical event. Explicit later additions/retries retain their separate reviewed
+recovery semantics; the global switch controls new automatic run preservation.
+
+The additive metadata key `archive_v1:automatic_enabled` defaults to OFF when
+absent/invalid. Explicit global ON verifies the connection; OFF changes only this
+key. Format-2 participation uses the existing policy's `options.enabled`, not a
+second competing flag. Disabling preserves the approved binding/selection so a
+valid unchanged policy can resume without reapproval. A disabled unreviewed draft
+cannot resume merely because it exists; it must pass the same enabled-policy
+validation or receive explicit review.
+
+Legacy ON uses the original active settings. OFF atomically moves the exact
+consent to `archive_v1:paused_settings:<simulation>`, clearing its old active key.
+Resume revalidates and restores the identical consent; it does not convert legacy
+rules to recursive format-2 defaults. Explicit adoption retains legacy evidence
+in the new policy. Existing relocation/removal handling includes paused current
+settings, while retaining historical records. No schema migration is introduced.
+Backups include these metadata preferences; moved/restored libraries still fail
+workspace/identity binding checks until explicit reconnection and policy review.
+Older binaries do not implement the new global gate: do not downgrade and expect
+this switch to govern their recording behavior.
+
+The global repository area lives outside simulations. Repository availability is
+status information, with explicit setup/disconnect actions and no connection
+switch. Each simulation has one participation switch above its tabs. Advanced
+options configure scope only; first participation uses one preview/confirmation.
+Backend status drives the switch, and periodic refresh cannot overwrite a pending
+review or a newer action response.
+
 ## Reviewed policy
 
 `preservation.py` stores format-2 policies in the additive `preservation_v2:`

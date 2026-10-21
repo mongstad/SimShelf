@@ -509,6 +509,14 @@ semantics without a schema migration. Explicit adoption saves capture and new
 consent atomically and disables the legacy active setting; old plans/events stay
 unchanged. Existing publication locks, operation refs and byte verification apply.
 
+Automatic preservation now uses one effective-state gate: global ON, verified
+shared repository, individual participation, and valid reviewed scope. The global
+preference defaults OFF when absent; connection alone never activates Git. The
+single simulation switch retains exact reviewed choices when paused, including
+legacy consent. Both preferences are included in backups; location/identity checks
+still prevent implicit activation after restore. Active runs retain frozen plans.
+See [two-level state details](LIBRARY_PRESERVATION_DESIGN.md#two-level-automatic-participation).
+
 Run summaries distinguish execution, capture and policy-relative Git completeness.
 Legacy manifest-only events remain unchanged and explicitly have no scientific
 payloads. Files joins snapshots, copies and Git revisions by exact identity/hash;

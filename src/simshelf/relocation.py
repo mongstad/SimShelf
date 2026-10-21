@@ -98,9 +98,9 @@ def review_state(store, conn, ident, path):
                 execution_settings({**simulation, 'root': str(root)}, execution)
             except ValueError as exc:
                 warnings.append(f'Before launching, review saved execution settings: {exc}')
-    keys = [GIT_KEY, SELECTION_KEY + ident, ARCHIVE_PREFIX + 'settings:' + ident]
+    keys = [GIT_KEY, SELECTION_KEY + ident, ARCHIVE_PREFIX + 'settings:' + ident, ARCHIVE_PREFIX + 'paused_settings:' + ident]
     settings = [list(row) for row in conn.execute(
-        'SELECT key,value FROM metadata WHERE key IN (?,?,?) ORDER BY key', keys)]
+        'SELECT key,value FROM metadata WHERE key IN (?,?,?,?) ORDER BY key', keys)]
     revision = hashlib.sha256(json_text([simulation, signatures, settings]).encode()).hexdigest()
     return {'simulation_id': ident, 'old_path': simulation['root'], 'new_path': str(root),
             'revision': revision, 'warnings': warnings}
@@ -134,8 +134,8 @@ def relocate(store, ident, review, confirmed=False):
         conn.execute('UPDATE simulations SET data=? WHERE id=?', (json_text(simulation), ident))
         # Only current location-bound preferences. Historical archive events and
         # the independent master connection remain untouched, even after return.
-        conn.execute('DELETE FROM metadata WHERE key IN (?,?)',
-                     (SELECTION_KEY + ident, ARCHIVE_PREFIX + 'settings:' + ident))
+        conn.execute('DELETE FROM metadata WHERE key IN (?,?,?)',
+                     (SELECTION_KEY + ident, ARCHIVE_PREFIX + 'settings:' + ident, ARCHIVE_PREFIX + 'paused_settings:' + ident))
         row = conn.execute('SELECT value FROM metadata WHERE key=?', (GIT_KEY,)).fetchone()
         if row:
             connection = json.loads(row[0])

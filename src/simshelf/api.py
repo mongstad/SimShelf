@@ -160,6 +160,11 @@ class GitConnectInput(BaseModel):
     confirmed: bool = False
 
 
+class ArchiveToggleRequest(BaseModel):
+    model_config = {"extra": "forbid", "strict": True}
+    enabled: bool
+
+
 class PreservationRequest(BaseModel):
     model_config = {"extra": "forbid", "strict": True}
     config: dict = Field(default_factory=dict)
@@ -239,7 +244,15 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
     @app.get("/api/workspace/archive")
     def archive_connection():
         return {"connection": archive.get(store, 'connection'), "remembered_connection": archive.get(store, 'last_connection'),
-                "status": archive.connection_status(store)}
+                "status": archive.connection_status(store), "enabled": archive.global_enabled(store)}
+
+    @app.post("/api/workspace/archive/automatic")
+    def archive_automatic(body: ArchiveToggleRequest):
+        return archive.set_global_enabled(store, body.enabled)
+
+    @app.post("/api/simulations/{ident}/preservation/participation")
+    def preservation_participation(ident: str, body: ArchiveToggleRequest):
+        return preservation.set_participation(store, ident, body.enabled)
 
     @app.post("/api/workspace/archive/connect")
     def archive_connect(body: ArchiveRequest):
@@ -275,13 +288,7 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
 
     @app.post("/api/simulations/{ident}/archive/disable")
     def archive_disable(ident: str):
-        with workspace_lock(store.path):
-            store.simulation(ident)
-            archive.put(store, 'settings:' + ident, None)
-            policy = preservation.get(store, 'settings:' + ident)
-            if policy:
-                policy['options']['enabled'] = False
-                preservation.put(store, 'settings:' + ident, policy)
+        preservation.set_participation(store, ident, False)
         return {"disabled": True}
 
     @app.get("/api/runs/{ident}/archive")
@@ -313,7 +320,7 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
     def preservation_settings(ident: str):
         sim = store.simulation(ident)
         return {"policy": preservation.get(store, 'settings:' + ident),
-                "legacy": archive.get(store, 'settings:' + ident), "config": sim['config'],
+                "legacy": archive.get(store, 'settings:' + ident) or archive.get(store, 'paused_settings:' + ident), "config": sim['config'],
                 "status": preservation.status(store, ident), "connection": archive.connection_status(store)}
 
     @app.post("/api/simulations/{ident}/preservation/preview")

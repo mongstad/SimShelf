@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import { api } from "./api";
-import { ArchiveSettings, archiveLimits } from "./GitArchive";
+import {
+  ArchiveSwitch,
+  SimulationArchiveHistory,
+  archiveLimits,
+} from "./GitArchive";
 import type { Config, Simulation } from "./types";
 
 type Review = Record<string, any>;
@@ -131,103 +135,65 @@ export function SimulationPreservationControl({
   name,
   state,
   busy,
-  onEnable,
-  onDisable,
-  onReview,
+  onToggle,
   actionRef,
-  reviewRef,
   error = "",
 }: {
   name: string;
   state: Review | null;
   busy: boolean;
   error?: string;
-  reviewRef: React.RefObject<HTMLButtonElement | null>;
-  onEnable: () => void;
-  onDisable: () => void;
-  onReview: () => void;
+  onToggle: () => void;
   actionRef: React.RefObject<HTMLButtonElement | null>;
 }) {
-  const connected = state?.connection?.state === "connected";
-  const requested = !!(state?.policy?.options.enabled || state?.legacy);
-  const enabled = connected && state?.status.state === "enabled";
+  const status = state?.status;
+  const active = status?.state === "enabled",
+    participating = !!status?.participating;
   const unavailable =
-    !!error ||
-    (!!state &&
-      (!connected || !["enabled", "disabled"].includes(state.status.state)));
-  const label =
-    !state && !error
-      ? "Checking status…"
-      : unavailable
-        ? "Unavailable"
-        : enabled
-          ? "Enabled"
-          : "Disabled";
+    !!error || (!!status && !["enabled", "disabled"].includes(status.state));
   return (
     <section
       className="simulation-preservation"
       aria-label={`Git preservation — ${name}`}
     >
-      <h3>Git preservation — {name}</h3>
       <div className="automatic-archive-line">
-        <strong
+        <strong>Archive this simulation</strong>
+        <ArchiveSwitch
+          label="Archive this simulation"
+          checked={participating}
+          disabled={
+            busy ||
+            !status?.global_enabled ||
+            (!participating && status?.connection !== "connected")
+          }
+          onChange={onToggle}
+          actionRef={actionRef}
+        />
+        <span
           role="status"
           className={
-            enabled
+            active
               ? "archive-connected"
               : unavailable
                 ? "preservation-unavailable"
                 : "muted"
           }
         >
-          <span aria-hidden="true">
-            {enabled ? "✓ " : unavailable ? "⚠ " : "○ "}
-          </span>
-          {label}
-        </strong>
-        {requested ? (
-          <>
-            <button
-              ref={actionRef}
-              disabled={busy || !state}
-              onClick={onDisable}
-            >
-              Disable Git preservation
-            </button>
-            <button
-              ref={reviewRef}
-              disabled={busy || !connected}
-              onClick={onReview}
-            >
-              Review Git preservation
-            </button>
-          </>
-        ) : (
-          <button
-            ref={actionRef}
-            className="primary"
-            disabled={busy || !connected}
-            onClick={onEnable}
-          >
-            Enable Git preservation
-          </button>
-        )}
+          {active
+            ? "✓ Git active"
+            : unavailable
+              ? "⚠ Git unavailable"
+              : "Local library only"}
+        </span>
       </div>
-      <p>
-        {unavailable
-          ? error ||
-            (!connected
-              ? "Connect the shared Master Git Archive to enable preservation."
-              : state?.status.reason ||
-                "Review preservation choices before the next run.")
-          : enabled
-            ? "Future runs use this simulation’s confirmed choices."
-            : "Connecting the archive does not enable this simulation."}
-      </p>
-      {state?.legacy && !state.policy && (
-        <p>Legacy choices remain in effect until explicitly reviewed.</p>
+      {(!state || !status?.global_enabled || unavailable) && (
+        <p>{error || (!state ? "Checking archive status…" : status?.reason)}</p>
       )}
-      <small>Disabling keeps all existing Git history.</small>
+      {status?.legacy && (
+        <small>
+          Existing legacy scope is retained. Review options only to change it.
+        </small>
+      )}
     </section>
   );
 }
@@ -235,9 +201,13 @@ export function SimulationPreservationControl({
 export function PreservationSettings({
   simulation,
   onSaved,
+  showOptions = true,
+  children,
 }: {
   simulation: Simulation;
   onSaved: () => void;
+  showOptions?: boolean;
+  children?: React.ReactNode;
 }) {
   const [config, setConfig] = useState<Config>(
     structuredClone(simulation.config),
@@ -252,17 +222,20 @@ export function PreservationSettings({
     [sources, setSources] = useState("");
   const reviewHeading = useRef<HTMLHeadingElement>(null),
     activation = useRef<HTMLButtonElement>(null),
-    reviewTrigger = useRef<HTMLButtonElement>(null),
     trigger = useRef<HTMLButtonElement>(null);
-  const returnTo = useRef<"activation" | "choices" | "review">("activation");
+  const returnTo = useRef<"activation" | "choices">("activation");
   const restore = useRef(false);
   const endpoint = `/simulations/${simulation.id}/preservation`;
+  const request = useRef(0);
   async function load(reset = false) {
+    const sequence = ++request.current;
     let result: Review;
     try {
       result = await api<Review>(endpoint);
+      if (sequence !== request.current) return;
       setLoadError("");
     } catch (e) {
+      if (sequence !== request.current) return;
       setState(null);
       setLoadError((e as Error).message);
       throw e;
@@ -271,7 +244,7 @@ export function PreservationSettings({
     if (reset) {
       const o = result.policy?.options || {
         ...initialOptions,
-        enabled: !!result.legacy,
+        enabled: !!result.status.participating,
       };
       setOptions(o);
       setConfig(result.config);
@@ -283,20 +256,26 @@ export function PreservationSettings({
     void load(true).catch((e) => setMessage(e.message));
   }, [simulation.id]);
   useEffect(() => {
+    if (busy || review) return;
+    const timer = setInterval(() => {
+      void load().catch((e) => setMessage(e.message));
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [busy, review, simulation.id]);
+  useEffect(() => {
     if (review) {
       reviewHeading.current?.focus();
       restore.current = true;
     } else if (!busy && restore.current) {
       (returnTo.current === "activation"
         ? activation
-        : returnTo.current === "review"
-          ? reviewTrigger
-          : trigger
+        : trigger
       ).current?.focus();
       restore.current = false;
     }
   }, [review, busy]);
   async function action(work: () => Promise<void>) {
+    request.current++;
     setBusy(true);
     setMessage("");
     try {
@@ -309,10 +288,7 @@ export function PreservationSettings({
       setBusy(false);
     }
   }
-  function reviewChoices(
-    from: "activation" | "choices" | "review",
-    defaults = false,
-  ) {
+  function reviewChoices(from: "activation" | "choices", defaults = false) {
     if (!state) return;
     returnTo.current = from;
     restore.current = true;
@@ -323,9 +299,10 @@ export function PreservationSettings({
           body: JSON.stringify({
             config: defaults ? state.config : config,
             options: defaults
-              ? { ...initialOptions, enabled: true }
+              ? { ...(state.policy?.options || initialOptions), enabled: true }
               : {
                   ...options,
+                  enabled: !!state.status.participating,
                   sources: options.all_sources ? [] : lines(sources),
                   extensions: lines(extensions),
                 },
@@ -334,269 +311,279 @@ export function PreservationSettings({
       ),
     );
   }
-  function disable() {
+  function toggleParticipation() {
+    if (!state) return;
+    if (!state.status.participating && !state.status.can_resume) {
+      reviewChoices("activation", true);
+      return;
+    }
     returnTo.current = "activation";
     restore.current = true;
     void action(async () => {
-      await api(`/simulations/${simulation.id}/archive/disable`, {
+      await api(endpoint + "/participation", {
         method: "POST",
+        body: JSON.stringify({ enabled: !state.status.participating }),
       });
       setState(null);
       await load(true);
       onSaved();
-      setMessage(
-        "Git preservation disabled. Existing Git history is unchanged.",
-      );
+      setMessage("Participation updated. Existing Git history is unchanged.");
     });
   }
   return (
-    <section className="surface preservation-settings">
-      <h2>Preservation settings</h2>
-      <ArchiveSettings
-        simulation={simulation}
-        disabled={busy || !!review}
-        onChanged={() => {
-          setReview(null);
-          void load().catch((e) => setMessage(e.message));
-        }}
-      >
-        <SimulationPreservationControl
-          name={simulation.name}
-          state={state}
-          busy={busy || !!review}
-          actionRef={activation}
-          reviewRef={reviewTrigger}
-          error={loadError}
-          onEnable={() => reviewChoices("activation", true)}
-          onDisable={disable}
-          onReview={() => reviewChoices("review")}
-        />
-        {message && <p role="status">{message}</p>}
-        {review && (
-          <section
-            className="preservation-review"
-            aria-label="Preservation settings review"
-          >
-            <h3 ref={reviewHeading} tabIndex={-1}>
-              Review future preservation
-            </h3>
-            <PreservationReview review={review} />
-            <div className="settings-actions">
-              <button
-                disabled={busy}
-                onClick={() => {
+    <section className="preservation-settings">
+      <SimulationPreservationControl
+        name={simulation.name}
+        state={state}
+        busy={busy || !!review}
+        actionRef={activation}
+        error={loadError}
+        onToggle={toggleParticipation}
+      />
+      {message && <p role="status">{message}</p>}
+      {review && (
+        <section
+          className="preservation-review"
+          aria-label="Preservation settings review"
+        >
+          <h3 ref={reviewHeading} tabIndex={-1}>
+            Review future preservation
+          </h3>
+          <PreservationReview review={review} />
+          <div className="settings-actions">
+            <button
+              disabled={busy}
+              onClick={() => {
+                setReview(null);
+                setMessage("Review canceled. Saved settings are unchanged.");
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              className="primary"
+              disabled={busy}
+              onClick={() =>
+                void action(async () => {
+                  await api(endpoint + "/save", {
+                    method: "POST",
+                    body: JSON.stringify({ review, confirmed: true }),
+                  });
+                  setState(null);
                   setReview(null);
-                  setMessage("Review canceled. Saved settings are unchanged.");
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="primary"
-                disabled={busy}
-                onClick={() =>
-                  void action(async () => {
-                    await api(endpoint + "/save", {
-                      method: "POST",
-                      body: JSON.stringify({ review, confirmed: true }),
-                    });
-                    setState(null);
-                    setReview(null);
-                    await load(true);
-                    onSaved();
-                    setMessage("Preservation settings saved for future runs.");
-                  })
-                }
-              >
-                Confirm preservation settings
-              </button>
-            </div>
-          </section>
-        )}
-      </ArchiveSettings>
-      <details className="preservation-options">
-        <summary>Capture and Git options</summary>
-        <fieldset disabled={busy || !!review || !state}>
-          <legend>Capture and Git choices for future runs</legend>
-          <label>
-            Output parent folder
-            <input
-              value={config.output_dir}
-              onChange={(e) =>
-                setConfig({ ...config, output_dir: e.target.value })
+                  await load(true);
+                  onSaved();
+                  setMessage("Preservation settings saved for future runs.");
+                })
               }
-            />
-            <small>
-              Relative to the simulation folder. Use the fixed parent when your
-              simulation creates its own unique subdirectories. Recording
-              inspects nested files without changing the script or its
-              arguments.
-            </small>
-          </label>
-          <p>
-            Capture rules run in order; the first matching rule wins. Keep a
-            copy stores bytes in the library, Reference only stores a path, and
-            Ignore leaves bytes out. Originals are never removed.
-          </p>
-          {config.rules.map((rule, i) => (
-            <div className="rule-row" key={i}>
-              <input
-                aria-label={`Rule ${i + 1} pattern`}
-                value={rule.pattern}
-                onChange={(e) =>
-                  setConfig({
-                    ...config,
-                    rules: config.rules.map((r, j) =>
-                      i === j ? { ...r, pattern: e.target.value } : r,
-                    ),
-                  })
-                }
-              />
-              <select
-                aria-label={`Rule ${i + 1} policy`}
-                value={rule.action}
-                onChange={(e) =>
-                  setConfig({
-                    ...config,
-                    rules: config.rules.map((r, j) =>
-                      i === j ? { ...r, action: e.target.value as "copy" } : r,
-                    ),
-                  })
-                }
-              >
-                <option value="copy">Keep a copy</option>
-                <option value="reference">Reference only</option>
-                <option value="ignore">Ignore</option>
-              </select>
-              <button
-                aria-label={`Remove rule ${i + 1}`}
-                onClick={() =>
-                  setConfig({
-                    ...config,
-                    rules: config.rules.filter((_, j) => i !== j),
-                  })
-                }
-              >
-                Remove
-              </button>
-            </div>
-          ))}
-          <button
-            onClick={() =>
-              setConfig({
-                ...config,
-                rules: [...config.rules, { pattern: "", action: "copy" }],
-              })
-            }
-          >
-            Add capture rule
-          </button>
-          <div className="form-grid">
-            <label>
-              Maximum file size to copy (MB)
-              <input
-                type="number"
-                min="0.001"
-                step="any"
-                value={config.max_file_mb}
-                onChange={(e) =>
-                  setConfig({ ...config, max_file_mb: Number(e.target.value) })
-                }
-              />
-            </label>
-            <label>
-              Copy budget per run (MB)
-              <input
-                type="number"
-                min="0.001"
-                step="any"
-                value={config.max_run_mb}
-                onChange={(e) =>
-                  setConfig({ ...config, max_run_mb: Number(e.target.value) })
-                }
-              />
-            </label>
+            >
+              Confirm preservation settings
+            </button>
           </div>
-          <details>
-            <summary>Source snapshot patterns</summary>
-            <label>
-              Include patterns, one per line
-              <textarea
-                value={config.source_include.join("\n")}
-                onChange={(e) =>
+        </section>
+      )}
+      {children}
+      {showOptions && (
+        <div className="surface">
+          <h2>Preservation settings</h2>
+          <p>
+            Configure what is captured and archived. Local library capture is
+            always active.
+          </p>
+          <details className="preservation-options" open>
+            <summary>Capture and Git options</summary>
+            <fieldset disabled={busy || !!review || !state}>
+              <legend>Capture and Git choices for future runs</legend>
+              <label>
+                Output parent folder
+                <input
+                  value={config.output_dir}
+                  onChange={(e) =>
+                    setConfig({ ...config, output_dir: e.target.value })
+                  }
+                />
+                <small>
+                  Relative to the simulation folder. Use the fixed parent when
+                  your simulation creates its own unique subdirectories.
+                  Recording inspects nested files without changing the script or
+                  its arguments.
+                </small>
+              </label>
+              <p>
+                Capture rules run in order; the first matching rule wins. Keep a
+                copy stores bytes in the library, Reference only stores a path,
+                and Ignore leaves bytes out. Originals are never removed.
+              </p>
+              {config.rules.map((rule, i) => (
+                <div className="rule-row" key={i}>
+                  <input
+                    aria-label={`Rule ${i + 1} pattern`}
+                    value={rule.pattern}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        rules: config.rules.map((r, j) =>
+                          i === j ? { ...r, pattern: e.target.value } : r,
+                        ),
+                      })
+                    }
+                  />
+                  <select
+                    aria-label={`Rule ${i + 1} policy`}
+                    value={rule.action}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        rules: config.rules.map((r, j) =>
+                          i === j
+                            ? { ...r, action: e.target.value as "copy" }
+                            : r,
+                        ),
+                      })
+                    }
+                  >
+                    <option value="copy">Keep a copy</option>
+                    <option value="reference">Reference only</option>
+                    <option value="ignore">Ignore</option>
+                  </select>
+                  <button
+                    aria-label={`Remove rule ${i + 1}`}
+                    onClick={() =>
+                      setConfig({
+                        ...config,
+                        rules: config.rules.filter((_, j) => i !== j),
+                      })
+                    }
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() =>
                   setConfig({
                     ...config,
-                    source_include: e.target.value.split("\n"),
+                    rules: [...config.rules, { pattern: "", action: "copy" }],
                   })
                 }
-              />
-            </label>
-            <label>
-              Exclude patterns, one per line
-              <textarea
-                value={config.source_exclude.join("\n")}
-                onChange={(e) =>
-                  setConfig({
-                    ...config,
-                    source_exclude: e.target.value.split("\n"),
-                  })
-                }
-              />
-            </label>
+              >
+                Add capture rule
+              </button>
+              <div className="form-grid">
+                <label>
+                  Maximum file size to copy (MB)
+                  <input
+                    type="number"
+                    min="0.001"
+                    step="any"
+                    value={config.max_file_mb}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        max_file_mb: Number(e.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <label>
+                  Copy budget per run (MB)
+                  <input
+                    type="number"
+                    min="0.001"
+                    step="any"
+                    value={config.max_run_mb}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        max_run_mb: Number(e.target.value),
+                      })
+                    }
+                  />
+                </label>
+              </div>
+              <details>
+                <summary>Source snapshot patterns</summary>
+                <label>
+                  Include patterns, one per line
+                  <textarea
+                    value={config.source_include.join("\n")}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        source_include: e.target.value.split("\n"),
+                      })
+                    }
+                  />
+                </label>
+                <label>
+                  Exclude patterns, one per line
+                  <textarea
+                    value={config.source_exclude.join("\n")}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        source_exclude: e.target.value.split("\n"),
+                      })
+                    }
+                  />
+                </label>
+              </details>
+              <label className="archive-choice">
+                <input
+                  type="checkbox"
+                  checked={options.all_sources}
+                  onChange={(e) =>
+                    setOptions({ ...options, all_sources: e.target.checked })
+                  }
+                />{" "}
+                Include all captured source snapshot files in Git
+              </label>
+              {!options.all_sources && (
+                <label>
+                  Selected source paths, one per line
+                  <textarea
+                    value={sources}
+                    onChange={(e) => setSources(e.target.value)}
+                  />
+                </label>
+              )}
+              <label>
+                Recursive Git output extensions, one per line
+                <textarea
+                  value={extensions}
+                  onChange={(e) => setExtensions(e.target.value)}
+                />
+                <small>
+                  For example .json, .csv and .log. Exact case; only new or
+                  changed outputs with Keep a copy coverage and verified managed
+                  bytes qualify, at any depth below the capture folder.
+                </small>
+              </label>
+              <label className="archive-choice">
+                <input
+                  type="checkbox"
+                  checked={options.process_logs}
+                  onChange={(e) =>
+                    setOptions({ ...options, process_logs: e.target.checked })
+                  }
+                />{" "}
+                Include recorded stdout and stderr in Git
+              </label>
+            </fieldset>
+            {!review && (
+              <button
+                ref={trigger}
+                className="primary"
+                disabled={busy || !state}
+                onClick={() => reviewChoices("choices")}
+              >
+                Review preservation settings
+              </button>
+            )}
           </details>
-          <label className="archive-choice">
-            <input
-              type="checkbox"
-              checked={options.all_sources}
-              onChange={(e) =>
-                setOptions({ ...options, all_sources: e.target.checked })
-              }
-            />{" "}
-            Include all captured source snapshot files in Git
-          </label>
-          {!options.all_sources && (
-            <label>
-              Selected source paths, one per line
-              <textarea
-                value={sources}
-                onChange={(e) => setSources(e.target.value)}
-              />
-            </label>
-          )}
-          <label>
-            Recursive Git output extensions, one per line
-            <textarea
-              value={extensions}
-              onChange={(e) => setExtensions(e.target.value)}
-            />
-            <small>
-              For example .json, .csv and .log. Exact case; only new or changed
-              outputs with Keep a copy coverage and verified managed bytes
-              qualify, at any depth below the capture folder.
-            </small>
-          </label>
-          <label className="archive-choice">
-            <input
-              type="checkbox"
-              checked={options.process_logs}
-              onChange={(e) =>
-                setOptions({ ...options, process_logs: e.target.checked })
-              }
-            />{" "}
-            Include recorded stdout and stderr in Git
-          </label>
-        </fieldset>
-        {!review && (
-          <button
-            ref={trigger}
-            className="primary"
-            disabled={busy || !state}
-            onClick={() => reviewChoices("choices")}
-          >
-            Review preservation settings
-          </button>
-        )}
-      </details>
+          <SimulationArchiveHistory simulation={simulation} />
+        </div>
+      )}
     </section>
   );
 }

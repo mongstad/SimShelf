@@ -45,7 +45,7 @@ def state(conn, ident):
     for key, value in conn.execute('SELECT key,value FROM metadata ORDER BY key'):
         suffix = next((key[len(prefix):] for prefix in NAMESPACES if key.startswith(prefix)), '')
         parts = suffix.split(':')
-        if key in {SELECTION + ident, *(prefix + 'settings:' + ident for prefix in NAMESPACES)} or (
+        if key in {SELECTION + ident, *(prefix + kind + ident for prefix in NAMESPACES for kind in ('settings:', 'paused_settings:'))} or (
             len(parts) >= 2 and parts[0] in {'event', 'initial', 'pending', 'error'} and parts[1] in all_ids
         ):
             metadata.append([key, value])

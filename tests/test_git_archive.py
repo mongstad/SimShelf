@@ -17,6 +17,7 @@ def setup(tmp_path):
     store = Store(tmp_path / 'library')
     repo = tmp_path / 'archive'; repo.mkdir()
     archive.connect(store, str(repo), True, True)
+    archive.set_global_enabled(store, True)
     sims = []
     for name in ('alpha', 'beta'):
         root = tmp_path / name; root.mkdir()
@@ -147,7 +148,8 @@ def test_optout_unsafe_config_and_missing_git_do_not_fail_recording(setup,monkey
     monkeypatch.setenv('PATH','/nonexistent')
     ident=run_output(store,b,'third')
     assert store.run(ident)['status']=='completed'
-    assert archive.view(store,ident)['pending']
+    assert archive.view(store,ident)['error']
+    assert not archive.view(store,ident)['events']
 
 
 def test_consent_stale_paths_and_links(setup,tmp_path):
@@ -365,7 +367,7 @@ def test_read_only_status_and_downloads_independent_of_source_git(setup, monkeyp
     saved = archive.get(store, 'connection')
     archive.put(store, 'connection', None)
     assert archive.connection_status(store)['state'] == 'disconnected'
-    assert archive.automatic_status(store, a['id'])['state'] == 'review_required'
+    assert archive.automatic_status(store, a['id'])['state'] == 'unavailable'
     assert archive.view(store, ident)['events'] == [event]
     artifact = next(x for x in store.run(ident)['artifacts'] if x['policy'] == 'copy')
     assert store.artifact_file(artifact['id']).read_bytes() == b'one'
@@ -374,7 +376,7 @@ def test_read_only_status_and_downloads_independent_of_source_git(setup, monkeyp
     assert archive.download(store, ident, event['id'], 0)
     monkeypatch.setattr(archive.shutil, 'which', lambda name: None)
     assert archive.connection_status(store)['state'] == 'unavailable'
-    assert archive.automatic_status(store, a['id'])['state'] == 'review_required'
+    assert archive.automatic_status(store, a['id'])['state'] == 'unavailable'
     assert store.artifact_file(artifact['id']).read_bytes() == b'one'
 
 
@@ -395,7 +397,7 @@ def test_consent_projection_disabled_stale_and_future_matches(setup):
     archive.put(store, 'connection', saved)
     (repo / 'simshelf-archive-id').write_text('wrong')
     assert archive.connection_status(store)['state'] == 'unavailable'
-    assert archive.automatic_status(store, b['id'])['state'] == 'review_required'
+    assert archive.automatic_status(store, b['id'])['state'] == 'unavailable'
 
 
 def test_api_availability_disconnect_reload_and_workspace_copy(setup):
@@ -497,7 +499,7 @@ def test_verified_reconnect_preserves_consent_history_and_running_plan(setup):
     assert archive.connection_status(Store(store.path))['state'] == 'disconnected'
     assert [archive.get(store, 'settings:' + s['id']) for s in (a, b)] == consent
     assert archive.get(store, 'initial:' + running.id) == plan
-    assert archive.automatic_status(store, a['id'])['state'] == 'review_required'
+    assert archive.automatic_status(store, a['id'])['state'] == 'unavailable'
     with pytest.raises(ValueError):
         archive.settings_preview(store, a['id'], [])
     file = next(f for f in store.run(ident)['artifacts'] if f['policy'] == 'copy')

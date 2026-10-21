@@ -48,6 +48,7 @@ def library(tmp_path):
     repo = tmp_path / 'archive'
     repo.mkdir()
     archive.connect(store, str(repo), initialize=True, confirmed=True)
+    archive.set_global_enabled(store, True)
     simulations = []
     for name in ('alpha', 'beta'):
         root = tmp_path / name
@@ -221,6 +222,7 @@ def test_audit_pinned_decay_reference(tmp_path, policy, copied):
     repo = tmp_path / 'archive'
     repo.mkdir()
     archive.connect(store, str(repo), initialize=True, confirmed=True)
+    archive.set_global_enabled(store, True)
     sim = store.add_simulation(root, entrypoint='simulate.py')
     rules = [{'kind': 'file', 'value': name} for name in expected] + TEXT_RULES
     consent(store, sim, rules, [])

@@ -78,6 +78,23 @@ def disconnect(store):
     save_connection(store, None, saved)
 
 
+def global_enabled(store):
+    # Missing/invalid state fails closed, including libraries from older builds.
+    return get(store, 'automatic_enabled') is True
+
+
+@locked_store
+def set_global_enabled(store, enabled):
+    if type(enabled) is not bool:
+        raise ValueError('Choose ON or OFF explicitly.')
+    if enabled:
+        status = connection_status(store)
+        if status['state'] != 'connected':
+            raise ValueError(status['reason'] or 'Connect the shared repository before enabling Master Git Archive.')
+    put(store, 'automatic_enabled', enabled)
+    return {'enabled': global_enabled(store), 'status': connection_status(store)}
+
+
 def hash_bytes(data):
     return hashlib.sha256(data).hexdigest()
 
@@ -277,9 +294,9 @@ def connection_status(store):
 
 
 @locked_store
-def automatic_status(store, ident):
+def legacy_status(store, ident, plan=None):
     """Mirror start-time consent checks without creating a plan or writing data."""
-    plan = get(store, 'settings:' + ident)
+    plan = plan if plan is not None else get(store, 'settings:' + ident)
     if not plan:
         return {'state': 'disabled', 'reason': None}
     try:
@@ -297,6 +314,12 @@ def automatic_status(store, ident):
         return {'state': 'enabled', 'reason': None}
     except (ValueError, OSError, KeyError, TypeError) as exc:
         return {'state': 'review_required', 'reason': str(exc)}
+
+
+def automatic_status(store, ident):
+    # Compatibility entry point; UI and recording share the same effective gate.
+    from .preservation import status
+    return status(store, ident)
 
 
 def future_rules(values):
@@ -337,6 +360,7 @@ def enable(store, ident, review, confirmed=False):
     if confirmed is not True or review != settings_preview(store, ident, review.get('future')):
         raise ValueError('Settings changed. Preview and explicitly confirm archive consent again.')
     put(store, 'settings:' + ident, {k: v for k, v in review.items() if k != 'previous'})
+    put(store, 'paused_settings:' + ident, None)
     return {'enabled': True}
 
 
@@ -555,8 +579,16 @@ def fingerprint_outputs(simulation, plan):
 
 def prepare(recorder):
     """Called under start lock; optional failures must never prevent execution."""
-    from .preservation import prepare as prepare_preservation
+    from .preservation import prepare as prepare_preservation, status
     try:
+        effective = status(recorder.store, recorder.simulation['id'])
+        if effective['state'] != 'enabled':
+            put(recorder.store, 'initial:' + recorder.id,
+                {'state': 'not_enabled' if effective['state'] == 'disabled' else 'unavailable'},
+                namespace=PRESERVATION_PREFIX)
+            if effective['state'] != 'disabled':
+                put(recorder.store, 'error:' + recorder.id, effective['reason'], namespace=PRESERVATION_PREFIX)
+            return
         if prepare_preservation(recorder):
             return
     except Exception as exc:

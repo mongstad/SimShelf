@@ -2267,4 +2267,6 @@ details label {
 .preservation-options > summary { font-weight: 600; }
 .preservation-review > h3:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
-.preservation-settings > .git-archive { border-top: 0; margin-top: .75rem; padding-top: 0; }
+.master-archive-settings h2 { margin: 0; }
+.preservation-settings > .surface { margin-bottom: 1rem; }
+.preservation-settings > .preservation-review { padding: 1rem; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }

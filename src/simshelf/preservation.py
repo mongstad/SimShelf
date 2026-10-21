@@ -97,7 +97,7 @@ def preview(store, ident, config, options):
               'repository': saved, 'workspace': workspace_identity(store), 'binding': location_binding(sim) if options['enabled'] else source_binding(sim),
               'source_revision': revision, 'sources': source, 'outputs': outputs, 'warnings': warnings,
               'previous_config': sim['config'], 'previous': get(store, 'settings:' + ident),
-              'legacy': archive.get(store, 'settings:' + ident),
+              'legacy': archive.get(store, 'settings:' + ident) or archive.get(store, 'paused_settings:' + ident),
               'record_scope': ['exact argv and cwd', 'outcome and simulation version', 'snapshot identities and modes',
                                'recorded parameters and their sources', 'capture result', 'selected evidence and omissions']}
     result['fingerprint'] = archive.hash_bytes(json_text(result).encode())
@@ -115,6 +115,8 @@ def save(store, ident, review, confirmed=False):
     # Browser numbers can round nanosecond timestamps or scientific integers.
     # The digest binds the exact server review; persist only freshly checked values.
     review = fresh
+    if review['options']['enabled'] and not archive.global_enabled(store) and not status(store, ident)['participating']:
+        raise ValueError('Master Git Archive is OFF. Enable it before confirming participation.')
     policy = {k: review[k] for k in ('format', 'config', 'options', 'repository', 'workspace', 'binding')}
     policy['revision'] = uuid.uuid4().hex
     # Preserve the previous legacy consent as evidence, while preventing old builds
@@ -124,24 +126,84 @@ def save(store, ident, review, confirmed=False):
         sim = json.loads(db.execute('SELECT data FROM simulations WHERE id=?', (ident,)).fetchone()[0])
         sim['config'] = review['config']
         db.execute('UPDATE simulations SET data=? WHERE id=?', (json_text(sim), ident))
-        for key, value in ((PREFIX + 'settings:' + ident, policy), (archive.PREFIX + 'settings:' + ident, None)):
+        for key, value in ((PREFIX + 'settings:' + ident, policy), (archive.PREFIX + 'settings:' + ident, None),
+                           (archive.PREFIX + 'paused_settings:' + ident, None)):
             db.execute('INSERT OR REPLACE INTO metadata VALUES (?,?)', (key, json_text(value)))
     return {'saved': True, 'revision': policy['revision']}
 
 
-def status(store, ident):
+def reviewed_policy(store, ident):
     policy = get(store, 'settings:' + ident)
-    if policy is None:
-        legacy = archive.automatic_status(store, ident)
-        return {**legacy, 'format': 1, 'legacy': True}
+    legacy = archive.get(store, 'settings:' + ident)
+    paused = archive.get(store, 'paused_settings:' + ident)
+    return policy, legacy, paused
+
+
+def validate_participation(store, ident, policy, legacy):
+    if policy is not None:
+        # A disabled draft may never have been approved for Git. Its location and
+        # repository binding must pass the same checks before it can be resumed.
+        candidate = {**policy, 'options': {**policy['options'], 'enabled': True}}
+        validate_plan(store, store.simulation(ident), candidate)
+    elif legacy:
+        result = archive.legacy_status(store, ident, legacy)
+        if result['state'] != 'enabled':
+            raise ValueError(result['reason'] or 'Review the existing archive choices again.')
+    else:
+        raise ValueError('Review preservation choices before enabling this simulation.')
+
+
+@locked_store
+def status(store, ident):
+    """Single effective-state calculation for UI and the recording start boundary."""
+    policy, legacy, paused = reviewed_policy(store, ident)
+    participating = policy['options']['enabled'] is True if policy is not None else bool(legacy)
+    enabled = archive.global_enabled(store)
+    connection = archive.connection_status(store)
+    valid, reason = False, None
     try:
-        policy_options(policy['options'])
-        if not policy['options']['enabled']:
-            return {'state': 'disabled', 'format': 2, 'reason': None}
-        validate_plan(store, store.simulation(ident), policy)
-        return {'state': 'enabled', 'format': 2, 'reason': None}
+        validate_participation(store, ident, policy, legacy or paused)
+        valid = True
     except (ValueError, OSError, KeyError, TypeError) as exc:
-        return {'state': 'unavailable', 'format': 2, 'reason': str(exc)}
+        reason = str(exc)
+    result = {'format': 2 if policy is not None else 1, 'legacy': bool(legacy or paused),
+              'participating': participating, 'global_enabled': enabled,
+              'can_resume': valid, 'connection': connection['state']}
+    if not enabled:
+        return {**result, 'state': 'disabled', 'reason': 'Master Git Archive is OFF. Local library capture continues.'}
+    if connection['state'] != 'connected':
+        return {**result, 'state': 'unavailable', 'reason': connection['reason'] or 'The shared repository is disconnected.'}
+    if not participating:
+        return {**result, 'state': 'disabled', 'reason': None}
+    if not valid:
+        return {**result, 'state': 'review_required' if policy is None else 'unavailable', 'reason': reason}
+    return {**result, 'state': 'enabled', 'reason': None}
+
+
+@archive.unavailable_errors
+@locked_store
+def set_participation(store, ident, enabled):
+    store.simulation(ident)
+    if type(enabled) is not bool:
+        raise ValueError('Choose ON or OFF explicitly.')
+    policy, legacy, paused = reviewed_policy(store, ident)
+    if enabled:
+        if not archive.global_enabled(store):
+            raise ValueError('Master Git Archive is OFF.')
+        validate_participation(store, ident, policy, legacy or paused)
+    with store.connection() as db:
+        if policy is not None:
+            policy['options']['enabled'] = enabled
+            db.execute('INSERT OR REPLACE INTO metadata VALUES (?,?)',
+                       (PREFIX + 'settings:' + ident, json_text(policy)))
+        else:
+            # Retain exact legacy consent while paused, outside the old active
+            # settings key so an older build cannot interpret OFF as permission.
+            for key, value in (('settings:', (legacy or paused) if enabled else None),
+                               ('paused_settings:', None if enabled else legacy or paused)):
+                db.execute('INSERT OR REPLACE INTO metadata VALUES (?,?)',
+                           (archive.PREFIX + key + ident, json_text(value)))
+    return status(store, ident)
 
 
 def validate_plan(store, sim, policy):

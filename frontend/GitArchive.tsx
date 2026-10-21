@@ -5,152 +5,230 @@ import type { Artifact, Run, Simulation } from "./types";
 type Review = Record<string, any>;
 export const archiveLimits =
   "1,000 files · 25 MiB per file · 100 MiB per run, including later additions and preservation records.";
-export function ArchiveSettings({
-  simulation,
-  disabled = false,
-  onChanged = () => {},
-  children,
+export function ArchiveSwitch({
+  label,
+  checked,
+  disabled,
+  onChange,
+  actionRef,
 }: {
-  simulation: Simulation;
-  disabled?: boolean;
-  onChanged?: () => void;
-  children?: React.ReactNode;
+  label: string;
+  checked: boolean;
+  disabled: boolean;
+  onChange: () => void;
+  actionRef?: React.RefObject<HTMLButtonElement | null>;
 }) {
-  const [state, setState] = useState<Review | null>(null),
-    [runs, setRuns] = useState<Review[]>([]);
+  return (
+    <button
+      ref={actionRef}
+      type="button"
+      role="switch"
+      aria-label={label}
+      aria-checked={checked}
+      className="archive-toggle"
+      disabled={disabled}
+      onClick={onChange}
+    >
+      <span className="archive-toggle-knob" aria-hidden="true" />
+      {checked ? "ON" : "OFF"}
+    </button>
+  );
+}
+
+export function ArchiveSettings() {
+  const [state, setState] = useState<Review | null>(null);
   const [path, setPath] = useState(""),
     [initialize, setInitialize] = useState(false);
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
+  const [activating, setActivating] = useState(false);
+  const request = useRef(0);
   const panel = useRef<HTMLDetailsElement>(null),
-    input = useRef<HTMLInputElement>(null);
+    input = useRef<HTMLInputElement>(null),
+    toggle = useRef<HTMLButtonElement>(null);
   async function load() {
+    const sequence = ++request.current;
     const c = await api<Review>("/workspace/archive");
-    const s = await api<Review>(`/simulations/${simulation.id}/archive`);
+    if (sequence !== request.current) return;
     setState(c);
-    setRuns(s.runs);
     setPath(c.connection?.path || c.remembered_connection?.path || "");
   }
   useEffect(() => {
     void load().catch((e) => setMessage(e.message));
-  }, [simulation.id]);
+  }, []);
   const post = (suffix: string, body: Review = {}) =>
     api<Review>("/workspace/archive/" + suffix, {
       method: "POST",
       body: JSON.stringify(body),
     });
   async function action(work: () => Promise<void>) {
+    request.current++;
     setBusy(true);
     setMessage("");
     try {
       await work();
       await load();
-      onChanged();
     } catch (e) {
       setMessage((e as Error).message);
       await load().catch(() => setState(null));
-      onChanged();
     } finally {
       setBusy(false);
     }
   }
+  function change() {
+    if (state?.enabled || state?.status.state === "connected") {
+      void action(async () => {
+        await post("automatic", { enabled: !state?.enabled });
+      });
+    } else {
+      setActivating(true);
+      if (panel.current) panel.current.open = true;
+      input.current?.focus();
+      setMessage("Connect a local repository to turn Master Git Archive ON.");
+    }
+  }
+  async function connect() {
+    await post("connect", {
+      path,
+      initialize,
+      confirmed: true,
+      expected_connection:
+        state?.remembered_connection?.path === path
+          ? state.remembered_connection
+          : undefined,
+    });
+    setInitialize(false);
+    if (activating) {
+      await post("automatic", { enabled: true });
+      setActivating(false);
+    }
+    setMessage(
+      "Repository connected. Individual participation choices are unchanged.",
+    );
+  }
   return (
-    <section className="git-archive" aria-label="Shared Git archive connection">
+    <section
+      className="surface master-archive-settings"
+      aria-label="Global Master Git Archive"
+    >
+      <div className="automatic-archive-line">
+        <h2>Master Git Archive</h2>
+        <ArchiveSwitch
+          label="Master Git Archive"
+          checked={!!state?.enabled}
+          disabled={busy || !state}
+          onChange={change}
+          actionRef={toggle}
+        />
+      </div>
+      <p>
+        One shared local repository. SimShelf always captures runs in your local
+        library.
+      </p>
       <MasterArchiveStatus
         status={state?.status}
         configured={!!state?.connection}
-        busy={busy || disabled}
-        onChange={() => {
-          if (state?.connection)
-            void action(async () => {
-              await post("disconnect");
-            });
-          else if (state?.remembered_connection)
-            void action(async () => {
-              await post("connect", {
-                path: state.remembered_connection.path,
-                expected_connection: state.remembered_connection,
-                confirmed: true,
-              });
-            });
-          else {
-            if (panel.current) panel.current.open = true;
-            input.current?.focus();
-          }
-        }}
       />
-      {children}
-      {message && <p role="alert">{message}</p>}
+      <p className="path">
+        Repository:{" "}
+        <code>
+          {state?.connection?.path ||
+            state?.remembered_connection?.path ||
+            "Not configured"}
+        </code>
+      </p>
+      <p role="status">
+        {state?.enabled
+          ? state.status.state === "connected"
+            ? "ON for participating simulations."
+            : "Git unavailable. Local library capture continues."
+          : "OFF. Saved simulation choices are retained."}
+      </p>
+      {message && <p role="status">{message}</p>}
       <details ref={panel}>
-        <summary>Archive location and setup</summary>
-        {state?.connection && (
-          <p className="path">
-            Configured archive: <code>{state.connection.path}</code>
-          </p>
-        )}
+        <summary>Repository location and setup</summary>
         <p>
-          One local repository serves every simulation in this library. No
-          uploads or remote synchronization. Back it up separately; Git alone
-          cannot restore a complete workspace.
+          Use a dedicated bare SimShelf archive outside source folders and the
+          library. No uploads or remote synchronization. Back it up separately.
         </p>
         <label>
           Dedicated archive directory
           <input
             ref={input}
             value={path}
-            disabled={busy || disabled || !!state?.connection}
+            disabled={busy || !!state?.connection}
             onChange={(e) => setPath(e.target.value)}
           />
         </label>
-        <p>
-          {state?.connection
-            ? "Disconnect before changing the location."
-            : "A remembered path is not a connection; verify and confirm it explicitly."}
-        </p>
-        <label className="archive-choice">
-          <input
-            type="checkbox"
-            checked={initialize}
-            disabled={busy || disabled || !!state?.connection}
-            onChange={(e) => setInitialize(e.target.checked)}
-          />{" "}
-          Initialize this existing empty directory as a dedicated archive
-        </label>
-        <p>
-          Use a dedicated bare SimShelf archive, separate from source folders
-          and the library. Existing source repositories cannot be used.
-        </p>
-        <button
-          disabled={busy || disabled || !!state?.connection || !path.trim()}
-          onClick={() =>
-            void action(async () => {
-              await post("connect", {
-                path,
-                initialize,
-                confirmed: true,
-                expected_connection:
-                  state?.remembered_connection?.path === path
-                    ? state.remembered_connection
-                    : undefined,
-              });
-              setInitialize(false);
-              setMessage(
-                "Archive connection confirmed. Review preservation choices below.",
-              );
-            })
-          }
-        >
-          {initialize
-            ? "Initialize and connect archive"
-            : "Confirm archive location"}
-        </button>
+        {state?.connection ? (
+          <button
+            disabled={busy}
+            onClick={() =>
+              void action(async () => {
+                await post("disconnect");
+              })
+            }
+          >
+            Disconnect repository
+          </button>
+        ) : (
+          <>
+            <label className="archive-choice">
+              <input
+                type="checkbox"
+                checked={initialize}
+                disabled={busy}
+                onChange={(e) => setInitialize(e.target.checked)}
+              />{" "}
+              Initialize this existing empty directory as a dedicated archive
+            </label>
+            <button
+              disabled={busy || !path.trim()}
+              onClick={() => void action(connect)}
+            >
+              {activating
+                ? "Confirm repository and turn ON"
+                : initialize
+                  ? "Initialize and connect repository"
+                  : "Connect repository"}
+            </button>
+          </>
+        )}
+        {activating && (
+          <button
+            disabled={busy}
+            onClick={() => {
+              setActivating(false);
+              setMessage("");
+              toggle.current?.focus();
+            }}
+          >
+            Cancel setup
+          </button>
+        )}
       </details>
-      <button
-        disabled={busy || disabled}
-        onClick={() => void action(async () => {})}
-      >
+      <button disabled={busy} onClick={() => void action(async () => {})}>
         Refresh archive status
       </button>
+    </section>
+  );
+}
+
+export function SimulationArchiveHistory({
+  simulation,
+}: {
+  simulation: Simulation;
+}) {
+  const [runs, setRuns] = useState<Review[]>([]),
+    [error, setError] = useState("");
+  useEffect(() => {
+    void api<Review>(`/simulations/${simulation.id}/archive`)
+      .then((s) => setRuns(s.runs))
+      .catch((e) => setError(e.message));
+  }, [simulation.id]);
+  return (
+    <>
+      {error && <p role="alert">{error}</p>}
       <details>
         <summary>This simulation’s Git preservation history</summary>
         <p>
@@ -177,7 +255,7 @@ export function ArchiveSettings({
             ))}
         </ul>
       </details>
-    </section>
+    </>
   );
 }
 
@@ -547,54 +625,23 @@ export function RunArchive({
 
 export function MasterArchiveStatus({
   status,
-  busy = false,
-  configured = false,
-  onChange,
 }: {
   status?: Review | null;
-  busy?: boolean;
   configured?: boolean;
-  onChange?: (trigger: HTMLButtonElement) => void;
 }) {
   const connected = status?.state === "connected";
   return (
     <div className="automatic-archive-control">
-      <div className="automatic-archive-line">
-        <span
-          role="status"
-          aria-live="polite"
-          className={connected ? "archive-connected" : ""}
-        >
-          {connected && <span aria-hidden="true">✓ </span>}
-          Master Git Archive —{" "}
-          {connected
-            ? "Connected"
-            : status?.state === "disconnected"
-              ? "Disconnected"
-              : configured
-                ? "Unavailable — configured"
-                : "Unavailable"}
-        </span>
-        {onChange && (
-          <button
-            type="button"
-            role="switch"
-            aria-label="Master Git Archive connection"
-            aria-checked={connected || configured}
-            aria-describedby="master-archive-help"
-            className="archive-toggle"
-            disabled={busy || !status}
-            onClick={(e) => onChange(e.currentTarget)}
-          >
-            <span className="archive-toggle-knob" aria-hidden="true" />
-            {connected || configured ? "ON" : "OFF"}
-          </button>
-        )}
-      </div>
-      <small id="master-archive-help">
-        {status?.reason ||
-          "Shared repository access. Each simulation is enabled separately."}
-      </small>
+      <span role="status" className={connected ? "archive-connected" : ""}>
+        {connected && <span aria-hidden="true">✓ </span>}Repository —{" "}
+        {connected
+          ? "Connected"
+          : status?.state === "disconnected"
+            ? "Disconnected"
+            : "Unavailable"}
+      </span>
+      {status?.reason && <p>{status.reason}</p>}
+      {!status && <small>Checking repository availability…</small>}
     </div>
   );
 }

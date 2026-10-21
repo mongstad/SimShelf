@@ -27,6 +27,7 @@ import type {
 import "./style.css";
 import { RunArchive, PreservationSummary } from "./GitArchive";
 import { RelocateSimulation } from "./RelocateSimulation";
+import { ArchiveSettings } from "./GitArchive";
 import { PreservationSettings } from "./PreservationSettings";
 import { GitHistory } from "./GitHistory";
 import { LaunchSimulation } from "./LaunchSimulation";
@@ -1463,12 +1464,15 @@ function App() {
         <div className="sidebar-section">
           <span className="nav-caption">WORKSPACE</span>
           <button
-            className={`nav-item ${!simulationId ? "active" : ""}`}
+            className={`nav-item ${!simulationId && page !== "archive" ? "active" : ""}`}
             onClick={() => chooseSimulation("")}
           >
             <Icon name="grid" />
             All simulations
             <span className="nav-count">{simulations.length}</span>
+          </button>
+          <button className={`nav-item ${page === "archive" ? "active" : ""}`} onClick={() => { chooseSimulation(""); setPage("archive"); }}>
+            <Icon name="folder" />Master Git Archive
           </button>
         </div>
         <div className="sidebar-section simulation-nav">
@@ -1537,7 +1541,7 @@ function App() {
           {sidebar.toggle}
           <div className="workspace-breadcrumb">
             Personal workspace <span>/</span>{" "}
-            {detail ? "Run record" : simulation?.name || "Overview"}
+            {detail ? "Run record" : page === "archive" ? "Master Git Archive" : simulation?.name || "Overview"}
           </div>
           <span className="local-badge">
             <span />
@@ -1572,7 +1576,7 @@ function App() {
               requestRemoval={run => setRemovalRuns([run])}
             />
             </>
-          ) : (
+          ) : page === "archive" ? <ArchiveSettings /> : (
             <>
               <header className="page-heading">
                 <div className="page-title-group">
@@ -1597,7 +1601,7 @@ function App() {
                   administrationReturnFocus.current = e.currentTarget; setModal("relocate");
                 }}>Locate source folder…</button>}
               </div>}
-              {simulation && (
+              {simulation && <PreservationSettings key={`${simulation.id}:${simulation.root}`} simulation={simulation} onSaved={refresh} showOptions={page === "capture"}>
                 <nav className="tabs" aria-label="Simulation sections">
                   <button
                     className={page === "runs" ? "active" : ""}
@@ -1619,7 +1623,7 @@ function App() {
                     Preservation settings
                   </button>
                 </nav>
-              )}
+              </PreservationSettings>}
               {page === "runs" && (
                 <>
                   {!simulation && simulations.length > 0 && (
@@ -2046,9 +2050,6 @@ function App() {
                 />
               )}
               {page === "git" && simulation && <GitHistory key={`${simulation.id}:${simulation.root}`} simulation={simulation} simulations={simulations} />}
-              {page === "capture" && simulation && (
-                <PreservationSettings key={`${simulation.id}:${simulation.root}`} simulation={simulation} onSaved={refresh} />
-              )}
             </>
           )}
         </div>

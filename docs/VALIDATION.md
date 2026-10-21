@@ -410,3 +410,8 @@ package validation and limitations.
 The [issue #118 activation UX revision](validation/issue-118-preservation-activation.md)
 records prominent per-simulation status and controls, explicit confirmation,
 legacy/cancellation safety, theme and narrow-browser checks, and unchanged history.
+
+The [two-level archive revision](validation/issue-118-two-level-archive.md) supersedes
+that interaction model with one global toggle and one participation toggle, and
+records effective-state, actual Git contents, legacy/recovery, packaged-browser
+and backup/lifecycle checks. Earlier dated reports remain unchanged.

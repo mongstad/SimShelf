@@ -248,6 +248,7 @@ def test_actual_shared_git_archive_is_untouched(project, tmp_path):
     ready(store)
     repo=tmp_path/'archive';repo.mkdir()
     git_archive.connect(store,str(repo),True,True)
+    git_archive.set_global_enabled(store, True)
     inv=inventory(store,sim['id'])
     save_selection(store,sim['id'],selection_preview(store,sim['id'],inv['revision'],[{'kind':'file','value':'field.py'}]))
     git_archive.enable(store,sim['id'],git_archive.settings_preview(store,sim['id'],[]),True)

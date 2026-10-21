@@ -65,63 +65,81 @@ test("one review combines source, recursive copied outputs, explicit exclusions 
   ])
     assert.ok(html.includes(value), value);
 });
-test("settings default to an unconfirmed draft, not legacy auto-activation", () => {
+test("one participation switch precedes advanced options and has no duplicate activation", () => {
   const html = render(PreservationSettings, {
     simulation: { id: "a", name: "Alpha", config: review.config },
-    onSaved: () => {},
+    onSaved() {},
   });
+  assert.equal((html.match(/role="switch"/g) || []).length, 1);
+  assert.match(
+    html,
+    /aria-label="Archive this simulation" aria-checked="false"/,
+  );
+  assert.ok(
+    html.indexOf("Archive this simulation") <
+      html.indexOf("Capture and Git options"),
+  );
+  assert.doesNotMatch(
+    html,
+    /Enable Git preservation|Disable Git preservation|Preserve reviewed evidence in|Master Git Archive connection/,
+  );
   assert.match(html, /Review preservation settings/);
   assert.doesNotMatch(html, /Confirm preservation settings/);
-  assert.match(html, /Checking status/);
-  assert.doesNotMatch(html, /Saved Git policy|Preserve reviewed evidence in the shared Git archive/);
-  assert.ok(html.indexOf("Git preservation — Alpha") < html.indexOf("Archive location and setup"));
-  assert.ok(html.indexOf("Enable Git preservation") < html.indexOf("Capture and Git options"));
-  assert.match(html, /Reference only/);
-  assert.match(html, /simulation creates its own unique subdirectories/);
 });
-
-const control = (state, extra = {}) => render(SimulationPreservationControl, {
-  name: "Alpha <science>", state, busy: false, onEnable() {}, onDisable() {}, onReview() {},
-  actionRef: React.createRef(), reviewRef: React.createRef(), ...extra,
-});
-const connected = { connection: {state: "connected"}, status: {state: "disabled"}, policy: {options: {enabled: false}} };
-test("connected archive does not imply simulation activation", () => {
-  const html = control(connected);
-  assert.match(html, /Disabled/);
-  assert.match(html, /class="primary">Enable Git preservation/);
-  assert.doesNotMatch(html, /archive-connected|Disable Git preservation/);
-  assert.match(html, /Git preservation — Alpha &lt;science&gt;/);
-});
-test("only confirmed enabled state receives the established green indicator", () => {
-  const html = control({...connected, status: {state: "enabled"}, policy: {options: {enabled: true}}});
-  assert.match(html, /class="archive-connected"/);
-  assert.match(html, /Enabled/);
-  assert.match(html, /Disable Git preservation/);
-  assert.match(html, /Disabling keeps all existing Git history/);
-});
-test("unavailable connection blocks activation but permits disabling saved consent", () => {
-  for (const value of ["disconnected", "unavailable"]) {
-    const html = control({...connected, connection: {state: value}});
-    assert.match(html, /preservation-unavailable/);
-    assert.match(html, /disabled="">Enable Git preservation/);
-    assert.doesNotMatch(html, /archive-connected/);
-    const enabled = control({...connected, connection: {state: value}, policy: {options: {enabled: true}}});
-    assert.match(enabled, /<button>Disable Git preservation/);
+const control = (status, error = "") =>
+  render(SimulationPreservationControl, {
+    name: "Alpha <science>",
+    state: status ? { status } : null,
+    busy: false,
+    onToggle() {},
+    actionRef: React.createRef(),
+    error,
+  });
+for (const global_enabled of [false, true])
+  for (const participating of [false, true]) {
+    test(`participation stays ${participating} while global is ${global_enabled}`, () => {
+      const html = control({
+        global_enabled,
+        participating,
+        connection: "connected",
+        state: global_enabled && participating ? "enabled" : "disabled",
+        reason: !global_enabled ? "Master Git Archive is OFF." : null,
+      });
+      assert.equal((html.match(/role="switch"/g) || []).length, 1);
+      assert.match(html, new RegExp(`aria-checked="${participating}"`));
+      assert.equal(html.includes('disabled=""'), !global_enabled);
+      assert.equal(
+        html.includes("archive-connected"),
+        global_enabled && participating,
+      );
+      assert.match(html, /Alpha &lt;science&gt;/);
+    });
   }
+test("unavailable repository never claims active, retains saved preference and blocks new participation", () => {
+  for (const participating of [false, true]) {
+    const html = control({
+      global_enabled: true,
+      participating,
+      connection: "unavailable",
+      state: "unavailable",
+      reason: "Repository missing",
+    });
+    assert.match(html, /Git unavailable/);
+    assert.doesNotMatch(html, /archive-connected/);
+    assert.equal(html.includes('disabled=""'), !participating);
+  }
+  assert.match(control(null, "Cannot load status"), /disabled=""/);
 });
-test("stale consent requires review and failed status fetch never claims enabled", () => {
-  const stale = control({...connected, status: {state: "review_required", reason: "Source changed; review again."}, legacy: {rules: []}});
-  assert.match(stale, /Unavailable/);
-  assert.match(stale, /Source changed; review again/);
-  assert.match(stale, /Review Git preservation/);
-  const failed = control(null, {error: "Cannot load preservation status."});
-  assert.match(failed, /Unavailable/);
-  assert.match(failed, /disabled="">Enable Git preservation/);
-});
-test("legacy enabled status retains legacy scope until explicit review", () => {
-  const state = {...connected, policy: null, legacy: {rules: ["sim.py"]}, status: {state: "enabled", legacy: true}};
-  const before = structuredClone(state), html = control(state);
-  assert.match(html, /archive-connected/);
-  assert.match(html, /Legacy choices remain in effect until explicitly reviewed/);
+test("legacy participation displays retained scope without reinterpreting it", () => {
+  const state = {
+    global_enabled: true,
+    participating: true,
+    connection: "connected",
+    state: "enabled",
+    legacy: true,
+  };
+  const before = structuredClone(state),
+    html = control(state);
+  assert.match(html, /Existing legacy scope is retained/);
   assert.deepEqual(state, before);
 });

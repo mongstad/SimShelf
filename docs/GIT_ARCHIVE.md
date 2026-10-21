@@ -5,39 +5,44 @@ managed copies locally. Its optional shared Master Git Archive preserves reviewe
 versions from every simulation. Source development Git repositories remain
 independent. Local commits upload nothing; remote synchronization is not supported.
 
-## Set up and review preservation
+## One global switch, one simulation switch
 
-1. Open a simulation's **Preservation settings**. **Master Git Archive —
-   Connected** means the shared repository is available; it does not enable
-   preservation for every simulation. To set up an archive, expand **Archive
-   location and setup**, choose an existing empty directory outside the library
-   and all source folders, then explicitly initialize and connect it (or reconnect
-   an existing SimShelf archive). It is a dedicated bare repository, not a source
-   working tree. Existing arbitrary repositories are refused.
-2. Directly below the shared connection, **Git preservation — [Simulation name]**
-   shows **Enabled**, **Disabled**, or **Unavailable**. Choose **Enable Git
-   preservation** to review all eligible captured source files and recursive
-   `.json`, `.csv`, and `.log` outputs. Existing capture copy/reference/ignore
-   choices and limits stay unchanged; process stdout/stderr is excluded by default.
-3. Inspect the review's scope, exclusions, limits and current matches. **Confirm
-   preservation settings** saves the reviewed choices for future runs. Only a
-   confirmed backend status is shown as Enabled. **Cancel** changes nothing.
-4. **Disable Git preservation** is beside the enabled status. It stops future
-   automatic preservation without deleting previous Git commits. **Unavailable**
-   explains when the shared archive cannot be used; reconnecting does not activate
-   a disabled simulation.
+The local SimShelf library is always active. Runs, snapshots, records, logs and
+eligible managed copies do not require Git.
 
-For custom choices, expand **Capture and Git options** below the status section.
-Capture rules use the first matching **Keep a copy / Reference only / Ignore**
-choice. Source patterns, source selection, recursive extensions (exact case),
-process stdout/stderr and size limits remain available. **Review preservation
-settings** reviews these edits before confirmation. For an enabled simulation,
-**Review Git preservation** opens the same review directly.
+1. Choose **Master Git Archive** in the workspace navigation. Its one **ON/OFF**
+   switch controls new automatic Git preservation globally. **Repository —
+   Connected/Disconnected/Unavailable** and the repository location are separate
+   facts, not extra switches. ON requires a verified local repository. If needed,
+   the switch opens setup: choose an existing empty directory outside sources and
+   the library, explicitly initialize/connect it, and confirm activation.
+2. Open a simulation. **Archive this simulation** is its only participation
+   switch, above the simulation tabs. New simulations start OFF. Turning it ON
+   for the first time opens a review of eligible captured sources and recursive
+   `.json`, `.csv`, `.log` outputs, with existing capture rules and limits.
+   Process stdout/stderr is excluded by default. **Cancel** changes nothing;
+   **Confirm preservation settings** persists ON only after backend acceptance.
+3. Turning participation OFF retains history and the reviewed scope. Turning it
+   back ON resumes an unchanged valid policy without another review. Changed or
+   unreviewed settings require explicit review; consent is never silently widened.
+4. Global OFF keeps the repository connected and every simulation's participation
+   preference. Individual switches become unavailable and show that global Git
+   is off. Global ON restores only saved participants whose repository identity
+   and policy remain valid. A disconnected/unavailable repository shows **Git
+   unavailable**, even if a saved preference is ON; local recording continues.
 
-Legacy consent keeps its original meaning until you explicitly adopt the new
-policy. The saved status distinguishes legacy consent from proposed choices.
-Adoption preserves historical events and the old policy evidence; it does not
-relabel or recapture old runs. Empty enabled policies are refused.
+**Preservation settings → Capture and Git options** configures what is captured
+and archived: ordered copy/reference/ignore rules, source patterns/selection,
+recursive extensions (exact case), process logs and limits. It has no second
+activation control. Changes require the existing explicit review. Git never
+overrides reference-only or ignored capture choices.
+
+Legacy consent retains its original scope. Its participation switch pauses and
+resumes that exact consent; adopting the newer scope requires explicit review.
+Existing libraries without the new global preference start globally OFF, retaining
+all individual consent and historical events until the owner turns global Git ON.
+Settings changes affect future runs; an already frozen run plan is not rewritten.
+
 
 For simulations that allocate unique directories beneath `outputs`, use that
 **fixed parent**. SimShelf inspects nested files without requiring simulation
@@ -120,7 +125,8 @@ same candidate; it never recaptures live outputs or duplicates a confirmed event
 Without a durable candidate, preservation remains incomplete. Correct archive
 identity, filesystem safety, lock, free-space and publication-budget checks apply.
 
-Disconnecting does not delete data or change saved consent. Reconnect verifies
+Global OFF does not disconnect or delete anything. The separate **Disconnect
+repository** action under global setup does not delete data or change saved consent. Reconnect verifies
 the remembered path/identity; a missing or replaced repository stays unavailable.
 Disconnect before changing locations. New locations require a new policy review;
 old events still belong to their original archive. No source Git connection is needed.
@@ -136,5 +142,6 @@ maintenance, secure erasure and remote publication remain separate workflows.
 Do not concurrently edit the dedicated archive with external tools; advisory
 locks cannot control arbitrary same-user writes.
 
-See the [implemented architecture](LIBRARY_PRESERVATION_DESIGN.md) and
+See the [two-level activation validation](validation/issue-118-two-level-archive.md),
+[implemented architecture](LIBRARY_PRESERVATION_DESIGN.md) and
 [validation evidence](validation/issue-118-library-preservation.md).

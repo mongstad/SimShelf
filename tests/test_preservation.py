@@ -369,6 +369,7 @@ def test_pinned_standalone_reference_new_policy_fixed_and_uncoordinated(tmp_path
         (root / name).write_bytes(raw)
     store = Store(tmp_path / 'library'); repo = tmp_path / 'archive'; repo.mkdir()
     archive.connect(store, str(repo), initialize=True, confirmed=True)
+    archive.set_global_enabled(store, True)
     sim = store.add_simulation(root, entrypoint='simulate.py')
     enable(store, sim)
     original = []

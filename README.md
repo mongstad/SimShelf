@@ -58,7 +58,10 @@ packages into simulation interpreters. Follow the guide for a disposable first r
 
 ## One preservation workflow
 
-Use **Preservation settings** to review capture and Git inclusion together.
+The local library is always active. **Master Git Archive** in workspace navigation
+has one global ON/OFF switch; **Archive this simulation** is each simulation’s
+only participation switch. First activation includes explicit scope review.
+Use **Preservation settings** to configure capture and Git inclusion together.
 Recursive copied JSON/CSV/log output can include simulation-created subdirectories.
 Run views separate execution, capture and Git completeness; later notes and
 captions require explicit append-only review. Keep selected evidence in a
