@@ -496,3 +496,12 @@ This remains periodically refreshed guidance, not a reservation or authorization
 boundary: external activity can start after a response. Existing transactional
 removal/relocation guards, already-open dialogs and missing-source recovery stay
 unchanged. Schema-1 removal remains unavailable even when the cogwheel is enabled.
+
+
+## Proposed one-library preservation workflow
+
+Issue #118's [Phase 1 design](LIBRARY_PRESERVATION_DESIGN.md) traces current
+capture/selection/publication behavior and proposes one reviewed preservation
+policy with explicit per-run coverage. Its [audit evidence](validation/issue-118-library-preservation-audit.md)
+verifies the reported manifest-only event and retained output bytes. Phase 2
+requires owner approval; current runtime, storage and historical records are unchanged.

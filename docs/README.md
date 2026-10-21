@@ -25,7 +25,8 @@
 - [Validation evidence](VALIDATION.md): dated checks and their limitations; historical reports
   retain their original review-time wording and are not current installation instructions.
 - Design boundaries: [progress storage](PROGRESS_DESIGN.md),
-  [Git archive](GIT_ARCHIVE_DESIGN.md), [master archive Stage A](MASTER_ARCHIVE_UX_DESIGN.md).
+  [Git archive](GIT_ARCHIVE_DESIGN.md), [master archive Stage A](MASTER_ARCHIVE_UX_DESIGN.md),
+  [one-library preservation proposal](LIBRARY_PRESERVATION_DESIGN.md).
   Design documents can describe deferred work; use the user guides for available features.
 
 For command syntax run `./start.sh --cli --help` from the checkout, then
