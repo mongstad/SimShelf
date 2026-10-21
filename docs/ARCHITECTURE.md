@@ -209,10 +209,21 @@ exact source/Git identity; changing it never migrates or rewrites run records.
 
 ## Version contract
 
-`SIMSHELF_VERSION` is a single top-level literal string in the registered version
-file. It is parsed from bytes captured in the source snapshot; the source module
-is never executed to discover its version. Explicit tag changes define named
-versions. Missing tags use `unversioned`.
+For a valid, non-stale SWSS companion, `[swss].simulation_version` supplies the
+recorded simulation version. `schema_version` identifies the metadata format.
+The application-local Python tag is not a second SWSS version authority and is
+not compared during discovery. Binding verification remains separate from the
+declared label; matching bytes do not prove scientific or parser correctness.
+
+Recording uses the reviewed companion evidence, checks its bytes against the
+source snapshot and rejects bound-source changes observed during capture. An
+invalid, unsupported or stale companion yields `unversioned` for an explicit
+manual run, retaining available metadata diagnostics and captured source bytes.
+It does not silently use a legacy tag. Previous records are never relabeled.
+
+Only without a companion does `SIMSHELF_VERSION`, a single top-level literal string
+in the registered version file, supply the version. It is parsed from captured
+bytes, never executed; absent tags use `unversioned`.
 
 The exact snapshot hashes the sorted manifest of included relative paths,
 file hashes, sizes, and modes. Comment/formatting edits change the exact snapshot.

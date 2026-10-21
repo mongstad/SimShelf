@@ -44,7 +44,7 @@ Older builds retain their former automatic Git metadata behavior for new runs.
 
 ## What the observations mean
 
-- **Scientific version:** your `SIMSHELF_VERSION` declaration, never changed by Git.
+- **Scientific version:** your SWSS `simulation_version`, or optional `SIMSHELF_VERSION` tag without a companion; never changed by Git.
 - **Exact source snapshot:** immutable bytes captured for a particular run.
 - **Git commit/branch:** locally observed revision and branch, possibly detached.
 - **Repository / simulation changes:** raw tracked bytes, executable bits, index

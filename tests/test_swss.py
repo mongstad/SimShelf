@@ -106,7 +106,7 @@ def test_symlinks_bindings_stale_and_exact_evidence(companion):
     assert result['provenance']['bytes_utf8'].encode() == path.read_bytes()
     (root / 'sim.py').write_text('SIMSHELF_VERSION = "2.0.0"\n')
     stale = read(root, 'sim.py', 'sim.py')
-    assert not stale['parameters'] and len(stale['provenance']['binding_reasons']) == 2
+    assert not stale['parameters'] and len(stale['provenance']['binding_reasons']) == 1
     with pytest.raises(ValueError, match='changed'):
         review(sim, {'mode': 'typed', 'fingerprint': result['fingerprint']})
     path.unlink()

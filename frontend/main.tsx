@@ -216,10 +216,11 @@ function AddSimulation({
         <div className="callout">
           <Icon name="history" />
           <div>
-            Optional version tag<code>SIMSHELF_VERSION = "0.1.0"</code>
+            Simulation version
             <small>
-              Add this to your entry file to name the simulation version. Every
-              run gets an exact source snapshot either way.
+              SWSS uses <code>swss.toml → swss.simulation_version</code>.
+              Without a companion, an optional <code>SIMSHELF_VERSION</code> tag
+              names the version. Every run retains an exact source snapshot.
             </small>
           </div>
         </div>
@@ -692,18 +693,14 @@ function Versions({
       <aside className="policy-guide">
         <h3>You decide when the model changes</h3>
         <p>
-          Add a literal tag to{" "}
-          <code>
-            {simulation.version_file ||
-              simulation.entrypoint ||
-              "your entry file"}
-          </code>
-          :
+          For SWSS simulations, set <code>swss.simulation_version</code> in <code>swss.toml</code>.
+          Without a companion, a literal <code>SIMSHELF_VERSION</code> tag in the
+          registered version file is optional.
         </p>
-        <pre className="tag-example">SIMSHELF_VERSION = "0.1.0"</pre>
+        <p>Invalid or stale SWSS metadata records an unversioned run when using manual argv.</p>
         <p>
           Comments and formatting produce a new exact snapshot, but do not
-          create a new named version.
+          automatically create a new named version. Follow your simulation’s versioning policy.
         </p>
         <p>
           Progress bars and logging can change Python structure. Those changes

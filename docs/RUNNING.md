@@ -250,6 +250,8 @@ Install SimShelf in the interpreter your editor uses, for example with
 ```python
 import simshelf
 
+# Without swss.toml, this legacy tag is optional.
+# With SWSS, declare the version in swss.simulation_version instead.
 SIMSHELF_VERSION = "0.1.0"
 
 # Parse your arguments first, including defaults and the actual random seed.

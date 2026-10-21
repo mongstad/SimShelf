@@ -132,6 +132,7 @@ class Run:
             self.started = True
             return self
         from .swss import review
+        had_companion = os.path.lexists(Path(self.simulation['root']) / 'swss.toml')
         metadata = review(self.simulation, (self.launch or {}).get('parameter_review'))
         # Keep source exclusion and archive consent bound to the configured base.
         source_simulation = self.simulation
@@ -150,9 +151,23 @@ class Run:
         from .git_archive import prepare
         prepare(self)
         snapshot = source_snapshot(self.store.path, source_simulation)
-        version_file = self.simulation.get("version_file")
-        captured_version = next((f for f in snapshot["files"] if f["path"] == version_file), None)
-        version = read_version(Path(self.simulation["root"]), version_file, captured=blob_path(self.store.path, captured_version["blob"]).read_bytes() if captured_version else None)
+        declaration = next((f for f in snapshot['files'] if f['path'] == 'swss.toml'), None)
+        provenance = metadata['provenance']
+        if provenance:
+            if declaration is None or declaration['blob'] != provenance['sha256']:
+                raise ValueError('SWSS declaration changed or was excluded from source capture; review before recording')
+            captured = {f['path']: f['blob'] for f in snapshot['files']}
+            for source in provenance['checked_sources']:
+                if source['path'] in captured and captured[source['path']] != source['sha256']:
+                    raise ValueError('SWSS bound source changed during source capture; review before recording')
+            version = 'unversioned' if provenance['binding_reasons'] else provenance['simulation_version']
+        elif had_companion or declaration is not None or os.path.lexists(Path(self.simulation['root']) / 'swss.toml'):
+            # A disputed companion cannot be bypassed by a legacy source tag.
+            version = 'unversioned'
+        else:
+            version_file = self.simulation.get("version_file")
+            captured_version = next((f for f in snapshot["files"] if f["path"] == version_file), None)
+            version = read_version(Path(self.simulation["root"]), version_file, captured=blob_path(self.store.path, captured_version["blob"]).read_bytes() if captured_version else None)
         if metadata['provenance'] and self.output_policy == 'per_run':
             self.simulation['config'] = {**self.simulation['config'], 'required_logs': ['**/*.log']}
         self.before, initial_errors = output_inventory(self.simulation)
@@ -163,10 +178,6 @@ class Run:
             'provenance': metadata['provenance'], 'previous_provenance': metadata['previous_provenance'], 'decision': metadata['decision'],
             'warnings': metadata['warnings'], 'argv': self.command[2:] if self.launch else self.command,
         }
-        if metadata['provenance']:
-            declaration = next((f for f in snapshot['files'] if f['path'] == 'swss.toml'), None)
-            if declaration is None or declaration['blob'] != metadata['provenance']['sha256']:
-                raise ValueError('SWSS declaration changed or was excluded from source capture; review before recording')
         data["progress_mode"] = self.progress_mode
         if getattr(self, "archive_plan", None):
             data["archive_capture_rules"] = self.archive_plan["future"]
