@@ -4,369 +4,172 @@ import type { Artifact, Run, Simulation } from "./types";
 
 type Review = Record<string, any>;
 export const archiveLimits =
-  "1,000 files · 25 MiB per file · 100 MiB per run, including later additions.";
-export function FutureOutputHelp({ directory }: { directory: string }) {
-  return (
-    <p className="muted">
-      Future outputs are relative to the capture directory{" "}
-      <code>{directory}</code>, not the Python source folder. For example:{" "}
-      <code>result.csv</code> or <code>logs/*.csv</code>. CSVs beside your
-      Python script, outside this directory, require manual post-run attachment.
-      No simulation is launched to discover files.
-    </p>
-  );
-}
-export function ArchiveSettings({ simulation }: { simulation: Simulation }) {
-  const [connection, setConnection] = useState<Review | null>(null);
-  const [status, setStatus] = useState<Review | null>(null);
-  const [automatic, setAutomatic] = useState<Review | null>(null);
-  const rememberedConnection = useRef<Review | null>(null);
-  const setupPanel = useRef<HTMLDetailsElement | null>(null);
-  const setupPath = useRef<HTMLInputElement | null>(null);
-  const returnFocus = useRef<HTMLElement | null>(null);
-  const cancelReview = useRef<HTMLButtonElement | null>(null);
-  const reviewAction = useRef<HTMLButtonElement | null>(null);
-  const automaticPanel = useRef<HTMLDetailsElement | null>(null);
-  const restoreFocus = useRef(false);
-  const [runs, setRuns] = useState<Review[]>([]);
-  const [path, setPath] = useState("");
-  const [initialize, setInitialize] = useState(false);
-  const [future, setFuture] = useState("");
-  const [review, setReview] = useState<Review | null>(null);
+  "1,000 files · 25 MiB per file · 100 MiB per run, including later additions and preservation records.";
+export function ArchiveSettings({
+  simulation,
+  disabled = false,
+  onChanged = () => {},
+}: {
+  simulation: Simulation;
+  disabled?: boolean;
+  onChanged?: () => void;
+}) {
+  const [state, setState] = useState<Review | null>(null),
+    [runs, setRuns] = useState<Review[]>([]);
+  const [path, setPath] = useState(""),
+    [initialize, setInitialize] = useState(false);
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
-  async function load(refreshDraft = true) {
+  const panel = useRef<HTMLDetailsElement>(null),
+    input = useRef<HTMLInputElement>(null);
+  async function load() {
     const c = await api<Review>("/workspace/archive");
     const s = await api<Review>(`/simulations/${simulation.id}/archive`);
-    setConnection(c.connection);
-    rememberedConnection.current =
-      c.connection || c.remembered_connection || null;
-    setStatus(c.status);
-    setAutomatic(s.automatic_status);
+    setState(c);
     setRuns(s.runs);
-    if (refreshDraft || c.connection)
-      setPath(c.connection?.path || rememberedConnection.current?.path || "");
-    if (refreshDraft) setFuture(s.settings?.future.join("\n") || "");
+    setPath(c.connection?.path || c.remembered_connection?.path || "");
   }
   useEffect(() => {
-    void load().catch((e) => {
-      setStatus(null);
-      setAutomatic(null);
-      setMessage(e.message);
-    });
+    void load().catch((e) => setMessage(e.message));
   }, [simulation.id]);
-  useEffect(() => {
-    if (review) {
-      cancelReview.current?.focus();
-      restoreFocus.current = true;
-    } else if (!busy && restoreFocus.current) {
-      const target = returnFocus.current?.isConnected
-        ? returnFocus.current
-        : reviewAction.current;
-      if (target === reviewAction.current && automaticPanel.current)
-        automaticPanel.current.open = true;
-      target?.focus();
-      restoreFocus.current = false;
-    }
-  }, [review, busy]);
+  const post = (suffix: string, body: Review = {}) =>
+    api<Review>("/workspace/archive/" + suffix, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
   async function action(work: () => Promise<void>) {
     setBusy(true);
     setMessage("");
     try {
       await work();
+      await load();
+      onChanged();
     } catch (e) {
-      setReview(null);
-      // Refresh authoritative state after rejection or a lost response. Never
-      // infer enablement from an attempted request; keep editable rules intact.
-      try {
-        await load(false);
-      } catch {
-        setStatus(null);
-        setAutomatic(null);
-      }
       setMessage((e as Error).message);
+      await load().catch(() => setState(null));
+      onChanged();
     } finally {
       setBusy(false);
     }
   }
-  const post = (path: string, body: Review = {}) =>
-    api<Review>(path, { method: "POST", body: JSON.stringify(body) });
-  const enabled = automatic?.state === "enabled";
-  async function requestReview(trigger: HTMLElement) {
-    returnFocus.current = trigger;
-    restoreFocus.current = true;
-    await action(async () => {
-      setReview(
-        await post(`/simulations/${simulation.id}/archive/preview`, {
-          future: future
-            .split("\n")
-            .map((s) => s.trim())
-            .filter(Boolean),
-        }),
-      );
-    });
-  }
   return (
-    <section className="git-archive">
-      <h2>Shared master Git archive</h2>
+    <section className="git-archive" aria-label="Shared Git archive connection">
+      <h3>Shared Master Git Archive</h3>
       <MasterArchiveStatus
-        status={status}
-        configured={!!connection}
-        busy={busy || !!review}
-        onChange={(trigger) => {
-          returnFocus.current = trigger;
-          restoreFocus.current = true;
-          if (connection) {
+        status={state?.status}
+        configured={!!state?.connection}
+        busy={busy || disabled}
+        onChange={() => {
+          if (state?.connection)
             void action(async () => {
-              await post("/workspace/archive/disconnect");
-              setReview(null);
-              await load();
+              await post("disconnect");
             });
-          } else {
-            const previous = connection || rememberedConnection.current;
-            if (
-              !previous?.path ||
-              !previous?.identity ||
-              !previous?.workspace
-            ) {
-              restoreFocus.current = false;
-              if (setupPanel.current) setupPanel.current.open = true;
-              setupPath.current?.focus();
-              setMessage(
-                "Choose an archive location and confirm setup to connect.",
-              );
-            } else {
-              void action(async () => {
-                await post("/workspace/archive/connect", {
-                  path: previous.path,
-                  expected_connection: previous,
-                  confirmed: true,
-                });
-                await load();
-                setMessage(
-                  "Original archive reconnected. Saved consent was not changed.",
-                );
+          else if (state?.remembered_connection)
+            void action(async () => {
+              await post("connect", {
+                path: state.remembered_connection.path,
+                expected_connection: state.remembered_connection,
+                confirmed: true,
               });
-            }
+            });
+          else {
+            if (panel.current) panel.current.open = true;
+            input.current?.focus();
           }
         }}
       />
-      {connection && (
+      {state?.connection && (
         <p className="path">
-          {status?.state === "connected"
-            ? "Verified archive:"
-            : "Configured path (unavailable):"}{" "}
-          <code>{connection.path}</code>
+          Configured archive: <code>{state.connection.path}</code>
         </p>
       )}
-      {message && <p role="alert">{message}</p>}
-      <AutomaticArchiveToggle
-        name={simulation.name}
-        automatic={automatic}
-        busy={busy || !!review}
-        available={status?.state === "connected"}
-        onChange={(trigger) => {
-          returnFocus.current = trigger;
-          restoreFocus.current = true;
-          if (!enabled) void requestReview(trigger);
-          else
-            void action(async () => {
-              await post(`/simulations/${simulation.id}/archive/disable`);
-              setReview(null);
-              await load();
-            });
-        }}
-      />
-      <button
-        disabled={busy}
-        onClick={() => {
-          setReview(null);
-          void action(() => load());
-        }}
-      >
-        Refresh archive status
-      </button>
       <p>
-        One separate local repository for all simulations. Archive commits are
-        independent of scientific versions and source Git history. No uploads or
-        remote synchronization.
+        One local repository serves every simulation in this library. No uploads
+        or remote synchronization. Back it up separately; Git alone cannot
+        restore a complete workspace.
       </p>
-      <details ref={setupPanel}>
+      {message && <p role="alert">{message}</p>}
+      <details ref={panel}>
         <summary>Archive location and setup</summary>
         <label>
           Dedicated archive directory
           <input
-            ref={setupPath}
-            value={connection?.path || path}
-            readOnly={!!connection}
-            disabled={busy}
-            aria-describedby="archive-location-help"
+            ref={input}
+            value={path}
+            disabled={busy || disabled || !!state?.connection}
             onChange={(e) => setPath(e.target.value)}
           />
         </label>
-        <p id="archive-location-help" className="muted">
-          {connection
-            ? "Disconnect the master archive before changing its location."
-            : rememberedConnection.current
-              ? path === rememberedConnection.current.path
-                ? "Last connected directory, remembered only. Switch ON or confirm the location to verify and reconnect."
-                : `Proposed directory, not connected. Last connected: ${rememberedConnection.current.path}`
-              : "Choose a dedicated archive directory. Nothing connects automatically."}
+        <p>
+          {state?.connection
+            ? "Disconnect before changing the location."
+            : "A remembered path is not a connection; verify and confirm it explicitly."}
         </p>
         <label className="archive-choice">
           <input
             type="checkbox"
             checked={initialize}
-            disabled={busy || !!connection}
+            disabled={busy || disabled || !!state?.connection}
             onChange={(e) => setInitialize(e.target.checked)}
-          />
+          />{" "}
           Initialize this existing empty directory as a dedicated archive
         </label>
         <p>
-          Connect only a SimShelf archive, or explicitly initialize an empty
-          directory. Keep it separate from source folders and the library. This
-          uses a bare Git repository with no working tree. Existing source
-          repositories cannot be used.
+          Use a dedicated bare SimShelf archive, separate from source folders
+          and the library. Existing source repositories cannot be used.
         </p>
         <button
-          disabled={busy || !!review || !!connection || !path.trim()}
-          onClick={(e) => {
-            returnFocus.current = e.currentTarget;
-            restoreFocus.current = true;
+          disabled={busy || disabled || !!state?.connection || !path.trim()}
+          onClick={() =>
             void action(async () => {
-              await post("/workspace/archive/connect", {
+              await post("connect", {
                 path,
                 initialize,
                 confirmed: true,
+                expected_connection:
+                  state?.remembered_connection?.path === path
+                    ? state.remembered_connection
+                    : undefined,
               });
-              await load();
-              setMessage(
-                "Archive location confirmed. Automatic archival uses its separate consent.",
-              );
               setInitialize(false);
-            });
-          }}
+              setMessage(
+                "Archive connection confirmed. Review preservation choices below.",
+              );
+            })
+          }
         >
           {initialize
             ? "Initialize and connect archive"
             : "Confirm archive location"}
-        </button>{" "}
+        </button>
       </details>
-      <p className="muted">
-        Workspace backups do not include the external Git archive.
-      </p>
-      <details ref={automaticPanel}>
-        <summary>Automatic archival settings</summary>
-        <p>
-          File choices come from Manage Git files in the Source Git section.
-          Changing settings requires a fresh review; saving file choices alone
-          never enables archival.
-        </p>
-        <label>
-          Future outputs — one filename or pattern per line
-          <textarea
-            value={future}
-            disabled={busy || !!review}
-            onChange={(e) => {
-              setFuture(e.target.value);
-              setReview(null);
-            }}
-            placeholder={"result.csv\nlogs/*.csv"}
-          />
-        </label>
-        <FutureOutputHelp directory={simulation.config.output_dir} />
-        <p>
-          {archiveLimits} Git retains earlier versions even after a run or
-          attachment is deleted. Back up this repository separately from your
-          library.
-        </p>
-        {!review && (
-          <button
-            ref={reviewAction}
-            disabled={busy || status?.state !== "connected"}
-            onClick={(e) => void requestReview(e.currentTarget)}
-          >
-            Review archival settings
-          </button>
-        )}
-        {message && <p role="alert">{message}</p>}
-      </details>
-      {review && (
-        <section aria-label="Automatic archive consent">
-          <h3>
-            {enabled ? "Review archival changes" : "Review automatic archival"}
-          </h3>
-          <p>
-            Future runs will automatically create local commits from selected
-            run-start source snapshots and verified managed output copies.
-            Failed runs may archive partial results. Process status is
-            independent.
-          </p>
-          <p>
-            These future-output rules request Keep a copy before other capture
-            rules, inside <code>{review.capture_config.output_dir}</code>.
-            Existing capture size limits still apply.
-          </p>
-          <ul>
-            {review.future.map((r: string) => (
-              <li key={r}>
-                <code>{r}</code> — copy and archive when attributable
-              </li>
-            ))}
-          </ul>
-          <p>Existing file selection rules:</p>
-          <ul>
-            {review.rules.map((r: Review, i: number) => (
-              <li key={i}>
-                {r.kind}: <code>{r.value}</code>
-              </li>
-            ))}
-          </ul>
-          <p>
-            Other selected outputs must already have Keep a copy coverage.
-            Missing, unchanged, unstable or oversized outputs are skipped.
-            Source files excluded from the run snapshot cannot be archived
-            automatically.
-          </p>
-          <button
-            disabled={busy}
-            onClick={() =>
-              void action(async () => {
-                await post(`/simulations/${simulation.id}/archive/enable`, {
-                  review,
-                  confirmed: true,
-                });
-                setReview(null);
-                await load();
-                setMessage("Archival settings saved for future runs.");
-              })
-            }
-          >
-            Confirm changes
-          </button>{" "}
-          <button
-            ref={cancelReview}
-            disabled={busy}
-            onClick={() => {
-              setReview(null);
-              setMessage("Review canceled. Settings unchanged.");
-            }}
-          >
-            Cancel
-          </button>
-        </section>
-      )}
+      <button
+        disabled={busy || disabled}
+        onClick={() => void action(async () => {})}
+      >
+        Refresh archive status
+      </button>
       <details>
-        <summary>This simulation’s archive history</summary>
-        <p>Latest 200 runs only; other simulations are excluded.</p>
+        <summary>This simulation’s Git preservation history</summary>
+        <p>
+          Latest 200 runs; other simulations are excluded. Open a run’s Files
+          view for exact revisions and downloads.
+        </p>
         <ul>
           {runs
             .filter((r) => r.events.length)
             .map((r) => (
               <li key={r.run}>
-                {r.name}: {r.events.length} archive commits{" "}
+                {r.name} · <code>{r.run}</code>:{" "}
+                {r.preservation?.state || "scope unknown"};{" "}
+                {r.preservation?.output_files ?? 0} outputs in initial
+                preservation.
                 {r.events.map((e: Review) => (
-                  <code key={e.id}> {e.commit.slice(0, 9)}</code>
+                  <span key={e.id}>
+                    {" "}
+                    <code>{e.commit.slice(0, 9)}</code> ({e.files.length} files
+                    {!e.files.length ? "; manifest only" : ""})
+                  </span>
                 ))}
               </li>
             ))}
@@ -385,14 +188,19 @@ export function RunArchive({
   reload: () => void;
   openSource?: (path: string) => void;
 }) {
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState(""),
+    [filter, setFilter] = useState("all");
   const [view, setView] = useState<Review | null>(null),
     [selected, setSelected] = useState<string[]>([]);
-  const [review, setReview] = useState<Review | null>(null),
+  const [includeNotes, setIncludeNotes] = useState(false),
+    [review, setReview] = useState<Review | null>(null),
     [operation, setOperation] = useState("");
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
+  const afterReview = useRef<HTMLHeadingElement>(null);
+  const cancel = useRef<HTMLButtonElement>(null),
+    trigger = useRef<HTMLButtonElement>(null),
+    restore = useRef(false);
   const load = async () =>
     setView(await api<Review>(`/runs/${run.id}/archive`));
   useEffect(() => {
@@ -417,6 +225,16 @@ export function RunArchive({
       clearInterval(timer);
     };
   }, [run.id]);
+  useEffect(() => {
+    if (review) {
+      cancel.current?.focus();
+      restore.current = true;
+    } else if (!busy && restore.current) {
+      if (trigger.current?.disabled) afterReview.current?.focus();
+      else trigger.current?.focus();
+      restore.current = false;
+    }
+  }, [review, busy]);
   async function action(work: () => Promise<void>) {
     setBusy(true);
     setMessage("");
@@ -424,12 +242,14 @@ export function RunArchive({
       await work();
     } catch (e) {
       setMessage((e as Error).message);
+      setReview(null);
+      await load().catch(() => {});
     } finally {
       setBusy(false);
     }
   }
   const post = (suffix: string, body: Review) =>
-    api<Review>(`/runs/${run.id}/archive/${suffix}`, {
+    api<Review>(`/runs/${run.id}/${suffix}`, {
       method: "POST",
       body: JSON.stringify(body),
     });
@@ -437,18 +257,12 @@ export function RunArchive({
     <section className="git-archive">
       <h2>Run files</h2>
       <p>
-        Workspace copies download without Git. Git revisions use their exact
-        archived commit. Earlier filename revisions remain separate.
+        One list for retained sources, results and attachments. Downloads verify
+        retained bytes; exact Git revisions stay available after later commits.
+        Choose Identity and revisions for alternate sources.
       </p>
       {message && <p role="status">{message}</p>}
-      {view?.error && <p role="alert">Archive: {view.error}</p>}
-      {view?.initial?.state === "prepared" && run.status !== "running" && (
-        <p>
-          Initial archive is not yet verified. If the recorder has stopped, no
-          live files will be recovered automatically; attach verified files
-          manually if needed.
-        </p>
-      )}
+      {view?.error && <p role="alert">Preservation: {view.error}</p>}
       <div className="toolbar">
         <input
           aria-label="Filter filenames"
@@ -462,16 +276,15 @@ export function RunArchive({
           onChange={(e) => setFilter(e.target.value)}
         >
           <option value="all">All recorded files</option>
-          <option value="copy">Saved copies</option>
-          <option value="archive">Archived in Git</option>
+          <option value="copy">Library copies</option>
+          <option value="archive">Preserved in Git</option>
           <option value="reference">References</option>
           <option value="skipped">Skipped</option>
         </select>
       </div>
       {!view && (
         <p role="status">
-          Archive history unavailable until loaded. Workspace files remain
-          accessible.
+          Git history unavailable until loaded. Library files remain accessible.
         </p>
       )}
       <RunFilesTable
@@ -482,7 +295,13 @@ export function RunArchive({
         search={search}
         filter={filter}
         selected={selected}
-        disabled={busy || !!view?.pending || !view || run.status === "running"}
+        disabled={
+          busy ||
+          !!review ||
+          !!view?.pending ||
+          !view ||
+          run.status === "running"
+        }
         onSelect={(id) => {
           setSelected(
             selected.includes(id)
@@ -494,19 +313,39 @@ export function RunArchive({
       />
       {view && (
         <details>
-          <summary>Archive events and omissions ({view.events.length})</summary>
+          <summary>
+            Preservation records and omissions ({view.events.length})
+          </summary>
           <p>
-            {archiveLimits} Workspace backups do not include the external Git
-            archive.
+            {archiveLimits} Library backups include retained records and bytes;
+            preserve the external Git repository separately.
           </p>
           {view.events.map((e: Review) => (
             <section key={e.id}>
               <h3>
                 {e.kind === "initial"
-                  ? "Initial run archive"
-                  : "Post-run additions"}{" "}
+                  ? "Initial preservation"
+                  : "Reviewed later additions"}{" "}
                 · <code>{e.commit.slice(0, 9)}</code>
               </h3>
+              <p>
+                {e.files.length} files ·{" "}
+                {e.record
+                  ? e.record.completeness + " for this event’s reviewed scope"
+                  : "legacy scope unknown"}
+                {!e.files.length
+                  ? " · manifest only; no scientific file payloads"
+                  : ""}
+                .
+              </p>
+              {view.connection_status?.state === "connected" &&
+                view.connection_status.identity === e.repository.identity && (
+                  <a href={`/api/runs/${run.id}/archive/${e.id}/record`}>
+                    {e.record
+                      ? "Download verified record"
+                      : "Download verified legacy manifest"}
+                  </a>
+                )}
               <ul>
                 {e.skipped.map((s: Review, i: number) => (
                   <li key={i}>
@@ -514,46 +353,79 @@ export function RunArchive({
                   </li>
                 ))}
               </ul>
+              {e.record && (
+                <>
+                  <ul>
+                    {e.record.unknown_coverage.map((s: string, i: number) => (
+                      <li key={i}>Unknown coverage: {s}</li>
+                    ))}
+                  </ul>
+                  <ul>
+                    {e.record.evidence
+                      .filter((f: Review) => f.disposition === "not_retained")
+                      .map((f: Review, i: number) => (
+                        <li key={i}>
+                          {f.name}: {f.reason}
+                        </li>
+                      ))}
+                  </ul>
+                  {e.record.annotations.length > 0 && (
+                    <details>
+                      <summary>
+                        Preserved annotations ({e.record.annotations.length})
+                      </summary>
+                      {e.record.annotations.map((a: Review) => (
+                        <pre className="source-block" key={a.id}>
+                          {JSON.stringify(a.data, null, 2)}
+                        </pre>
+                      ))}
+                    </details>
+                  )}
+                </>
+              )}
             </section>
           ))}
         </details>
       )}
       {view && !view.events.length && (
-        <p>No verified archive commits for this run.</p>
+        <p>No verified Git preservation events for this run.</p>
       )}
       {view?.pending && (
         <>
           <p>
-            A previously approved archive operation is pending. Retry uses its
-            original managed bytes.
+            A previously approved operation is pending. Retry uses its original
+            managed bytes and record, without recapturing live outputs.
           </p>
           <button
             disabled={busy}
             onClick={() =>
               void action(async () => {
-                await post("retry", { confirmed: true });
+                await post("archive/retry", { confirmed: true });
                 await load();
               })
             }
           >
-            Retry approved archive
+            Retry approved preservation
           </button>
         </>
       )}
       {run.status !== "running" && (
         <>
-          <h3>Add files after execution</h3>
+          <h3 ref={afterReview} tabIndex={-1}>
+            Add evidence after execution
+          </h3>
           <p>
-            Attach screenshots or analysis files to this run, then optionally
-            select them for Git. Attaching alone does not commit anything.
-            Archive copies remain in Git history after an attachment is removed.
+            Attach screenshots or analysis files, save notes and captions, then
+            explicitly review them for Git. Attaching alone does not commit
+            anything. Earlier scientific records and Git events remain
+            unchanged.
           </p>
           <label>
             Attach files
             <input
               type="file"
               multiple
-              disabled={busy}
+              disabled={busy || !!review}
               onChange={(e) => {
                 const files = Array.from(e.target.files || []);
                 e.target.value = "";
@@ -561,7 +433,7 @@ export function RunArchive({
                   for (const f of files) await uploadFile(run.id, f);
                   reload();
                   setMessage(
-                    "Files attached. Select attachments in Run files to archive them.",
+                    "Files attached. Select them in the list to review preservation.",
                   );
                 });
               }}
@@ -570,20 +442,39 @@ export function RunArchive({
           <fieldset
             disabled={
               busy ||
+              !!review ||
               !!view?.pending ||
               view?.connection_status?.state !== "connected"
             }
           >
-            <legend>Archive selected attachments ({selected.length})</legend>
+            <legend>
+              Review later evidence ({selected.length} selected attachments)
+            </legend>
+            <label className="archive-choice">
+              <input
+                type="checkbox"
+                checked={includeNotes}
+                onChange={(e) => setIncludeNotes(e.target.checked)}
+              />{" "}
+              Include all saved run-note, name, tag and version-note revisions
+            </label>
             <p>
-              Select eligible workspace attachments in the Run files list, then
-              review.
+              Selected attachments include saved caption history. Select an
+              already preserved attachment to append a revised caption. All
+              selected revisions count toward cumulative limits; no text is
+              silently truncated.
             </p>
             <button
-              disabled={!selected.length}
+              ref={trigger}
+              disabled={!selected.length && !includeNotes}
               onClick={() =>
                 void action(async () => {
-                  setReview(await post("preview", { artifact_ids: selected }));
+                  setReview(
+                    await post("preservation/preview", {
+                      artifact_ids: selected,
+                      include_notes: includeNotes,
+                    }),
+                  );
                   setOperation(crypto.randomUUID().replaceAll("-", ""));
                 })
               }
@@ -592,36 +483,58 @@ export function RunArchive({
             </button>
           </fieldset>
           {review && (
-            <section aria-label="Archive additions review">
-              <h3>Confirm new archival commit</h3>
+            <section
+              className="preservation-review"
+              aria-label="Archive additions review"
+            >
+              <h3>Confirm append-only preservation</h3>
               <ul>
                 {review.files.map((f: Review) => (
                   <li key={f.artifact_id}>
-                    {f.name} · {f.size.toLocaleString()} bytes
+                    {f.name} · {f.size.toLocaleString()} bytes ·{" "}
+                    <code>{f.blob}</code>
                   </li>
                 ))}
               </ul>
               <p>
-                These additions belong to this existing run. Earlier commits and
-                scientific records stay unchanged.
+                {review.record.annotations.length} annotation entries. 64 KiB
+                per note/caption, 1 MiB per record, 1,000 annotation entries per
+                run including revisions. Records include local paths and
+                parameters.
               </p>
-              <button
-                disabled={busy}
-                onClick={() =>
-                  void action(async () => {
-                    await post("add", { review, operation, confirmed: true });
-                    setReview(null);
-                    setSelected([]);
-                    await load();
-                    setMessage("Additions archived.");
-                  })
-                }
-              >
-                Archive selected attachments
-              </button>{" "}
-              <button disabled={busy} onClick={() => setReview(null)}>
-                Cancel
-              </button>
+              <details open>
+                <summary>Exact record to preserve</summary>
+                <pre className="source-block">{review.record_json}</pre>
+              </details>
+              <div className="settings-actions">
+                <button
+                  ref={cancel}
+                  disabled={busy}
+                  onClick={() => setReview(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="primary"
+                  disabled={busy}
+                  onClick={() =>
+                    void action(async () => {
+                      await post("preservation/add", {
+                        review,
+                        operation,
+                        confirmed: true,
+                      });
+                      setReview(null);
+                      setSelected([]);
+                      setIncludeNotes(false);
+                      await load();
+                      setMessage("Reviewed additions preserved.");
+                    })
+                  }
+                >
+                  Preserve reviewed additions
+                </button>
+              </div>
             </section>
           )}
         </>
@@ -678,54 +591,81 @@ export function MasterArchiveStatus({
       </div>
       <small id="master-archive-help">
         {status?.reason ||
-          "Shared repository access. Automatic archival is set separately for each simulation."}
+          "Shared repository access. Preservation choices are reviewed below for each simulation."}
       </small>
     </div>
   );
 }
 
+type Revision = { event: Review; file: Review; index: number };
 type FileRow = {
   key: string;
   name: string;
   size: number;
   artifact?: Artifact;
-  archived?: { event: Review; file: Review; index: number };
+  source?: { path: string; size: number; blob: string };
+  archived?: Revision;
+  revisions: Revision[];
 };
 export function runFileRows(run: Run, events: Review[]): FileRow[] {
-  const rows: FileRow[] = (run.artifacts || []).map((artifact) => ({
-    key: `artifact:${artifact.id}`,
-    name: artifact.name,
-    size: artifact.size,
-    artifact,
-  }));
+  const rows: FileRow[] = [
+    ...(run.artifacts || []).map((artifact) => ({
+      key: `artifact:${artifact.id}`,
+      name: artifact.name,
+      size: artifact.size,
+      artifact,
+      revisions: [],
+    })),
+    ...(run.snapshot?.files || []).map((source) => ({
+      key: `source:${source.path}`,
+      name: source.path,
+      size: source.size,
+      source,
+      revisions: [],
+    })),
+  ];
   for (const event of events)
     event.files.forEach((file: Review, index: number) => {
-      // Identity plus content: neither a coincident filename nor identical bytes
-      // alone identify a historical attachment. Never collapse separate events.
-      const row =
-        file.artifact_id &&
-        rows.find(
-          (r) =>
-            !r.archived &&
-            r.artifact?.id === file.artifact_id &&
-            r.artifact?.policy === "copy" &&
-            !!file.blob &&
-            r.artifact?.blob === file.blob &&
-            r.size === file.size,
+      // A repeated explicit event is another revision of the same evidence only
+      // when identity, category, name, size and hash all match. Never join by name.
+      let row = rows.find(
+        (r) =>
+          !!file.blob &&
+          r.size === file.size &&
+          (file.artifact_id
+            ? r.artifact?.id === file.artifact_id &&
+              r.artifact?.policy === "copy" &&
+              r.artifact?.blob === file.blob
+            : file.category === "source" &&
+              r.source?.path === file.name &&
+              r.source?.blob === file.blob),
+      );
+      if (!row)
+        row = rows.find((r) =>
+          r.revisions.some(
+            (v) =>
+              v.file.category === file.category &&
+              v.file.artifact_id === file.artifact_id &&
+              v.file.name === file.name &&
+              v.file.blob === file.blob &&
+              v.file.size === file.size,
+          ),
         );
-      const archived = { event, file, index };
-      if (row) row.archived = archived;
-      else
+      const revision = { event, file, index };
+      if (row) {
+        row.archived ||= revision;
+        row.revisions.push(revision);
+      } else
         rows.push({
           key: `event:${event.id}:${index}`,
           name: file.name,
           size: file.size,
-          archived,
+          archived: revision,
+          revisions: [revision],
         });
     });
   return rows;
 }
-
 export function RunFilesTable({
   run,
   events,
@@ -748,16 +688,17 @@ export function RunFilesTable({
   openSource?: (path: string) => void;
 }) {
   const [downloadError, setDownloadError] = useState("");
-  const used = new Set(
-    events.flatMap((e) => e.files.map((f: Review) => f.artifact_id)),
-  );
   const rows = runFileRows(run, events).filter(
     (r) =>
       r.name.toLowerCase().includes(search.toLowerCase()) &&
       (filter === "all" ||
-        (filter === "archive" ? !!r.archived : r.artifact?.policy === filter)),
+        (filter === "archive"
+          ? !!r.archived
+          : filter === "copy"
+            ? !!r.source || r.artifact?.policy === "copy"
+            : r.artifact?.policy === filter)),
   );
-  async function downloadGit(
+  async function download(
     event: React.MouseEvent<HTMLAnchorElement>,
     url: string,
     name: string,
@@ -773,48 +714,44 @@ export function RunFilesTable({
         throw new Error(
           typeof body.detail === "string"
             ? body.detail
-            : "Historical download unavailable. Check the master archive and retry.",
+            : "Verified download unavailable. Check the original archive or managed copy.",
         );
       }
-      const blob = await response.blob(),
-        object = URL.createObjectURL(blob);
-      const anchor = document.createElement("a");
+      const object = URL.createObjectURL(await response.blob()),
+        anchor = document.createElement("a");
       anchor.href = object;
       anchor.download = name;
       anchor.click();
       setTimeout(() => URL.revokeObjectURL(object), 30000);
-    } catch (error) {
-      setDownloadError((error as Error).message);
+    } catch (e) {
+      setDownloadError((e as Error).message);
     }
   }
+  const connected = (r: Revision) =>
+    connection?.state === "connected" &&
+    connection.identity === r.event.repository?.identity;
+  const gitUrl = (r: Revision) =>
+    `/api/runs/${run.id}/archive/${r.event.id}/${r.index}/file`;
   return (
     <div className="run-files-list">
       {downloadError && <p role="alert">{downloadError}</p>}
       {!rows.length && <p>No files match this view.</p>}
       {rows.map((row) => {
         const a = row.artifact,
-          archived = row.archived;
-        const local = a?.policy === "copy" && a.availability === "available";
-        const connected =
-          !!archived &&
-          connection?.state === "connected" &&
-          connection.identity === archived.event.repository?.identity;
-        const snapshot =
-          archived?.file.category === "source" &&
-          run.snapshot?.files.find(
-            (f) =>
-              f.path === archived.file.name &&
-              f.blob === archived.file.blob &&
-              f.size === archived.file.size,
-          );
-        const gitUrl = archived
-          ? `/api/runs/${run.id}/archive/${archived.event.id}/${archived.index}/file`
-          : "";
+          rev = row.archived;
+        const local =
+          !!row.source ||
+          (a?.policy === "copy" && a.availability === "available");
+        const localUrl = row.source
+          ? `/api/runs/${run.id}/source-file?path=${encodeURIComponent(row.source.path)}`
+          : `/api/artifacts/${a?.id}/file?download=true`;
+        const primary = local
+          ? localUrl
+          : rev && connected(rev)
+            ? gitUrl(rev)
+            : null;
         const eligible =
-          a?.policy === "copy" &&
-          !a.automatic &&
-          !used.has(a.id) &&
-          run.status !== "running";
+          a?.policy === "copy" && !a.automatic && run.status !== "running";
         return (
           <article key={row.key} className="run-file-row" aria-label={row.name}>
             <div className="run-file-name">
@@ -834,92 +771,92 @@ export function RunFilesTable({
               )}
             </div>
             <div className="run-file-storage">
+              {row.source && <span>Retained source snapshot</span>}
               {a && (
                 <span>
                   {a.policy === "copy"
-                    ? "Preserved in workspace"
+                    ? "Retained in library"
                     : a.policy === "reference"
                       ? "Reference only"
-                      : "Not preserved"}{" "}
+                      : "Not retained"}{" "}
                   · {a.availability.replaceAll("-", " ")}
                 </span>
               )}
-              {archived && (
+              {rev ? (
                 <span>
-                  Archived in Git · {archived.file.category} ·{" "}
-                  <code>{archived.event.commit.slice(0, 9)}</code>
+                  Preserved in Git · {rev.file.category} ·{" "}
+                  <code>{rev.event.commit.slice(0, 9)}</code>
+                  {row.revisions.length > 1
+                    ? ` · ${row.revisions.length} events`
+                    : ""}
                 </span>
+              ) : (
+                <span>No Git copy recorded</span>
               )}
-              {archived && !connected && (
+              {rev && !connected(rev) && (
                 <small>
-                  {connection?.state === "connected"
-                    ? "Connect the original archive for this revision."
-                    : "Git download unavailable — connect or check the master archive."}
+                  Git download unavailable — connect the original archive for
+                  this revision.
                 </small>
               )}
               {a?.original_path && a.policy === "reference" && (
                 <small className="path">{a.original_path}</small>
               )}
               {a?.reason && <small className="text-amber">{a.reason}</small>}
+              {a?.caption && <span>Current caption: {a.caption}</span>}
             </div>
             <div className="run-file-download">
-              {snapshot && (
-                <p>
-                  Matching workspace source snapshot.{" "}
-                  {openSource && (
-                    <button onClick={() => openSource(snapshot.path)}>
-                      View in Source
-                    </button>
-                  )}
-                </p>
+              {row.source && openSource && (
+                <button onClick={() => openSource(row.source!.path)}>
+                  View in Source
+                </button>
               )}
-              {local ? (
+              {primary ? (
                 <a
-                  href={`/api/artifacts/${a.id}/file?download=true`}
-                  aria-label={`Download workspace copy of ${row.name}`}
+                  href={primary}
+                  onClick={(e) => void download(e, primary, row.name)}
+                  aria-label={`Download ${local ? "library copy" : "Git revision"} of ${row.name}`}
                 >
-                  Download workspace copy
-                </a>
-              ) : connected ? (
-                <a
-                  href={gitUrl}
-                  onClick={(e) => void downloadGit(e, gitUrl, row.name)}
-                  aria-label={`Download Git revision of ${row.name}`}
-                >
-                  Download Git revision
+                  {local ? "Download library copy" : "Download Git revision"}
                 </a>
               ) : (
-                <span>
-                  {snapshot
-                    ? "Git download unavailable"
-                    : "No downloadable copy available"}
-                </span>
+                <span>No downloadable copy available</span>
               )}
-              {archived && (
-                <details>
-                  <summary>Revision details</summary>
-                  <p>
-                    Archive event: {archived.event.kind}
+              <details>
+                <summary>Identity and revisions</summary>
+                <p>
+                  Run: <code>{run.id}</code>
+                  <br />
+                  SHA-256:{" "}
+                  <code>
+                    {row.source?.blob ||
+                      a?.blob ||
+                      rev?.file.blob ||
+                      "No retained bytes"}
+                  </code>
+                </p>
+                {row.revisions.map((r) => (
+                  <p key={r.event.id + ":" + r.index}>
+                    Event: {r.event.kind}
                     <br />
-                    Commit: <code>{archived.event.commit}</code>
+                    Commit: <code>{r.event.commit}</code>
                     <br />
-                    SHA-256: <code>{archived.file.blob}</code>
+                    {connected(r) && (
+                      <a
+                        href={gitUrl(r)}
+                        onClick={(e) => void download(e, gitUrl(r), row.name)}
+                      >
+                        Retrieve this Git revision
+                      </a>
+                    )}
                   </p>
-                  {local && connected && (
-                    <a
-                      href={gitUrl}
-                      onClick={(e) => void downloadGit(e, gitUrl, row.name)}
-                      aria-label={`Download Git revision of ${row.name}`}
-                    >
-                      Download Git revision
-                    </a>
-                  )}
-                  <p>
-                    Git downloads verify this exact event and path, never the
-                    current source file.
-                  </p>
-                </details>
-              )}
+                ))}
+                <p>
+                  Downloads verify exact retained bytes. Current source and
+                  external references are never substituted. Captions and notes
+                  have separate reviewed revision records.
+                </p>
+              </details>
             </div>
           </article>
         );
@@ -928,53 +865,64 @@ export function RunFilesTable({
   );
 }
 
-export function AutomaticArchiveToggle({
-  name,
-  automatic,
-  busy,
-  available,
-  onChange,
+export function PreservationStatus({
+  run,
+  value,
 }: {
-  name: string;
-  automatic: Review | null;
-  busy: boolean;
-  available: boolean;
-  onChange: (trigger: HTMLButtonElement) => void;
+  run: Run;
+  value: Review | null;
 }) {
-  const enabled = automatic?.state === "enabled";
-  const label = enabled
-    ? "Enabled"
-    : automatic?.state === "disabled"
-      ? "Disabled"
-      : automatic
-        ? "Disabled — review required"
-        : "Status unavailable";
+  const counts = run.capture_counts || {};
   return (
-    <div className="automatic-archive-control">
-      <div className="automatic-archive-line">
-        <span role="status" aria-live="polite">
-          Automatic archival — {name} — <strong>{label}</strong>
-        </span>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={enabled}
-          aria-label={`Automatic archival for ${name}`}
-          aria-describedby="automatic-archive-help"
-          className="archive-toggle"
-          disabled={busy || !automatic || (!enabled && !available)}
-          onClick={(e) => onChange(e.currentTarget)}
-        >
-          <span className="archive-toggle-knob" aria-hidden="true" />
-          {enabled ? "ON" : "OFF"}
-        </button>
-      </div>
-      <small id="automatic-archive-help">
-        {automatic?.reason ||
-          (!available
-            ? "Connect an available master archive to request activation."
-            : "Future runs only. Turning on requires review and confirmation.")}
-      </small>
-    </div>
+    <section
+      className="preservation-status"
+      aria-label="Run preservation status"
+    >
+      <p>
+        <strong>Execution:</strong> {run.status} ·{" "}
+        <strong>Workspace capture:</strong> {run.capture_status || "unknown"} (
+        {counts.copied || 0} copied, {counts.referenced || 0} referenced,{" "}
+        {counts.ignored || 0} ignored, {counts.skipped || 0} skipped)
+      </p>
+      <p>
+        <strong>Master Git preservation:</strong>{" "}
+        {value?.state === "verified"
+          ? "Verified for the reviewed scope"
+          : value?.state?.replaceAll("_", " ") || "status unavailable"}
+        .{" "}
+        {value?.state === "verified"
+          ? "Verified at publication; inspect each event for exclusions."
+          : value?.reason}
+      </p>
+      {value && (
+        <p>
+          {value.source_files} source files and {value.output_files} of{" "}
+          {value.copied_outputs} copied outputs in initial preservation;{" "}
+          {value.annotations} annotation entries in {value.events} events.
+          Repository access: {value.connection}.
+        </p>
+      )}
+    </section>
   );
+}
+export function PreservationSummary({ run }: { run: Run }) {
+  const [value, setValue] = useState<Review | null>(null);
+  useEffect(() => {
+    let active = true;
+    const load = () =>
+      api<Review>(`/runs/${run.id}/archive`)
+        .then((v) => {
+          if (active) setValue(v.preservation);
+        })
+        .catch(() => {
+          if (active) setValue(null);
+        });
+    void load();
+    const timer = setInterval(load, 3000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [run.id]);
+  return <PreservationStatus run={run} value={value} />;
 }

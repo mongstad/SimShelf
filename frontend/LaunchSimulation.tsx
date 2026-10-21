@@ -311,14 +311,15 @@ export function LaunchSimulation({
             setOutputPolicy(e.target.value as "fixed" | "per_run");
             edited();
           }}>
-            <option value="fixed">Fixed folder (existing behavior)</option>
-            <option value="per_run">Unique subfolder for each run</option>
+            <option value="fixed">Fixed parent (simulation-owned subfolders)</option>
+            <option value="per_run">Launcher-coordinated subfolder (requires support)</option>
           </select>
           <small>
-            Unique subfolders require a cooperating script: use SIMSHELF_OUTPUT_DIR
-            or joined run.output_dir. SimShelf creates the folder at launch; use
-            mkdir with exist_ok=True if your script also creates it. Fixed output
-            arguments are not rewritten, and shell variables in arguments are not expanded.
+            Use the fixed parent when your simulation creates its own unique output
+            directories. Launcher-coordinated allocation requires explicit script support
+            for SIMSHELF_OUTPUT_DIR or joined run.output_dir. SimShelf preallocates that
+            folder; scripts that independently allocate elsewhere leave it unused.
+            Arguments and script writes are never redirected automatically.
           </small>
         </label>
         <ArgumentEditor
