@@ -382,3 +382,10 @@ strings, disabled drafts and exact argv.
 See [issue #112 output policy](validation/issue-112-output-policy.md) for the
 additive child environment discriminator, repeated portal/CLI/Python launches,
 isolation regressions, installed-package checks and limitations.
+
+## SWSS metadata audit and static CLI investigation
+
+See [issue #114 metadata audit](validation/issue-114-swss-audit.md) for the
+coverage matrix, repeatable probes, confirmed nested-value validation gap and
+optional AST inspection recommendation. No runtime verifier or contract change
+is introduced; earlier evidence remains unchanged.
