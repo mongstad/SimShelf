@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import hashlib
-import io
-import tokenize
 import math
 import os
 from pathlib import Path
@@ -230,28 +228,10 @@ def read(root, entrypoint=None, version_file=None):
                 reasons.append('Source binding changed: ' + name)
         if s['entrypoint'] not in paths:
             raise ValueError('SWSS source_files must include the entrypoint')
-    # Only a simple top-level literal tag is comparable, without parsing an AST.
-    # Unknown/complex tags remain explicitly unverified; recording validates them independently.
+    # The SWSS declaration owns its version. An application-local Python tag
+    # is not an independent SWSS version authority. Keep the optional argument
+    # and provenance key for existing callers and historical record shape.
     comparable = None
-    if version_file:
-        try:
-            source = safe_read(root, version_file, SOURCE_LIMIT).decode('utf-8')
-            tokens = tokenize.generate_tokens(io.StringIO(source).readline)
-            tags = []
-            for token in tokens:
-                if token.type == tokenize.NAME and token.string == 'SIMSHELF_VERSION' and token.start[1] == 0:
-                    equals, literal = next(tokens), next(tokens)
-                    if equals.string == '=' and literal.type == tokenize.STRING:
-                        match = re.fullmatch(r"(['\"])([A-Za-z0-9.+_-]+)\1", literal.string)
-                        end = next(tokens)
-                        if match and end.type in (tokenize.NEWLINE, tokenize.COMMENT):
-                            tags.append(match[2])
-            if len(tags) == 1:
-                comparable = tags[0]
-                if comparable != s['simulation_version']:
-                    reasons.append('Declared simulation version differs from the source version tag')
-        except (ValueError, UnicodeError, tokenize.TokenError, StopIteration):
-            pass  # No safely comparable version; no source AST inspection.
     status = 'stale / manual-only' if reasons else 'listed bytes verified' if sources is not None else 'binding unverified'
     evidence = {'path': 'swss.toml', 'bytes_utf8': data.decode('utf-8'), 'sha256': hashlib.sha256(data).hexdigest(),
                 'schema_version': 2, 'simulation_version': s['simulation_version'], 'entrypoint': entrypoint or s['entrypoint'],

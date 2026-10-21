@@ -6,7 +6,14 @@ Commands using `./start.sh` assume your terminal is in the SimShelf source check
 
 ## Versions: you decide what counts as a new simulation
 
-Put one literal assignment near the top of the registered entry file:
+For SWSS simulations, the version comes from `[swss].simulation_version` in
+`swss.toml`; no Python tag is required or compared. Invalid, unsupported or stale
+companions record **unversioned** when using manual argv, with metadata diagnostics
+retained. They do not fall back to a legacy tag. Schema version and source hashes
+remain separate from the declared simulation version.
+
+For scripts **without a companion**, optionally put one literal assignment near
+the top of the registered entry file:
 
 ```python
 SIMSHELF_VERSION = "0.1.0"
@@ -21,9 +28,12 @@ There are three distinct records:
 
 | Record | Meaning | When it changes |
 | --- | --- | --- |
-| Simulation version | Your chosen name for the model, such as `0.1.0` | Only when you explicitly change the tag |
+| Simulation version | Your chosen name for the model, such as `0.1.0` | When you change the applicable declaration |
 | Source snapshot | The selected source file bytes and permissions | When those bytes or permissions change |
 | Python structural fingerprint | A conservative review aid based on the parsed source | When Python structure or included non-Python bytes change |
+
+SWSS authors follow the standard’s source-version policy, including source-package
+changes. SimShelf never bumps simulation versions automatically. For legacy tags:
 
 Examples:
 
@@ -38,7 +48,7 @@ Examples:
 - Changing runtime arguments creates a new run. It does not by itself change
   the simulation version or source snapshot.
 
-The first run under each tag is the comparison baseline. Later runs can show an
+The first run under each version is the comparison baseline. Later runs can show an
 exact source diff against it. Repeated identical snapshots are stored once.
 Strings and docstrings are preserved by the structural comparison. Non-Python
 files are compared exactly. Comparison uses a versioned Python AST representation,

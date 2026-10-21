@@ -62,9 +62,12 @@ the scalar-field example shows a complete mixed-use companion.
 
 Without supplied hashes the UI says **binding unverified**. Listed matching
 hashes verify only those bytes, not runtime behavior or unlisted dependencies.
-A separately readable simple top-level `SIMSHELF_VERSION` literal is compared
-without AST inspection; complex/unreadable tags are not claimed comparable.
-Changed hashes or a version mismatch disable typed use. Rescan changes require
+The SWSS declaration's `simulation_version` supplies the run version. A separate
+`SIMSHELF_VERSION` Python tag is neither required nor compared: it is a legacy
+convention only for scripts without a companion. Changed source hashes disable
+typed use. Invalid, unsupported or stale companions yield `unversioned` on a
+manual run, with diagnostics retained; they never fall back to the legacy tag.
+Rescan changes require
 explicit review. Validation, the supervisor and recording recheck typed metadata;
 a changed companion or binding refuses stale launch. Changes after checks remain
 possible: snapshots do not isolate the running script.

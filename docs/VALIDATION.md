@@ -389,3 +389,9 @@ See [issue #114 metadata audit](validation/issue-114-swss-audit.md) for the
 coverage matrix, repeatable probes, confirmed nested-value validation gap and
 optional AST inspection recommendation. No runtime verifier or contract change
 is introduced; earlier evidence remains unchanged.
+
+## SWSS simulation version authority
+
+See [issue #116 simulation versions](validation/issue-116-swss-versions.md) for
+companion-derived versions, legacy-only fallback, capture-time checks, preserved
+history, source/installed tests and owner verification.
