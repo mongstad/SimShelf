@@ -7,21 +7,32 @@ independent. Local commits upload nothing; remote synchronization is not support
 
 ## Set up and review preservation
 
-1. Open a simulation's **Preservation settings**. Under **Shared Master Git
-   Archive → Archive location and setup**, choose an existing empty directory
-   outside the library and all source folders. Explicitly initialize and connect
-   it, or reconnect an existing SimShelf archive. It is a dedicated bare repository,
-   not a source working tree. Existing arbitrary repositories are refused.
-2. Review the capture parent and ordered **Keep a copy / Reference only / Ignore**
-   rules, size limits and source snapshot patterns. The first matching capture
-   rule wins. Git never overrides reference/ignore choices under the new policy.
-3. Choose whether to preserve reviewed evidence in Git. Choose all captured
-   source files or exact relative paths, recursive output extensions such as
-   `.json`, `.csv`, `.log`, and optional process stdout/stderr. Output types apply
-   at any depth beneath the capture folder, with exact case.
-4. Choose **Review preservation settings**. Inspect capture and Git decisions
-   together, scope, exclusions, limits and current matches. **Confirm preservation
-   settings** saves both atomically for future runs. Cancel changes nothing.
+1. Open a simulation's **Preservation settings**. **Master Git Archive —
+   Connected** means the shared repository is available; it does not enable
+   preservation for every simulation. To set up an archive, expand **Archive
+   location and setup**, choose an existing empty directory outside the library
+   and all source folders, then explicitly initialize and connect it (or reconnect
+   an existing SimShelf archive). It is a dedicated bare repository, not a source
+   working tree. Existing arbitrary repositories are refused.
+2. Directly below the shared connection, **Git preservation — [Simulation name]**
+   shows **Enabled**, **Disabled**, or **Unavailable**. Choose **Enable Git
+   preservation** to review all eligible captured source files and recursive
+   `.json`, `.csv`, and `.log` outputs. Existing capture copy/reference/ignore
+   choices and limits stay unchanged; process stdout/stderr is excluded by default.
+3. Inspect the review's scope, exclusions, limits and current matches. **Confirm
+   preservation settings** saves the reviewed choices for future runs. Only a
+   confirmed backend status is shown as Enabled. **Cancel** changes nothing.
+4. **Disable Git preservation** is beside the enabled status. It stops future
+   automatic preservation without deleting previous Git commits. **Unavailable**
+   explains when the shared archive cannot be used; reconnecting does not activate
+   a disabled simulation.
+
+For custom choices, expand **Capture and Git options** below the status section.
+Capture rules use the first matching **Keep a copy / Reference only / Ignore**
+choice. Source patterns, source selection, recursive extensions (exact case),
+process stdout/stderr and size limits remain available. **Review preservation
+settings** reviews these edits before confirmation. For an enabled simulation,
+**Review Git preservation** opens the same review directly.
 
 Legacy consent keeps its original meaning until you explicitly adopt the new
 policy. The saved status distinguishes legacy consent from proposed choices.

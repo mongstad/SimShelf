@@ -9,10 +9,12 @@ export function ArchiveSettings({
   simulation,
   disabled = false,
   onChanged = () => {},
+  children,
 }: {
   simulation: Simulation;
   disabled?: boolean;
   onChanged?: () => void;
+  children?: React.ReactNode;
 }) {
   const [state, setState] = useState<Review | null>(null),
     [runs, setRuns] = useState<Review[]>([]);
@@ -54,7 +56,6 @@ export function ArchiveSettings({
   }
   return (
     <section className="git-archive" aria-label="Shared Git archive connection">
-      <h3>Shared Master Git Archive</h3>
       <MasterArchiveStatus
         status={state?.status}
         configured={!!state?.connection}
@@ -78,19 +79,20 @@ export function ArchiveSettings({
           }
         }}
       />
-      {state?.connection && (
-        <p className="path">
-          Configured archive: <code>{state.connection.path}</code>
-        </p>
-      )}
-      <p>
-        One local repository serves every simulation in this library. No uploads
-        or remote synchronization. Back it up separately; Git alone cannot
-        restore a complete workspace.
-      </p>
+      {children}
       {message && <p role="alert">{message}</p>}
       <details ref={panel}>
         <summary>Archive location and setup</summary>
+        {state?.connection && (
+          <p className="path">
+            Configured archive: <code>{state.connection.path}</code>
+          </p>
+        )}
+        <p>
+          One local repository serves every simulation in this library. No
+          uploads or remote synchronization. Back it up separately; Git alone
+          cannot restore a complete workspace.
+        </p>
         <label>
           Dedicated archive directory
           <input
@@ -564,7 +566,7 @@ export function MasterArchiveStatus({
           className={connected ? "archive-connected" : ""}
         >
           {connected && <span aria-hidden="true">✓ </span>}
-          Master simulation archive —{" "}
+          Master Git Archive —{" "}
           {connected
             ? "Connected"
             : status?.state === "disconnected"
@@ -577,7 +579,7 @@ export function MasterArchiveStatus({
           <button
             type="button"
             role="switch"
-            aria-label="Master simulation archive connection"
+            aria-label="Master Git Archive connection"
             aria-checked={connected || configured}
             aria-describedby="master-archive-help"
             className="archive-toggle"
@@ -591,7 +593,7 @@ export function MasterArchiveStatus({
       </div>
       <small id="master-archive-help">
         {status?.reason ||
-          "Shared repository access. Preservation choices are reviewed below for each simulation."}
+          "Shared repository access. Each simulation is enabled separately."}
       </small>
     </div>
   );

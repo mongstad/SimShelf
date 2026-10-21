@@ -406,3 +406,7 @@ focused regressions and the original one-library proposal. That dated report
 remains unchanged. See [issue #118 implementation](validation/issue-118-library-preservation.md)
 for the subsequent approved workflow, records, integrity/recovery checks, UI,
 package validation and limitations.
+
+The [issue #118 activation UX revision](validation/issue-118-preservation-activation.md)
+records prominent per-simulation status and controls, explicit confirmation,
+legacy/cancellation safety, theme and narrow-browser checks, and unchanged history.

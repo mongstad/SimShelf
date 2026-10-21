@@ -2258,3 +2258,13 @@ details label {
   .preservation-settings .rule-row { grid-template-columns: minmax(0, 1fr); }
   .preservation-settings .settings-actions, .preservation-review .settings-actions { flex-wrap: wrap; }
 }
+
+/* Simulation activation stays directly beneath the shared archive connection. */
+.simulation-preservation { border: 1px solid var(--line); border-radius: 8px; padding: .75rem 1rem; margin: .75rem 0; }
+.simulation-preservation h3 { margin-top: 0; }
+.simulation-preservation .automatic-archive-line { margin-bottom: 0; }
+.preservation-unavailable { color: var(--amber); }
+.preservation-options > summary { font-weight: 600; }
+.preservation-review > h3:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.preservation-settings > .git-archive { border-top: 0; margin-top: .75rem; padding-top: 0; }

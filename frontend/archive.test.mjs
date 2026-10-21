@@ -195,11 +195,11 @@ test("connection success is explicit, green-classed and never inferred during lo
   );
   assert.match(
     render(MasterArchiveStatus, { status: connection }),
-    /Master simulation archive — Connected/,
+    /Master Git Archive — Connected/,
   );
   assert.match(
     render(MasterArchiveStatus, { status: { state: "disconnected" } }),
-    /Master simulation archive — Disconnected/,
+    /Master Git Archive — Disconnected/,
   );
   for (const status of [null, { state: "unavailable", reason: "missing" }])
     assert.doesNotMatch(
@@ -240,10 +240,10 @@ test("master connection switch is distinct and only reflects confirmed availabil
       status: { state },
       onChange: () => {},
     });
-    assert.match(html, /aria-label="Master simulation archive connection"/);
+    assert.match(html, /aria-label="Master Git Archive connection"/);
     assert.match(html, new RegExp(`aria-checked="${state === "connected"}"`));
     assert.equal(html.includes("archive-connected"), state === "connected");
-    assert.match(html, /Preservation choices are reviewed below/);
+    assert.match(html, /Each simulation is enabled separately/);
     assert.doesNotMatch(html, /Disconnect archive|Connect archive locally/);
   }
   assert.match(
@@ -290,6 +290,6 @@ test("execution and capture never imply Git output preservation", () => {
 test("archive setup is shared and has no competing per-simulation consent editor", () => {
   const html=render(ArchiveSettings,{simulation:{id:"a",name:"Alpha",config:{output_dir:"outputs"}}});
   assert.doesNotMatch(html,/Future outputs|Review archival settings|Automatic archival settings/);
-  assert.match(html,/Shared Master Git Archive/);
+  assert.match(html,/Master Git Archive — Unavailable/);
   assert.match(html,/Git alone cannot restore/);
 });
