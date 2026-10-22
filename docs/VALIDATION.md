@@ -423,3 +423,10 @@ The [journal duplication report](validation/issue-118-journal-duplication.md)
 records the reproduced sibling-key collision, full-App browser regressions,
 all-theme desktop/narrow verification and unchanged historical evidence. Earlier
 reports retain their original review-time findings.
+
+## SWSS output ownership
+
+See [issue #120 output policy](validation/issue-120-swss-output-policy.md) for
+pre-allocation guards, explicit saved-setting correction, fixed-parent capture,
+repeated pinned reference launches, archive-byte checks, installed UI/package
+validation and limitations. Earlier dated reports remain unchanged.

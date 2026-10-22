@@ -134,22 +134,11 @@ class Run:
         from .swss import review
         had_companion = os.path.lexists(Path(self.simulation['root']) / 'swss.toml')
         metadata = review(self.simulation, (self.launch or {}).get('parameter_review'))
+        from .output_paths import validate_simulation_output_policy
+        validate_simulation_output_policy(self.simulation, self.output_policy, metadata)
         # Keep source exclusion and archive consent bound to the configured base.
         source_simulation = self.simulation
         self.base_capture_config = self.simulation["config"]
-        if self.output_policy == "per_run":
-            from .output_paths import allocate_output, output_review
-            relative, self.output_identity = allocate_output(
-                self.simulation["root"], self.base_capture_config["output_dir"], self.id)
-            self.simulation = {**self.simulation, "config": {**self.base_capture_config, "output_dir": relative}}
-            if self.launch and self.launch.get("output_review"):
-                review = self.launch["output_review"]
-                exact = output_review(self.simulation,
-                    os.path.relpath(self.cwd, self.simulation["root"]), self.command[2:],
-                    relative, [{k: t[k] for k in ("argument_index", "value", "kind", "format")} for t in review["targets"]])
-                self.launch = {**self.launch, "output_review": {**exact, "output_policy": "per_run"}}
-        from .git_archive import prepare
-        prepare(self)
         snapshot = source_snapshot(self.store.path, source_simulation)
         declaration = next((f for f in snapshot['files'] if f['path'] == 'swss.toml'), None)
         provenance = metadata['provenance']
@@ -168,7 +157,25 @@ class Run:
             version_file = self.simulation.get("version_file")
             captured_version = next((f for f in snapshot["files"] if f["path"] == version_file), None)
             version = read_version(Path(self.simulation["root"]), version_file, captured=blob_path(self.store.path, captured_version["blob"]).read_bytes() if captured_version else None)
-        if metadata['provenance'] and self.output_policy == 'per_run':
+        if self.output_policy == "per_run":
+            # Recheck adoption during source capture before creating anything in
+            # the simulation. An external edit after checks remains possible.
+            validate_simulation_output_policy(self.simulation, self.output_policy)
+            if declaration is not None:
+                raise ValueError('SWSS metadata appeared during source capture; review output policy before launch')
+            from .output_paths import allocate_output, output_review
+            relative, self.output_identity = allocate_output(
+                self.simulation["root"], self.base_capture_config["output_dir"], self.id)
+            self.simulation = {**self.simulation, "config": {**self.base_capture_config, "output_dir": relative}}
+            if self.launch and self.launch.get("output_review"):
+                review = self.launch["output_review"]
+                exact = output_review(self.simulation,
+                    os.path.relpath(self.cwd, self.simulation["root"]), self.command[2:],
+                    relative, [{k: t[k] for k in ("argument_index", "value", "kind", "format")} for t in review["targets"]])
+                self.launch = {**self.launch, "output_review": {**exact, "output_policy": "per_run"}}
+        from .git_archive import prepare
+        prepare(self)
+        if metadata['provenance']:
             self.simulation['config'] = {**self.simulation['config'], 'required_logs': ['**/*.log']}
         self.before, initial_errors = output_inventory(self.simulation)
         self.initial_capture_errors = initial_errors

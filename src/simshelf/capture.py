@@ -108,7 +108,7 @@ def capture_outputs(store, run_id: str, simulation: dict, before: dict | None = 
     required = simulation["config"].get("required_logs", [])
     retained_logs = set()
     for name, metadata in inventory.items():
-        if before is not None and before.get(name) == metadata and not any(match(name, p) for p in required):
+        if before is not None and before.get(name) == metadata:
             counts["unchanged"] += 1
             continue
         action = capture_action(name, simulation["config"])

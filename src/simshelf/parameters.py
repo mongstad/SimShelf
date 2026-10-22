@@ -2,6 +2,7 @@
 import ast
 import hashlib
 import math
+import os
 from pathlib import Path
 import re
 
@@ -123,4 +124,6 @@ def discover_parameters(simulation, source='swss'):
         result.update({k: v for k, v in document.items() if k != 'raw'})
     except (ValueError, SyntaxError, OSError, TypeError, UnicodeError, RecursionError, RuntimeError) as exc:
         result['warnings'] = [f'Discovery unavailable: {exc}. Use explicit manual argv; existing arguments are unchanged.']
+    from .swss import output_policy_status
+    result['output_policy'] = output_policy_status(result, os.path.lexists(root / 'swss.toml'))
     return result

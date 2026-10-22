@@ -2270,3 +2270,9 @@ details label {
 .master-archive-settings h2 { margin: 0; }
 .preservation-settings > .surface { margin-bottom: 1rem; }
 .preservation-settings > .preservation-review { padding: 1rem; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+.output-policy-notice.notice {
+  display: block;
+}
+.output-policy-notice p {
+  margin: 6px 0;
+}

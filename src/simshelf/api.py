@@ -526,7 +526,10 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
 
     @app.post("/api/simulations/{ident}/execution/outputs")
     def inspect_outputs(ident: str, body: OutputInput):
-        return output_review(store.simulation(ident), body.cwd, body.arguments, body.output_dir, body.output_mappings, body.output_policy)
+        from .output_paths import validate_simulation_output_policy
+        simulation = store.simulation(ident)
+        validate_simulation_output_policy(simulation, body.output_policy)
+        return output_review(simulation, body.cwd, body.arguments, body.output_dir, body.output_mappings, body.output_policy)
 
     @app.post("/api/simulations/{ident}/execution/validate")
     def validate_execution(ident: str, body: ExecutionInput):

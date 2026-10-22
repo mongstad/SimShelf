@@ -7,6 +7,7 @@ import { InterpreterPicker } from "./InterpreterPicker";
 import { OutputPaths } from "./OutputPaths";
 import { incompleteOutputMappings } from "./outputCandidates";
 import type { Simulation, OutputMapping, OutputReview } from "./types";
+import type { OutputPolicyStatus } from "./parameters";
 
 type Plan = {
   output_review: OutputReview;
@@ -44,6 +45,8 @@ export function LaunchSimulation({
     initial?.output_dir || simulation.config.output_dir,
   );
   const [outputPolicy, setOutputPolicy] = useState(initial?.output_policy || "fixed");
+  const [policyStatus, setPolicyStatus] = useState<OutputPolicyStatus | null>(null);
+  const policyBlocked = !policyStatus || (outputPolicy === "per_run" && !policyStatus.launcher_allowed);
   const [mappings, setMappings] = useState<OutputMapping[]>(
     initial?.output_mappings || [],
   );
@@ -127,7 +130,7 @@ export function LaunchSimulation({
   }
   async function validate(save: boolean) {
     setValidationAttempt(n => n + 1);
-    if (pastePending || !!parameterError || argsError) return;
+    if (policyBlocked || pastePending || !!parameterError || argsError) return;
     setBusy(true);
     setError("");
     setNotice("");
@@ -166,6 +169,7 @@ export function LaunchSimulation({
     setValidationAttempt(n => n + 1);
     if (
       !plan ||
+      policyBlocked ||
       busy ||
       pastePending ||
       !!parameterError ||
@@ -307,22 +311,30 @@ export function LaunchSimulation({
         </label>
         <label>
           Output folder policy
-          <select value={outputPolicy} onChange={(e) => {
+          <select value={outputPolicy} disabled={!policyStatus} aria-describedby="output-policy-help" onChange={(e) => {
             setOutputPolicy(e.target.value as "fixed" | "per_run");
             edited();
           }}>
-            <option value="fixed">Fixed parent (simulation-owned subfolders)</option>
-            <option value="per_run">Launcher-coordinated subfolder (requires support)</option>
+            <option value="fixed">{policyStatus?.state === "valid" ? "Fixed output parent — simulation creates its unique run directory" : "Fixed output parent"}</option>
+            <option value="per_run" disabled={!policyStatus?.launcher_allowed}>Launcher-coordinated subfolder (requires support)</option>
           </select>
-          <small>
-            Use the fixed parent when your simulation creates its own unique output
-            directories. Launcher-coordinated allocation requires explicit script support
-            for SIMSHELF_OUTPUT_DIR or joined run.output_dir. SimShelf preallocates that
-            folder; scripts that independently allocate elsewhere leave it unused.
-            Arguments and script writes are never redirected automatically.
+          <small id="output-policy-help">
+            {policyStatus?.reason || "Checking SWSS metadata for output policy. If this fails, rescan the declarations below before continuing."}
+            {policyStatus?.state === "valid" && " Recommended: fixed output parent. Shared-parent overlap safeguards still apply."}
+            {" "}Arguments and script writes are never redirected automatically.
           </small>
         </label>
+        {policyStatus && policyStatus.state !== "absent" && <div className="notice output-policy-notice" role="status">
+          <strong>{policyStatus.state === "valid" ? "SWSS schema 2 · metadata valid" : "SWSS metadata unavailable for use"}</strong>
+          <p>Source binding: {policyStatus.binding === "binding unverified" ? "unverified" : policyStatus.binding}.</p>
+          <small>Metadata and listed-byte checks do not verify scientific behavior or full SWSS conformance.</small>
+        </div>}
+        {policyStatus && policyBlocked && <div className="notice output-policy-notice" role="alert">
+          <p>The selected launcher-coordinated policy is unavailable. Saved settings have not changed. Review the capture parent and use fixed output before validating or launching.</p>
+          <button type="button" onClick={() => {setOutputPolicy("fixed"); edited();}}>Use fixed output parent</button>
+        </div>}
         <ArgumentEditor
+          discovered={discovery => {setPolicyStatus(discovery?.output_policy || null); setPlan(null);}}
           validationAttempt={validationAttempt}
           initialManual={initial?.parameter_review?.mode === "manual"}
           reviewed={review => {setParameterReview(review); setPlan(null);}}
@@ -343,7 +355,7 @@ export function LaunchSimulation({
             edited();
           }}
         />
-        <OutputPaths
+        {!policyBlocked && <OutputPaths
           args={args}
           mappings={mappings}
           review={outputReview}
@@ -370,7 +382,7 @@ export function LaunchSimulation({
             setArgumentRevision(argumentRevision + 1);
             edited();
           }}
-        />
+        />}
         {argsError && (
           <p className="error-banner" role="alert">
             {argsError}
@@ -394,7 +406,7 @@ export function LaunchSimulation({
           <button
             type="button"
             disabled={
-              pastePending || !!argsError || !outputReview
+              policyBlocked || pastePending || !!argsError || !outputReview
             }
             onClick={() => validate(false)}
           >
@@ -403,7 +415,7 @@ export function LaunchSimulation({
           <button
             type="button"
             disabled={
-              pastePending || !!argsError || !outputReview
+              policyBlocked || pastePending || !!argsError || !outputReview
             }
             onClick={() => validate(true)}
           >
@@ -449,6 +461,7 @@ export function LaunchSimulation({
           className="primary"
           disabled={
             busy ||
+            policyBlocked ||
             (!plan && !parameterError) ||
             pastePending ||
             !!argsError ||

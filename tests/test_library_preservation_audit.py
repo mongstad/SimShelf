@@ -188,18 +188,15 @@ def test_audit_disconnect_keeps_capture_but_blocks_git(library):
     assert archive.entries(store, second['id']) == []
 
 
-def test_audit_uncoordinated_per_run_root_misses_simulation_owned_outputs(library):
+def test_audit_uncoordinated_per_run_regression_is_now_refused(library):
     store, _, (sim, _) = library
     # Independent fixture deliberately knows nothing about SimShelf's environment.
-    run = launch(store, sim, 'independent', policy='per_run')
-    capture = Path(run['capture_root'])
-    assert capture.is_dir() and list(capture.iterdir()) == []
-    siblings = [p for p in capture.parent.iterdir() if p != capture]
-    assert len(siblings) == 1 and len(list(siblings[0].iterdir())) == 3
-    assert run['capture_counts']['copied'] == 0
-    assert run['capture_status'] == 'partial'
-    assert any('Required log capture incomplete' in e for e in run['capture_errors'])
-    assert not run['artifacts']
+    # #120 rejects this old reproduction before allocation. The dated audit
+    # report retains the original observed duplicate-folder evidence.
+    with pytest.raises(ValueError, match='Launcher-coordinated'):
+        launch(store, sim, 'independent', policy='per_run')
+    assert not (Path(sim['root']) / 'outputs').exists()
+    assert not store.runs()
 
 
 @pytest.mark.parametrize('policy,copied', [('fixed', 3), ('per_run', 0)])
@@ -227,6 +224,14 @@ def test_audit_pinned_decay_reference(tmp_path, policy, copied):
     rules = [{'kind': 'file', 'value': name} for name in expected] + TEXT_RULES
     consent(store, sim, rules, [])
     command = [sys.executable, str(root / 'simulate.py'), '--rate=0.005', '--steps=10', '--no-series']
+    if policy == 'per_run':
+        with pytest.raises(ValueError, match='Launcher-coordinated'):
+            record_command(store, sim['id'], command, cwd=root, quiet=True, output_policy=policy)
+        assert not (root / 'outputs').exists()
+        assert not store.runs()
+        for name, digest in expected.items():
+            assert hashlib.sha256((root / name).read_bytes()).hexdigest() == digest
+        return
     ident, code = record_command(store, sim['id'], command, cwd=root, quiet=True, output_policy=policy)
     run = store.run(ident)
     assert code == 0 and run['status'] == 'completed' and run['version'] == '0.1.3'
@@ -237,12 +242,7 @@ def test_audit_pinned_decay_reference(tmp_path, policy, copied):
     assert len([f for f in event['files'] if f['category'] == 'source']) == 2
     generated = list((root / 'outputs').glob('run_*/provenance.json'))
     assert len(generated) == 1
-    if policy == 'per_run':
-        capture = Path(run['capture_root'])
-        assert not list(capture.iterdir()) and generated[0].parent != capture
-        assert any('Required log capture incomplete' in e for e in run['capture_errors'])
-    else:
-        for artifact in run['artifacts']:
-            assert blob_path(store.path, artifact['blob']).read_bytes() == Path(artifact['original_path']).read_bytes()
+    for artifact in run['artifacts']:
+        assert blob_path(store.path, artifact['blob']).read_bytes() == Path(artifact['original_path']).read_bytes()
     for name, digest in expected.items():
         assert hashlib.sha256((root / name).read_bytes()).hexdigest() == digest
