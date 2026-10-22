@@ -25,11 +25,6 @@ export function ProgressSettings({
   return (
     <details className="progress-settings">
       <summary>Progress reporting (optional)</summary>
-      <p>
-        Use the simulation’s progress API, or explicitly interpret a supported
-        text format. Ordinary logs and parameters are never treated as progress
-        automatically.
-      </p>
       {schema !== null && schema < 4 && !review && (
         <button type="button" onClick={() => setReview(true)}>
           Enable progress reporting…
@@ -100,12 +95,6 @@ export function ProgressSettings({
           </div>
         </div>
       )}
-      {schema === 4 && (
-        <p className="muted">
-          Progress reporting is enabled for this library. Structured API reports
-          take priority over interpreted text.
-        </p>
-      )}
       <label>
         Interpret terminal progress
         <select
@@ -117,11 +106,6 @@ export function ProgressSettings({
           <option value="step">Step counts: step 10/100</option>
           <option value="percent">Percentage: 25%</option>
         </select>
-        <small>
-          Matches complete lines on stdout/stderr, including carriage-return
-          updates. No custom regex or ETA. The selected format is saved for
-          future launches.
-        </small>
       </label>
       {value !== "off" && (
         <div className="muted" aria-label="Supported console progress examples">

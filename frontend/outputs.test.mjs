@@ -54,7 +54,7 @@ test("unknown destinations and stale mappings receive explicit guidance", () => 
     change: () => {},
     apply: () => {},
   };
-  assert.match(render(OutputPaths, props), /Coverage of your script/);
+  assert.match(render(OutputPaths, props), /output coverage unknown/);
   const mapped = render(OutputPaths, {
     ...props,
     mappings: [
@@ -98,7 +98,7 @@ test("per-run preview and history distinguish allocation from actual capture", (
   });
   assert.match(preview, /Resolved capture parent/);
   assert.match(preview, /allocated at/);
-  assert.match(preview, /no arguments are rewritten/);
+  assert.match(preview, /arguments are unchanged/);
   const history = render(CaptureSummary, { run: {
     output_policy: "per_run", output_base: "/source/results", capture_root: "/source/results/run_abc",
     capture_status: "complete", capture_counts: {copied: 0},
@@ -123,7 +123,7 @@ test("new fixed rows are explicit drafts; completing or removing restores eligib
   });
   assert.match(html, /\/source\/outputs/);
   assert.match(html, /Output 1 is incomplete/);
-  assert.match(html, /Example text is not an entered path/);
+  assert.match(html, /remove this mapping to continue/);
   assert.match(html, /placeholder="Example: outputs\/data.csv"/);
   assert.match(html, /value=""/);
   assert.doesNotMatch(html, /Path review unavailable|role="alert"/);

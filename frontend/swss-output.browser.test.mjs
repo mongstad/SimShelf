@@ -31,6 +31,7 @@ window.fetch = async (url, options = {}) => {
     if (scanFails) return new Response(JSON.stringify({detail: "Fixture discovery unavailable"}), {status: 500});
     value = discovery();
   } else if (url.endsWith("/interpreters")) value = {candidates: []};
+  else if (url.endsWith("/interpreter/check")) return new Response(JSON.stringify({detail: "Fixture interpreter unavailable"}), {status: 400});
   else if (url.endsWith("/execution/outputs")) value = output(data);
   else if (url.endsWith("/execution/validate")) value = {output_review: output(data), command: data.arguments,
     cwd: "/disposable", output_path: "/disposable/outputs", validation: {version: "3.14", message: "Fixture only"}};
@@ -99,6 +100,47 @@ async function tests() {
     assert(policy().disabled && button("Save settings").disabled && button("Start simulation").disabled, "failed refresh");
     scanFails = false; kind = "valid"; binding = "listed bytes verified"; await click("Rescan parameters");
     assert(!policy().disabled && coordinated().disabled, "successful refresh");
+  });
+  await check("New run field grouping and optional content retain spacing", async () => {
+    kind = "absent"; await mount();
+    const entry = document.querySelector('.launch-setting');
+    const label = entry.querySelector('label'), input = label.querySelector('input'), help = label.querySelector('small');
+    assert(entry.querySelector('button').disabled, "unchanged entry action stays disabled");
+    assert(help.textContent.trim() === "Relative to source folder.", "concise entry guidance");
+    const gap = help.getBoundingClientRect().top - input.getBoundingClientRect().bottom;
+    assert(gap >= 6 && gap <= 8, "helper stays attached to input");
+    const nextGap = document.querySelector('.interpreter-picker').getBoundingClientRect().top - entry.getBoundingClientRect().bottom;
+    assert(nextGap >= 24, "separate Python section");
+    const outputLabels = document.querySelectorAll('.launch-output > label');
+    assert(outputLabels[1].getBoundingClientRect().top - outputLabels[0].getBoundingClientRect().bottom >= 20,
+      "capture helper is separated from next setting");
+    const fields = document.querySelectorAll('.launch-form > fieldset > .form-grid > label');
+    const a = fields[0].getBoundingClientRect(), b = fields[1].getBoundingClientRect();
+    assert(b.left > a.left ? Math.abs(a.top - b.top) < 1 : b.top - a.bottom >= 20,
+      "fields align in columns or separate when stacked");
+    const checks = document.querySelector('.interpreter-checks');
+    assert(!checks.open, "checks are opt-in disclosure");
+    assert(!document.body.textContent.includes("Interpreter not checked"), "no redundant idle prose");
+    await act(async () => { checks.querySelector('summary').click(); });
+    assert(checks.innerText.includes("These checks execute the selected Python"), "trust warning at check action");
+    const buttons = checks.querySelectorAll('button');
+    const first = buttons[0].getBoundingClientRect(), second = buttons[1].getBoundingClientRect();
+    assert(second.top > first.top ? second.top - first.bottom >= 12 : second.left - first.right >= 16,
+      "check buttons have visible horizontal or wrapped gap");
+    await click("Check selected Python");
+    const checkRequest = requests.find(r => r.url.endsWith("/interpreter/check"));
+    assert(checkRequest.data.confirmed === true && checkRequest.data.interpreter === "/usr/bin/python3", "check consent payload unchanged");
+    await act(async () => { checks.querySelector('summary').click(); });
+    const checkError = [...document.querySelectorAll('[role="alert"]')].find(e => e.textContent.includes("Fixture interpreter unavailable"));
+    assert(checkError && checkError.getBoundingClientRect().height > 0, "specific errors stay visible when checks collapse");
+    const progress = document.querySelector('.progress-settings');
+    await act(async () => { progress.querySelector('summary').click(); });
+    assert(progress.open && !progress.querySelector('select').disabled, "expanded progress control");
+    await click("Declare output path");
+    assert(document.body.textContent.includes("Output 1 is incomplete"), "incomplete mapping guidance visible");
+    await settled();
+    assert(button("Save settings").disabled, "incomplete mapping blocks validation");
+    await click("Remove mapping"); await settled();
   });
   assert(errors.length === 0, `Console errors: ${errors.join("\n")}`);
   results.textContent += `\n${cases.length} passed; no console errors.`;

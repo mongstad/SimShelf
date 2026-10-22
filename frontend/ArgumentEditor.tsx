@@ -176,11 +176,6 @@ export function ArgumentEditor({
       {discovery && !discovery.provenance && <p role="status" className="text-amber">{discovery.warnings[0]}</p>}
       {discovery?.provenance && <p role="status">{discovery.provenance.binding_status}</p>}
       {changed && !manual && <button type="button" onClick={() => setChanged(false)}>I reviewed the changed declarations</button>}
-      <p className="muted">
-        New options are inserted before --, otherwise at the end; review the exact command before launch.
-        Disabled optional arguments are omitted; the simulation determines their behavior.
-        Declared defaults are hints, never inserted. Manual rows retain exact argument order.
-      </p>
       {scanError && (
         <p role="alert" className="error-banner">
           {scanError} Manual editing remains available.
@@ -422,11 +417,11 @@ export function ArgumentEditor({
                 </small>}
                 {p ? (
                   <ParameterHint parameter={p} token={row.token} value={row.value} enabled={row.enabled} id={`${editorId}-hint-${row.id}`} />
-                ) : (
-                  <small>
-                    {row.manual || row.parameter?.reason || "Manual argument"}
-                  </small>
-                )}
+                ) : row.manual && row.manual !== "Manual argument; original tokens preserved." ? (
+                  <small>{row.manual}</small>
+                ) : row.parameter?.reason ? (
+                  <small>{row.parameter.reason}</small>
+                ) : null}
                 {!p && (
                   <div className="argument-actions">
                     {!row.enabled && (
@@ -581,10 +576,7 @@ export function ArgumentEditor({
             />
           </label>
           <p className="muted">
-            Arguments only, without Python or the script name. Single/double
-            quotes and backslashes group text. No variable, wildcard or command
-            expansion; metacharacters remain literal. Apply replaces all current
-            arguments.
+            Paste arguments only. Quotes and backslashes group text; no shell expansion. Apply replaces all current arguments.
           </p>
           {error ? (
             <p className="error-banner" role="alert">

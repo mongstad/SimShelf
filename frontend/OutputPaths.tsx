@@ -37,22 +37,9 @@ export function OutputPaths({
       </p>
       {captureError && <p className="error-banner" role="alert">{captureError}</p>}
       {captureReview?.output_policy === "per_run" && <p className="notice">
-        Capture will inspect only a new run_&lt;unique ID&gt; subfolder, allocated at
-        launch. Your script must use SIMSHELF_OUTPUT_DIR or joined run.output_dir.
-        Fixed paths below do not follow that folder; no arguments are rewritten.
+        Capture uses a new run_&lt;unique ID&gt; subfolder allocated at launch. Your script must use
+        SIMSHELF_OUTPUT_DIR or joined run.output_dir. Fixed paths do not follow it; arguments are unchanged.
       </p>}
-      {captureReview?.output_policy !== "per_run" && <p className="muted">Simulation-owned unique output directories beneath this fixed parent are inspected recursively. No launcher coordination is required.</p>}
-      <p className="muted">
-        SimShelf inspects this folder only. It does not redirect script writes.
-        Declare output paths below to check coverage; other writes cannot be
-        detected. References are not backups.
-      </p>
-      <p className="muted">
-        For options such as --wvz, --output or --output-dir, select the path
-        token (or option=path token) and confirm whether your script treats it
-        as a file or directory. No flag semantics are assumed. Paths resolve
-        from the working directory without shell expansion.
-      </p>
       {outputCandidates(args)
         .filter(
           (candidate) =>
@@ -139,8 +126,8 @@ export function OutputPaths({
                 aria-describedby={`output-${i}-help`}
               />
               <small id={`output-${i}-help`}>
-                {m.value === "" ? `Output ${i + 1} is incomplete. Enter a ${m.kind} path or remove this mapping before validating, saving or starting. Example text is not an entered path.` :
-                  "Paths resolve from the working directory. They may be prospective; an empty directory is allowed. This declaration does not create or redirect outputs."}
+                {m.value === "" ? `Output ${i + 1} is incomplete. Enter a ${m.kind} path or remove this mapping to continue.` :
+                  "Relative to working directory; does not redirect writes."}
               </small>
             </label>
           ) : (
@@ -202,9 +189,7 @@ export function OutputPaths({
                       Use suggested path
                     </button>
                     <small>
-                      Changes only this argument. The script must support this
-                      destination and create any required directories. Existing
-                      files are not moved.
+                      Changes this argument only. Your script must support the path and create directories; existing files stay in place.
                     </small>
                   </>
                 )}
@@ -238,8 +223,7 @@ export function OutputPaths({
       )}
       {!mappings.length && (
         <p className="muted">
-          No output paths declared. Coverage of your script’s actual outputs is
-          unknown. You can still run it.
+          No paths declared; output coverage unknown.
         </p>
       )}
     </section>

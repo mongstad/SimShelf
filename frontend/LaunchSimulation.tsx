@@ -206,18 +206,12 @@ export function LaunchSimulation({
   }
   return (
     <form onSubmit={start} className="launch-form">
-      <p>
-        Launch <strong>{simulation.name}</strong> on this computer. Only run
-        code and interpreters you trust.
-      </p>
       <p className="muted">
         Source folder: <code>{simulation.root}</code>
-        <br />
-        Registered entry:{" "}
-        <code>{simulation.entrypoint || "No entry file registered"}</code>
       </p>
       <fieldset disabled={busy}>
         <ProgressSettings value={progressMode} change={value => {setProgressMode(value);edited();}} />
+        <div className="launch-setting">
         <label>
           Registered entry file
           <input
@@ -229,8 +223,7 @@ export function LaunchSimulation({
             }}
           />
           <small>
-            Relative to the source folder. Updating this selection does not edit
-            source or change the registered version file.
+            Relative to source folder.
           </small>
         </label>
         <button
@@ -258,6 +251,7 @@ export function LaunchSimulation({
         >
           Update registered entry
         </button>
+        </div>
         <InterpreterPicker
           simulationId={simulation.id}
           value={interpreter}
@@ -278,8 +272,7 @@ export function LaunchSimulation({
               }}
             />
             <small>
-              Relative to the source folder. A dot means the source folder
-              itself.
+              Relative to source folder (<code>.</code> = source folder).
             </small>
           </label>
           <label>
@@ -292,6 +285,7 @@ export function LaunchSimulation({
             />
           </label>
         </div>
+        <section className="launch-output" aria-label="Capture settings">
         <label>
           Capture output folder
           <input
@@ -303,10 +297,7 @@ export function LaunchSimulation({
             }}
           />
           <small>
-            Relative to the source folder. Point your script at the same folder
-            using its arguments or SIMSHELF_OUTPUT_DIR. This does not redirect
-            arbitrary file writes. Set copy/reference/ignore rules in File
-            capture.
+            Relative to source folder.
           </small>
         </label>
         <label>
@@ -320,8 +311,6 @@ export function LaunchSimulation({
           </select>
           <small id="output-policy-help">
             {policyStatus?.reason || "Checking SWSS metadata for output policy. If this fails, rescan the declarations below before continuing."}
-            {policyStatus?.state === "valid" && " Recommended: fixed output parent. Shared-parent overlap safeguards still apply."}
-            {" "}Arguments and script writes are never redirected automatically.
           </small>
         </label>
         {policyStatus && policyStatus.state !== "absent" && <div className="notice output-policy-notice" role="status">
@@ -333,6 +322,7 @@ export function LaunchSimulation({
           <p>The selected launcher-coordinated policy is unavailable. Saved settings have not changed. Review the capture parent and use fixed output before validating or launching.</p>
           <button type="button" onClick={() => {setOutputPolicy("fixed"); edited();}}>Use fixed output parent</button>
         </div>}
+        </section>
         <ArgumentEditor
           discovered={discovery => {setPolicyStatus(discovery?.output_policy || null); setPlan(null);}}
           validationAttempt={validationAttempt}
@@ -388,6 +378,7 @@ export function LaunchSimulation({
             {argsError}
           </p>
         )}
+        <section className="launch-command" aria-label="Command review">
         <h3>Command preview</h3>
         <pre className="log-block launch-preview" aria-label="Command preview">
           {formatCommand(preview)}
@@ -398,10 +389,7 @@ export function LaunchSimulation({
             {JSON.stringify(preview, null, 2)}
           </pre>
         </details>
-        <small>
-          No shell is used: metacharacters and wildcards are passed literally to
-          the script.
-        </small>
+        <p className="execution-warning">Validation executes the selected Python. Only use an interpreter you trust.</p>
         <div className="modal-actions">
           <button
             type="button"
@@ -422,6 +410,7 @@ export function LaunchSimulation({
             Save settings
           </button>
         </div>
+        </section>
       </fieldset>
       {plan && (
         <div className="notice" role="status">
@@ -440,10 +429,8 @@ export function LaunchSimulation({
           {error}
         </div>
       )}
-      <p className="muted">
-        Start saves these settings and executes your script. Closing this tab
-        leaves the run active. Stopping or restarting the SimShelf server
-        requests cancellation. You can stop a portal run from its run details.
+      <p className="execution-warning">
+        Start executes your script. Only run code you trust. Closing this tab leaves it running.
       </p>
       {outputReview?.requires_acknowledgement && (
         <label className="check-label">

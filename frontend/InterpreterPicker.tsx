@@ -175,6 +175,7 @@ export function InterpreterPicker({
   return (
     <section className="interpreter-picker" aria-label="Python environment">
       <h3>Python environment</h3>
+      <div className="launch-setting">
       <label>
         Detected interpreters
         <select
@@ -212,10 +213,11 @@ export function InterpreterPicker({
       )}
       {!loading && !candidates.length && (
         <p>
-          No candidates found. Enter the path to an existing Python interpreter
-          below.
+          No Python interpreters detected.
         </p>
       )}
+      </div>
+      <div className="launch-setting">
       <label>
         Python interpreter
         <input
@@ -226,11 +228,8 @@ export function InterpreterPicker({
           onChange={(e) => change(e.target.value)}
         />
       </label>
-      {selected && (
+      {selected?.simshelf_runtime && (
         <p>
-          {selected.kind} · Discovered via:{" "}
-          {[...new Set(selected.sources)].join(", ")}.{" "}
-          {python ? `Python ${python.version} checked` : selected.state}.{" "}
           {selected.simshelf_runtime && (
             <strong>
               This is SimShelf’s own runtime; it may not contain your
@@ -239,13 +238,9 @@ export function InterpreterPicker({
           )}
         </p>
       )}
-      <p className="muted">
-        Discovery does not run executables or change your selection. Versions
-        are unknown until checked. Only select interpreters you trust: the
-        buttons below execute the selected Python with isolated startup. The
-        probe does not import your simulation or installed packages, install
-        software, or test GPU/CUDA access.
-      </p>
+      <details className="interpreter-checks">
+        <summary>Check environment…</summary>
+        <p className="execution-warning">These checks execute the selected Python. Only proceed if you trust it.</p>
       <div className="argument-actions">
         <button
           type="button"
@@ -262,32 +257,18 @@ export function InterpreterPicker({
           Check dependencies
         </button>
       </div>
-      {busy && <p role="status">Checking the selected interpreter…</p>}
+      </details>
+      {busy && <p role="status">Checking Python…</p>}
       {error && (
         <p role="alert" className="error-banner">
           {error}
         </p>
       )}
-      {python ? (
-        <p role="status">
-          Checked at {checkedAt}: Python {python.version} ·{" "}
-          <code>{python.prefix}</code>. Advisory results; validate launch
-          settings before starting.
-        </p>
-      ) : (
-        !busy && (
-          <p className="muted">
-            No current check result. Check this selection before relying on its
-            environment.
-          </p>
-        )
+      {python && (
+        <p role="status">Python {python.version} · checked {checkedAt} (metadata only)</p>
       )}
       {dependencies && <DependencyResults result={dependencies} />}
-      <small>
-        Save settings remembers this path for future runs. Check again after
-        changing an environment; metadata presence does not prove that imports
-        or GPU access work.
-      </small>
+      </div>
     </section>
   );
 }
