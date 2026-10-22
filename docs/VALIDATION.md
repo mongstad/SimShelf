@@ -436,3 +436,9 @@ validation and limitations. Earlier dated reports remain unchanged.
 See [issue #124 archive preference](validation/issue-124-archive-preference.md)
 for compact status, independent preference editing, unchanged execution gates,
 history-preservation regressions, installed theme/keyboard checks and limitations.
+
+## New run descriptions and spacing
+
+See [issue #122 New run layout](validation/issue-122-new-run-layout.md) for scoped
+field grouping, concise safety-aware copy, responsive geometry regressions,
+installed-browser/package checks and limitations. Historical evidence is unchanged.

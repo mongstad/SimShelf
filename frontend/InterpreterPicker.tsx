@@ -175,6 +175,7 @@ export function InterpreterPicker({
   return (
     <section className="interpreter-picker" aria-label="Python environment">
       <h3>Python environment</h3>
+      <div className="launch-setting">
       <label>
         Detected interpreters
         <select
@@ -212,10 +213,11 @@ export function InterpreterPicker({
       )}
       {!loading && !candidates.length && (
         <p>
-          No candidates found. Enter the path to an existing Python interpreter
-          below.
+          No Python interpreters detected.
         </p>
       )}
+      </div>
+      <div className="launch-setting">
       <label>
         Python interpreter
         <input
@@ -240,11 +242,8 @@ export function InterpreterPicker({
         </p>
       )}
       <p className="muted">
-        Discovery does not run executables or change your selection. Versions
-        are unknown until checked. Only select interpreters you trust: the
-        buttons below execute the selected Python with isolated startup. The
-        probe does not import your simulation or installed packages, install
-        software, or test GPU/CUDA access.
+        Discovery does not run executables. Only select interpreters you trust:
+        checks execute the selected Python with isolated startup.
       </p>
       <div className="argument-actions">
         <button
@@ -277,17 +276,15 @@ export function InterpreterPicker({
       ) : (
         !busy && (
           <p className="muted">
-            No current check result. Check this selection before relying on its
-            environment.
+            Interpreter not checked.
           </p>
         )
       )}
       {dependencies && <DependencyResults result={dependencies} />}
       <small>
-        Save settings remembers this path for future runs. Check again after
-        changing an environment; metadata presence does not prove that imports
-        or GPU access work.
+        Checks inspect metadata, not imports or GPU access. Recheck after environment changes.
       </small>
+      </div>
     </section>
   );
 }

@@ -218,6 +218,7 @@ export function LaunchSimulation({
       </p>
       <fieldset disabled={busy}>
         <ProgressSettings value={progressMode} change={value => {setProgressMode(value);edited();}} />
+        <div className="launch-setting">
         <label>
           Registered entry file
           <input
@@ -229,8 +230,7 @@ export function LaunchSimulation({
             }}
           />
           <small>
-            Relative to the source folder. Updating this selection does not edit
-            source or change the registered version file.
+            Relative to source folder.
           </small>
         </label>
         <button
@@ -258,6 +258,7 @@ export function LaunchSimulation({
         >
           Update registered entry
         </button>
+        </div>
         <InterpreterPicker
           simulationId={simulation.id}
           value={interpreter}
@@ -278,8 +279,7 @@ export function LaunchSimulation({
               }}
             />
             <small>
-              Relative to the source folder. A dot means the source folder
-              itself.
+              Relative to source folder (<code>.</code> = source folder).
             </small>
           </label>
           <label>
@@ -292,6 +292,7 @@ export function LaunchSimulation({
             />
           </label>
         </div>
+        <section className="launch-output" aria-label="Capture settings">
         <label>
           Capture output folder
           <input
@@ -303,10 +304,7 @@ export function LaunchSimulation({
             }}
           />
           <small>
-            Relative to the source folder. Point your script at the same folder
-            using its arguments or SIMSHELF_OUTPUT_DIR. This does not redirect
-            arbitrary file writes. Set copy/reference/ignore rules in File
-            capture.
+            Relative to source folder. Your script must write here; capture does not redirect writes.
           </small>
         </label>
         <label>
@@ -333,6 +331,7 @@ export function LaunchSimulation({
           <p>The selected launcher-coordinated policy is unavailable. Saved settings have not changed. Review the capture parent and use fixed output before validating or launching.</p>
           <button type="button" onClick={() => {setOutputPolicy("fixed"); edited();}}>Use fixed output parent</button>
         </div>}
+        </section>
         <ArgumentEditor
           discovered={discovery => {setPolicyStatus(discovery?.output_policy || null); setPlan(null);}}
           validationAttempt={validationAttempt}
@@ -388,6 +387,7 @@ export function LaunchSimulation({
             {argsError}
           </p>
         )}
+        <section className="launch-command" aria-label="Command review">
         <h3>Command preview</h3>
         <pre className="log-block launch-preview" aria-label="Command preview">
           {formatCommand(preview)}
@@ -399,8 +399,7 @@ export function LaunchSimulation({
           </pre>
         </details>
         <small>
-          No shell is used: metacharacters and wildcards are passed literally to
-          the script.
+          No shell: metacharacters and wildcards are literal.
         </small>
         <div className="modal-actions">
           <button
@@ -422,6 +421,7 @@ export function LaunchSimulation({
             Save settings
           </button>
         </div>
+        </section>
       </fieldset>
       {plan && (
         <div className="notice" role="status">
@@ -441,9 +441,8 @@ export function LaunchSimulation({
         </div>
       )}
       <p className="muted">
-        Start saves these settings and executes your script. Closing this tab
-        leaves the run active. Stopping or restarting the SimShelf server
-        requests cancellation. You can stop a portal run from its run details.
+        Start saves settings and runs your script. Closing this tab leaves it running;
+        stopping the server requests cancellation. Stop a run from its details.
       </p>
       {outputReview?.requires_acknowledgement && (
         <label className="check-label">

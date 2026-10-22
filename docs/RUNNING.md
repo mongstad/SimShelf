@@ -25,6 +25,7 @@ Once SimShelf is running, no terminal recording command is needed:
    shell quotes. **Split**, **Pair with next**, and the arrow buttons let you
    organize and reorder arguments without guessing your script's syntax.
    Grouping is only a view of adjacent tokens; saved settings retain exact argv.
+   New options are inserted before `--`, or at the end when no separator exists.
    Alternatively, **Paste arguments** accepts a quoted argument string such as
    `--seed 42 --label 'with spaces' --headless`. Review the tokens and choose
    **Replace arguments**, or cancel. Paste arguments only, without Python or the

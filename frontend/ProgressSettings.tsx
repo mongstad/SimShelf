@@ -26,9 +26,7 @@ export function ProgressSettings({
     <details className="progress-settings">
       <summary>Progress reporting (optional)</summary>
       <p>
-        Use the simulation’s progress API, or explicitly interpret a supported
-        text format. Ordinary logs and parameters are never treated as progress
-        automatically.
+        Use the progress API or select a supported log format. Logs are not interpreted automatically.
       </p>
       {schema !== null && schema < 4 && !review && (
         <button type="button" onClick={() => setReview(true)}>
@@ -118,9 +116,7 @@ export function ProgressSettings({
           <option value="percent">Percentage: 25%</option>
         </select>
         <small>
-          Matches complete lines on stdout/stderr, including carriage-return
-          updates. No custom regex or ETA. The selected format is saved for
-          future launches.
+          Matches whole stdout/stderr lines, including carriage-return updates. Saved for future launches.
         </small>
       </label>
       {value !== "off" && (

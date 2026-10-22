@@ -100,6 +100,34 @@ async function tests() {
     scanFails = false; kind = "valid"; binding = "listed bytes verified"; await click("Rescan parameters");
     assert(!policy().disabled && coordinated().disabled, "successful refresh");
   });
+  await check("New run field grouping and optional content retain spacing", async () => {
+    kind = "absent"; await mount();
+    const entry = document.querySelector('.launch-setting');
+    const label = entry.querySelector('label'), input = label.querySelector('input'), help = label.querySelector('small');
+    assert(entry.querySelector('button').disabled, "unchanged entry action stays disabled");
+    assert(help.textContent.trim() === "Relative to source folder.", "concise entry guidance");
+    const gap = help.getBoundingClientRect().top - input.getBoundingClientRect().bottom;
+    assert(gap >= 6 && gap <= 8, "helper stays attached to input");
+    const nextGap = document.querySelector('.interpreter-picker').getBoundingClientRect().top - entry.getBoundingClientRect().bottom;
+    assert(nextGap >= 24, "separate Python section");
+    const outputLabels = document.querySelectorAll('.launch-output > label');
+    assert(outputLabels[1].getBoundingClientRect().top - outputLabels[0].getBoundingClientRect().bottom >= 20,
+      "capture helper is separated from next setting");
+    const fields = document.querySelectorAll('.launch-form > fieldset > .form-grid > label');
+    const a = fields[0].getBoundingClientRect(), b = fields[1].getBoundingClientRect();
+    assert(b.left > a.left ? Math.abs(a.top - b.top) < 1 : b.top - a.bottom >= 20,
+      "fields align in columns or separate when stacked");
+    assert(document.body.textContent.includes("Only select interpreters you trust"), "trust disclosure retained");
+    assert(document.body.textContent.includes("Interpreter not checked."), "unchecked status retained");
+    const progress = document.querySelector('.progress-settings');
+    await act(async () => { progress.querySelector('summary').click(); });
+    assert(progress.open && !progress.querySelector('select').disabled, "expanded progress control");
+    await click("Declare output path");
+    assert(document.body.textContent.includes("Output 1 is incomplete"), "incomplete mapping guidance visible");
+    await settled();
+    assert(button("Save settings").disabled, "incomplete mapping blocks validation");
+    await click("Remove mapping"); await settled();
+  });
   assert(errors.length === 0, `Console errors: ${errors.join("\n")}`);
   results.textContent += `\n${cases.length} passed; no console errors.`;
 }

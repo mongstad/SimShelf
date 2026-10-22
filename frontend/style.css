@@ -2282,3 +2282,40 @@ details label {
 .output-policy-notice p {
   margin: 6px 0;
 }
+
+/* New run owns its rhythm; compact parameter rows retain their existing layout. */
+.launch-form {
+  --launch-helper-gap: 6px;
+  --launch-action-gap: 10px;
+  --launch-setting-gap: 22px;
+  --launch-section-gap: 28px;
+}
+.launch-form > p + p { margin-top: var(--launch-helper-gap); }
+.launch-form > fieldset { margin-top: var(--launch-setting-gap); }
+.launch-form > fieldset > * + * { margin-top: var(--launch-section-gap); }
+.launch-form .launch-setting > label,
+.launch-form .launch-output > label,
+.launch-form .form-grid > label { margin: 0; gap: 6px; }
+.launch-form label > small { margin: 0; }
+.launch-form .launch-setting > * + * { margin-top: var(--launch-action-gap); }
+.launch-form .launch-setting > p,
+.launch-form .launch-setting > small { display: block; margin-top: var(--launch-helper-gap); }
+.launch-form .interpreter-picker > .launch-setting + .launch-setting,
+.launch-form .launch-output > * + * { margin-top: var(--launch-setting-gap); }
+.launch-form h3 { margin: 0 0 12px; }
+.launch-form .parameter-heading h3 { margin: 0; }
+.launch-form .progress-settings { margin-top: 0; }
+.launch-form details > * + * { margin-top: 12px; }
+.launch-form .output-paths > p,
+.launch-form .dependency-results > p + p { margin-top: var(--launch-helper-gap); }
+.launch-form .output-paths > button { margin-top: var(--launch-action-gap); }
+.launch-form .output-mapping > * + * { margin-top: 12px; }
+.launch-form .output-mapping > label { margin-bottom: 0; }
+.launch-form .launch-command > small { display: block; margin-top: var(--launch-helper-gap); }
+.launch-form .modal-actions { flex-wrap: wrap; margin-top: var(--launch-setting-gap); }
+.launch-form > fieldset ~ * { margin-top: var(--launch-setting-gap); }
+.launch-form .form-grid { align-items: start; }
+.launch-form select { min-width: 0; max-width: 100%; }
+.launch-form .output-policy-notice p { margin-top: var(--launch-helper-gap); }
+.launch-form .launch-output > label + label { margin-top: var(--launch-setting-gap); }
+.launch-form .form-grid { row-gap: var(--launch-setting-gap); }

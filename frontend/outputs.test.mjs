@@ -98,7 +98,7 @@ test("per-run preview and history distinguish allocation from actual capture", (
   });
   assert.match(preview, /Resolved capture parent/);
   assert.match(preview, /allocated at/);
-  assert.match(preview, /no arguments are rewritten/);
+  assert.match(preview, /arguments are unchanged/);
   const history = render(CaptureSummary, { run: {
     output_policy: "per_run", output_base: "/source/results", capture_root: "/source/results/run_abc",
     capture_status: "complete", capture_counts: {copied: 0},

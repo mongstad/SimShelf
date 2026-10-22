@@ -177,9 +177,7 @@ export function ArgumentEditor({
       {discovery?.provenance && <p role="status">{discovery.provenance.binding_status}</p>}
       {changed && !manual && <button type="button" onClick={() => setChanged(false)}>I reviewed the changed declarations</button>}
       <p className="muted">
-        New options are inserted before --, otherwise at the end; review the exact command before launch.
-        Disabled optional arguments are omitted; the simulation determines their behavior.
-        Declared defaults are hints, never inserted. Manual rows retain exact argument order.
+        Disabled options are omitted; declared defaults are hints, never inserted. Review the command before launch.
       </p>
       {scanError && (
         <p role="alert" className="error-banner">
@@ -581,10 +579,7 @@ export function ArgumentEditor({
             />
           </label>
           <p className="muted">
-            Arguments only, without Python or the script name. Single/double
-            quotes and backslashes group text. No variable, wildcard or command
-            expansion; metacharacters remain literal. Apply replaces all current
-            arguments.
+            Paste arguments only. Quotes and backslashes group text; no shell expansion. Apply replaces all current arguments.
           </p>
           {error ? (
             <p className="error-banner" role="alert">
