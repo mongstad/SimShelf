@@ -26,7 +26,12 @@ test('optional themes override only complete color tokens and native color schem
     assert.equal(values['color-scheme'], name === 'linen' ? 'light' : 'dark');
     for (const token of tokens) assert.match(values[`--${token}`], /^#[0-9a-f]{6}$/);
     // No component, layout, typography, breakpoint or behavior overrides.
-    assert.equal(css.split(`[data-theme="${name}"]`).length, 2);
+    // Existing archive status overrides are color-only component rules.
+    for (const [, selectors, declarations] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      if (selectors.includes(`[data-theme="${name}"]`) && !declarations.includes('--bg:')) {
+        assert.ok(declarations.trim().split(';').filter(x => x.trim()).every(x => /^\s*color:/.test(x)));
+      }
+    }
   }
 });
 

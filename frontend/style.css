@@ -2264,6 +2264,12 @@ details label {
 .simulation-preservation h3 { margin-top: 0; }
 .simulation-preservation .automatic-archive-line { margin-bottom: 0; }
 .preservation-unavailable { color: var(--amber); }
+.simulation-preservation [role="status"] { font-weight: 600; }
+.simulation-preservation[data-state="preservation-unavailable"] .archive-toggle[aria-checked="true"] {
+  background: var(--amber);
+  color: var(--surface);
+  border-color: var(--amber);
+}
 .preservation-options > summary { font-weight: 600; }
 .preservation-review > h3:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 

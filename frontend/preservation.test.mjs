@@ -101,13 +101,21 @@ for (const global_enabled of [false, true])
       const html = control({
         global_enabled,
         participating,
+        can_resume: true,
         connection: "connected",
         state: global_enabled && participating ? "enabled" : "disabled",
         reason: !global_enabled ? "Master Git Archive is OFF." : null,
       });
       assert.equal((html.match(/role="switch"/g) || []).length, 1);
       assert.match(html, new RegExp(`aria-checked="${participating}"`));
-      assert.equal(html.includes('disabled=""'), !global_enabled);
+      assert.equal(html.includes('disabled=""'), false);
+      assert.match(html, /aria-describedby=/);
+      assert.doesNotMatch(html, /<p>|<small>/);
+      if (!global_enabled && participating) {
+        assert.match(html, /Master Git Archive disabled/);
+        assert.match(html, /data-state="preservation-unavailable"/);
+      }
+      if (!participating) assert.match(html, /Git archiving off/);
       assert.equal(
         html.includes("archive-connected"),
         global_enabled && participating,
@@ -130,17 +138,19 @@ test("unavailable repository never claims active, retains saved preference and b
   }
   assert.match(control(null, "Cannot load status"), /disabled=""/);
 });
-test("legacy participation displays retained scope without reinterpreting it", () => {
+test("legacy participation uses the same compact status without reinterpreting scope", () => {
   const state = {
     global_enabled: true,
     participating: true,
     connection: "connected",
     state: "enabled",
     legacy: true,
+    can_resume: true,
   };
   const before = structuredClone(state),
     html = control(state);
-  assert.match(html, /Existing legacy scope is retained/);
+  assert.match(html, /Git active/);
+  assert.doesNotMatch(html, /<p>|<small>/);
   assert.deepEqual(state, before);
 });
 
@@ -150,6 +160,16 @@ test("unknown status never reports a confirmed OFF or active state", () => {
   assert.match(html, /disabled=""/);
   assert.doesNotMatch(html, />OFF<|Local library only|Git active/);
   const failed = control(null, "Status request failed");
-  assert.match(failed, /Git unavailable/);
+  assert.match(failed, /Archive status unavailable/);
   assert.doesNotMatch(failed, /Checking archive status|Local library only|Git active/);
+});
+
+for (const [connection, can_resume, expected] of [
+  ["disconnected", false, "Archive not configured"],
+  ["unavailable", false, "Git unavailable"],
+  ["connected", false, "Review archive settings"],
+]) test(`concise distinct ${expected} status`, () => {
+  const html = control({global_enabled:true, participating:true, connection, can_resume, state:"unavailable"});
+  assert.match(html, new RegExp(expected));
+  assert.doesNotMatch(html, /Git active|<p>|<small>|disabled=""/);
 });

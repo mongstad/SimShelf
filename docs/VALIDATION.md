@@ -430,3 +430,9 @@ See [issue #120 output policy](validation/issue-120-swss-output-policy.md) for
 pre-allocation guards, explicit saved-setting correction, fixed-parent capture,
 repeated pinned reference launches, archive-byte checks, installed UI/package
 validation and limitations. Earlier dated reports remain unchanged.
+
+## Independent simulation archive preference
+
+See [issue #124 archive preference](validation/issue-124-archive-preference.md)
+for compact status, independent preference editing, unchanged execution gates,
+history-preservation regressions, installed theme/keyboard checks and limitations.

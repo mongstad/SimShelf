@@ -353,7 +353,7 @@ async function start() {
       await test("confirmed OFF/ON sends exactly one mutation each and retains focus", async () => {
         const writes = requests.filter((r) => r.method === "POST").length;
         await clickElement(toggle());
-        state(false, "Local library only");
+        state(false, "Git archiving off");
         check(document.activeElement === toggle(), "OFF focus");
         await clickElement(toggle());
         state(true, "Git active");
@@ -371,9 +371,9 @@ async function start() {
           document.activeElement.textContent === "Review future preservation",
           "Review focus",
         );
-        state(false, "Local library only");
+        state(false, "Git archiving off");
         await click("Cancel");
-        state(false, "Local library only");
+        state(false, "Git archiving off");
         check(JSON.stringify(saved) === before, "Cancel changed policy");
         check(document.activeElement === toggle(), "Cancel focus");
       });
@@ -381,7 +381,7 @@ async function start() {
         await clickElement(toggle());
         const pending = hold("/simulations/beta/preservation/save", "POST");
         await click("Confirm preservation settings");
-        state(false, "Local library only");
+        state(false, "Git archiving off");
         check(toggle().disabled, "Pending save must be disabled");
         await release(pending);
         state(true, "Git active");
@@ -395,14 +395,14 @@ async function start() {
         const pending = hold("/simulations/beta/preservation");
         await tick();
         await clickElement(toggle());
-        state(false, "Local library only");
+        state(false, "Git archiving off");
         await release(pending);
-        state(false, "Local library only");
+        state(false, "Git archiving off");
         const error = hold("/simulations/beta/preservation");
         await tick();
         await tick();
         await release(error, { detail: "stale failure" }, 503);
-        state(false, "Local library only");
+        state(false, "Git archiving off");
         check(
           !document.querySelector("main").textContent.includes("stale failure"),
           "Stale error leaked",
@@ -426,7 +426,7 @@ async function start() {
           "Missing loading state",
         );
         check(
-          !text.includes("Local library only") && !text.includes("Git active"),
+          !text.includes("Git archiving off") && !text.includes("Git active"),
           "Loading claims known state",
         );
         await choose("alpha");
@@ -465,8 +465,18 @@ async function start() {
           ),
         );
         await choose("alpha");
-        state(true, "Local library only");
-        check(toggle().disabled, "Global OFF did not disable participation");
+        state(true, "Master Git Archive disabled");
+        check(!toggle().disabled, "Master OFF must allow editing participation");
+        await clickElement(toggle());
+        state(false, "Git archiving off");
+        saved.global = true;
+        await tick();
+        state(false, "Git archiving off");
+        saved.global = false;
+        await tick();
+        await clickElement(toggle());
+        state(true, "Master Git Archive disabled");
+        check(!document.querySelector(".simulation-preservation p"), "Verbose status paragraph");
         saved.global = true;
         saved.connected = false;
         await tick();
@@ -479,7 +489,7 @@ async function start() {
       await test("navigation and status reads cause no extra persistent writes or archive operations", async () => {
         check(!failures.length, failures.join("\n"));
         check(
-          requests.filter((r) => r.method === "POST").length === 7,
+          requests.filter((r) => r.method === "POST").length === 9,
           "Unexpected write count",
         );
         check(

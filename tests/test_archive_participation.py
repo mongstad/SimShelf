@@ -135,11 +135,60 @@ def test_api_requires_explicit_global_and_review_then_resumes_exact_policy(libra
         assert client.post(base+'/participation',headers=headers,json={'enabled':flag}).status_code==200
     assert preservation.get(store,'settings:'+a['id'])==old
     assert client.get(base).json()['status']['state']=='enabled'
-    # A review prepared while ON cannot activate a new simulation after global OFF.
+    # Global OFF prevents execution, not explicit approval of a future preference.
     review=preservation.preview(store,b['id'],b['config'],options())
     archive.set_global_enabled(store,False)
-    with pytest.raises(ValueError): preservation.save(store,b['id'],review,True)
-    assert not preservation.status(store,b['id'])['participating']
+    preservation.save(store,b['id'],review,True)
+    assert preservation.status(store,b['id'])['participating']
+    assert preservation.status(store,b['id'])['state'] == 'disabled'
+
+
+@pytest.mark.parametrize('legacy', [False, True])
+def test_preference_editable_while_master_off_survives_restart_without_history_changes(library, legacy):
+    store, repo, (sim, _) = library
+    if legacy: consent(store, sim, SOURCE_RULES, [])
+    else: enable(store, sim)
+    old = launch(store, sim, 'before-preference', csv=True)
+    events = archive.entries(store, old['id'])
+    head = archive.git(repo, 'rev-parse', 'HEAD')
+    source = (Path(sim['root']) / 'sim.py').read_bytes()
+    archive.set_global_enabled(store, False)
+    for preference in (False, True, False):
+        preservation.set_participation(store, sim['id'], preference)
+        reopened = Store(store.path)
+        state = preservation.status(reopened, sim['id'])
+        assert state['participating'] is preference and state['state'] == 'disabled'
+        result = launch(reopened, sim, f'off-{preference}', csv=True)
+        assert result['capture_status'] == 'complete'
+        assert not archive.entries(reopened, result['id'])
+        assert archive.git(repo, 'rev-parse', 'HEAD') == head
+    archive.set_global_enabled(store, True)
+    assert not preservation.status(store, sim['id'])['participating']
+    archive.set_global_enabled(store, False)
+    preservation.set_participation(store, sim['id'], True)
+    archive.set_global_enabled(store, True)
+    assert preservation.status(Store(store.path), sim['id'])['state'] == 'enabled'
+    assert archive.git(repo, 'rev-parse', 'HEAD') == head
+    assert store.run(old['id']) == old
+    assert archive.entries(store, old['id']) == events
+    assert (Path(sim['root']) / 'sim.py').read_bytes() == source
+
+
+def test_master_off_missing_git_can_turn_off_but_cannot_bypass_scope_validation(library, monkeypatch):
+    store, repo, (sim, _) = library
+    enable(store, sim)
+    archive.set_global_enabled(store, False)
+    head = archive.git(repo, 'for-each-ref', '--format=%(refname) %(objectname)')
+    with monkeypatch.context() as missing:
+        missing.setenv('PATH', '/nonexistent')
+        assert preservation.status(store, sim['id'])['connection'] == 'unavailable'
+        preservation.set_participation(store, sim['id'], False)
+        with pytest.raises(ValueError):
+            preservation.set_participation(store, sim['id'], True)
+        assert not preservation.status(store, sim['id'])['participating']
+    preservation.set_participation(store, sim['id'], True)
+    assert preservation.status(store, sim['id'])['state'] == 'disabled'
+    assert archive.git(repo, 'for-each-ref', '--format=%(refname) %(objectname)') == head
 
 
 def test_backup_retains_both_preferences_but_relocation_cannot_activate(library,tmp_path):

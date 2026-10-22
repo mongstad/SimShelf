@@ -115,8 +115,8 @@ def save(store, ident, review, confirmed=False):
     # Browser numbers can round nanosecond timestamps or scientific integers.
     # The digest binds the exact server review; persist only freshly checked values.
     review = fresh
-    if review['options']['enabled'] and not archive.global_enabled(store) and not status(store, ident)['participating']:
-        raise ValueError('Master Git Archive is OFF. Enable it before confirming participation.')
+    # Approval stores a preference; the independent global gate is checked when
+    # recording starts. Preview still validates the reviewed repository/scope.
     policy = {k: review[k] for k in ('format', 'config', 'options', 'repository', 'workspace', 'binding')}
     policy['revision'] = uuid.uuid4().hex
     # Preserve the previous legacy consent as evidence, while preventing old builds
@@ -188,8 +188,6 @@ def set_participation(store, ident, enabled):
         raise ValueError('Choose ON or OFF explicitly.')
     policy, legacy, paused = reviewed_policy(store, ident)
     if enabled:
-        if not archive.global_enabled(store):
-            raise ValueError('Master Git Archive is OFF.')
         validate_participation(store, ident, policy, legacy or paused)
     with store.connection() as db:
         if policy is not None:

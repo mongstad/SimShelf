@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { api } from "./api";
 import {
   ArchiveSwitch,
@@ -147,56 +147,60 @@ export function SimulationPreservationControl({
   actionRef: React.RefObject<HTMLButtonElement | null>;
 }) {
   const status = state?.status;
-  const active = !error && status?.state === "enabled",
-    participating = !!status?.participating;
-  const unavailable =
-    !!error || (!!status && !["enabled", "disabled"].includes(status.state));
+  const statusId = useId();
+  const participating = !!status?.participating;
+  let text = "Checking archive status…",
+    tone = "muted";
+  if (error) {
+    text = "⚠ Archive status unavailable";
+    tone = "preservation-unavailable";
+  } else if (status) {
+    if (status.connection === "disconnected") {
+      text = "⚠ Archive not configured";
+      tone = "preservation-unavailable";
+    } else if (status.connection !== "connected") {
+      text = "⚠ Git unavailable";
+      tone = "preservation-unavailable";
+    } else if (!participating) text = "Git archiving off";
+    else if (!status.global_enabled) {
+      text = "⚠ Master Git Archive disabled";
+      tone = "preservation-unavailable";
+    } else if (!status.can_resume || status.state === "review_required") {
+      text = "⚠ Review archive settings";
+      tone = "preservation-unavailable";
+    } else if (status.state === "enabled") {
+      text = "✓ Git active";
+      tone = "archive-connected";
+    } else {
+      text = "⚠ Git unavailable";
+      tone = "preservation-unavailable";
+    }
+  }
   return (
     <section
       className="simulation-preservation"
       aria-label={`Git preservation — ${name}`}
+      data-state={tone}
     >
       <div className="automatic-archive-line">
         <strong>Archive this simulation</strong>
         <ArchiveSwitch
           label="Archive this simulation"
           checked={status ? participating : null}
+          describedBy={statusId}
           disabled={
             busy ||
             !!error ||
-            !status?.global_enabled ||
+            !status ||
             (!participating && status?.connection !== "connected")
           }
           onChange={onToggle}
           actionRef={actionRef}
         />
-        <span
-          role="status"
-          className={
-            active
-              ? "archive-connected"
-              : unavailable
-                ? "preservation-unavailable"
-                : "muted"
-          }
-        >
-          {active
-            ? "✓ Git active"
-            : unavailable
-              ? "⚠ Git unavailable"
-              : !status
-                ? "Checking archive status…"
-                : "Local library only"}
+        <span id={statusId} role="status" className={tone}>
+          {text}
         </span>
       </div>
-      {(error || status?.reason) && (!status?.global_enabled || unavailable) && (
-        <p>{error || status?.reason}</p>
-      )}
-      {status?.legacy && (
-        <small>
-          Existing legacy scope is retained. Review options only to change it.
-        </small>
-      )}
     </section>
   );
 }
@@ -257,7 +261,9 @@ export function PreservationSettings({
   }
   useEffect(() => {
     void load(true).catch((e) => setMessage(e.message));
-    return () => { request.current++; };
+    return () => {
+      request.current++;
+    };
   }, [simulation.id]);
   useEffect(() => {
     if (busy || review) return;
@@ -331,7 +337,6 @@ export function PreservationSettings({
       setState(null);
       await load(true);
       onSaved();
-      setMessage("Participation updated. Existing Git history is unchanged.");
     });
   }
   return (
