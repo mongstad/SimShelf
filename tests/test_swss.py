@@ -148,7 +148,8 @@ p.add_argument('--label')
 p.add_argument('--export', action='store_true')
 p.add_argument('--no-plots', action='store_false')
 a, unknown = p.parse_known_args()
-out = Path(os.environ['SIMSHELF_OUTPUT_DIR'])
+out = Path(os.environ['SIMSHELF_OUTPUT_DIR']) / __import__('uuid').uuid4().hex
+out.mkdir(parents=True)
 (out / 'run_20261019T000000Z_fixture.log').write_text(json.dumps({'argv': sys.argv[1:], 'resolved': vars(a)}))
 ''' + 'x = 0\n' * 5100)
     assert len(list(ast.walk(ast.parse((root / 'sim.py').read_bytes())))) > 20000
@@ -162,7 +163,7 @@ out = Path(os.environ['SIMSHELF_OUTPUT_DIR'])
         for _ in range(2):
             d = client.get(f"/api/simulations/{registered['id']}/parameters").json()
             assert d['parameters'][0]['supported']
-            config = settings(arguments=argv, output_policy='per_run')
+            config = settings(arguments=argv, output_policy='fixed')
             config['parameter_review'] = {'mode': 'typed', 'fingerprint': d['fingerprint']}
             response = client.put(f"/api/simulations/{registered['id']}/execution", headers=auth, json=config)
             assert response.status_code == 200, response.text
@@ -178,11 +179,11 @@ out = Path(os.environ['SIMSHELF_OUTPUT_DIR'])
             assert json.loads(data)['argv'] == argv
             if first_bytes is None:
                 first_bytes = data
-                first_root = run['capture_root']
+                first_path = Path(run['capture_root']) / artifact['name']
                 old = store.run(run['id'])
             else:
-                assert run['capture_root'] != first_root
-                assert (Path(first_root) / artifact['name']).read_bytes() == first_bytes
+                assert Path(run['capture_root']) / artifact['name'] != first_path
+                assert first_path.read_bytes() == first_bytes
                 assert store.run(old['id']) == old
 
 @pytest.mark.parametrize('mutation', [
@@ -255,8 +256,9 @@ def test_required_log_capture_incomplete(companion, tmp_path, kind):
     if kind in ('ignored', 'reference'):
         config['rules'] = [{'pattern':'**/*', 'action':'ignore' if kind == 'ignored' else 'reference'}]
     store.update_simulation(sim['id'], config=config)
-    with Run(sim['id'], workspace=store.path, output_policy='per_run', capture_console=False) as run:
+    with Run(sim['id'], workspace=store.path, output_policy='fixed', capture_console=False) as run:
         if kind != 'missing':
+            run.output_dir.mkdir(parents=True)
             (run.output_dir / 'run_20261019T000000Z_fixture.log').write_text('log data\n' * 10)
     result = store.run(run.id)
     assert result['status'] == 'completed'
@@ -331,29 +333,31 @@ def test_hash_boundary_and_unbound_large_source(companion):
     assert read(root)['parameters'][0]['supported']  # no AST or source-size requirement for an unbound entry
 
 
-def test_concurrent_swss_launches(companion, tmp_path):
+def test_shared_parent_swss_overlap_is_rejected(companion, tmp_path):
     root, path, _ = companion
     (root/'sim.py').write_text('''SIMSHELF_VERSION="1.0.0"
 import os,time
 from pathlib import Path
 p=Path(os.environ['SIMSHELF_OUTPUT_DIR'])
+p.mkdir(parents=True,exist_ok=True)
 (p/'run_20261019T000000Z_fixture.log').write_text('started\\n')
 time.sleep(0.7)
 ''')
     store=Store(tmp_path/'library');sim=store.add_simulation(root,entrypoint='sim.py')
     with TestClient(create_app(store.path)) as client:
         auth=headers(client)
-        config=settings(output_policy='per_run')
+        config=settings(output_policy='fixed')
         d=discover_parameters(sim)
         config['parameter_review']={'mode':'typed','fingerprint':d['fingerprint']}
-        ids=[]
-        for _ in range(2):
-            response=client.post(f"/api/simulations/{sim['id']}/launch",headers=auth,json=config)
-            assert response.status_code==201,response.text
-            ids.append(response.json()['run_id'])
-        runs=[finish(store,i) for i in ids]
-        assert all(r['status']=='completed' and r['capture_status']=='complete' for r in runs)
-        assert runs[0]['capture_root']!=runs[1]['capture_root']
+        response=client.post(f"/api/simulations/{sim['id']}/launch",headers=auth,json=config)
+        assert response.status_code==201,response.text
+        ident=response.json()['run_id']
+        response=client.post(f"/api/simulations/{sim['id']}/launch",headers=auth,json=config)
+        assert response.status_code==400,response.text
+        assert 'Another run is recording this output folder' in response.text
+        run=finish(store,ident)
+        assert run['status']=='completed' and run['capture_status']=='complete'
+
 
 
 @pytest.mark.parametrize('cancel', [False, True])
@@ -363,13 +367,14 @@ def test_swss_failed_and_cancelled_capture(companion, tmp_path, cancel):
 import os,time,sys
 from pathlib import Path
 p=Path(os.environ['SIMSHELF_OUTPUT_DIR'])
+p.mkdir(parents=True,exist_ok=True)
 (p/'run_20261019T000000Z_fixture.log').write_text('partial evidence\\n')
 print('partial',flush=True)
 ''' + ('time.sleep(30)\n' if cancel else 'sys.exit(3)\n'))
     store=Store(tmp_path/'library');sim=store.add_simulation(root,entrypoint='sim.py')
     with TestClient(create_app(store.path)) as client:
         auth=headers(client)
-        response=client.post(f"/api/simulations/{sim['id']}/launch",headers=auth,json=settings(output_policy='per_run'))
+        response=client.post(f"/api/simulations/{sim['id']}/launch",headers=auth,json=settings(output_policy='fixed'))
         assert response.status_code==201,response.text
         ident=response.json()['run_id']
         if cancel:

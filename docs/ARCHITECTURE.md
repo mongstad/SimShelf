@@ -135,7 +135,7 @@ supervisor startup and recording. Runs retain exact companion bytes/hash and
 review provenance in their existing JSON data, separately from resolved values.
 A later manual bypass retains the previously saved typed evidence. Source capture
 must contain the same companion bytes; subsequent source mutation remains possible.
-Old run records and schema versions are untouched. SWSS-described isolated runs
+Old run records and schema versions are untouched. SWSS-described runs
 require a copied log for complete capture; missing/ignored/reference-only/oversized
 logs produce incomplete capture independently of process success.
 See [parameter discovery](PARAMETER_DISCOVERY.md) for schema, limits, extension
@@ -394,6 +394,25 @@ lock. This preference never triggers startup connection, changes scientific run
 records or grants archival consent; reconnection still validates repository identity.
 
 ## Coordinated isolated outputs
+
+Issue #120 restricts launcher allocation independently of typed/manual argv.
+The same bounded SWSS discovery projects metadata/binding status and local policy
+eligibility. Valid associated metadata recommends fixed-parent capture; metadata
+alone establishes no coordinated-root agreement. Present but invalid, stale,
+unsupported or unassociated metadata leaves ownership unknown and also refuses
+`per_run` until explicitly corrected/reviewed. Manual fixed-parent runs remain
+available. No metadata means both existing policies remain available.
+
+Save/validate, output preview, launch/supervisor and recorder entry enforce the
+restriction. Recorder entry rechecks adoption after source capture, before
+allocation. Existing saved choices are never migrated: the dialog keeps an
+incompatible selection blocked until the user explicitly chooses fixed output
+and validates/saves it. Rescans invalidate validation, including manual mode.
+The indicator separates metadata validity from listed-byte binding and makes no
+scientific conformance claim. A supplied SWSS companion requires a copied new or
+changed log; unchanged historical logs cannot satisfy that run's evidence check.
+Filesystem checks do not isolate later external edits. Shared-parent overlap
+guards remain in force; this does not establish simultaneous-run attribution.
 
 Issue #69 adds explicit `output_policy="per_run"` execution settings and matching
 CLI/Python options; omitted settings remain `fixed`. Under the recorder start

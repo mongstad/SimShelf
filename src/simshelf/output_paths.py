@@ -12,6 +12,17 @@ def validate_output_policy(policy):
     return policy
 
 
+def validate_simulation_output_policy(simulation, policy, metadata=None):
+    validate_output_policy(policy)
+    if policy == 'per_run':
+        if metadata is None:
+            from .parameters import discover_parameters
+            metadata = discover_parameters(simulation)
+        if not metadata['output_policy']['launcher_allowed']:
+            raise ValueError('Launcher-coordinated output is unavailable. ' + metadata['output_policy']['reason']
+                             + ' Saved settings were not changed; review and save the policy before launch.')
+
+
 def isolated_base(root, relative):
     """Reject symlinks even when they resolve inside the source root."""
     validate_config({"output_dir": relative})

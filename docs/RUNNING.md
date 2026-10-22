@@ -286,12 +286,35 @@ charts are planned for Stage 2; Stage 1 shows the latest retained measurements.
 
 ## Unique output folders for cooperating scripts
 
-The default **Output folder policy → Fixed folder (existing behavior)** preserves
-existing launches. To isolate successive or concurrent originals, choose
-**Unique subfolder for each run** in the **New run…** dialog. The capture output folder
+The default **Output folder policy → Fixed output parent** watches the configured
+parent recursively. With valid associated SWSS schema-2 metadata, this is the
+recommended choice: the simulation creates its own unique run directory.
+Launcher-coordinated allocation is disabled because metadata and source hashes
+do not establish the optional SWSS coordinated-capture agreement. SimShelf does
+not allocate an extra child or rewrite the simulation's output arguments.
+
+If an older saved configuration selects launcher allocation, **New run…** blocks
+validation/start and offers **Use fixed output parent**. Review the capture folder
+and the simulation's output arguments, choose fixed explicitly, then validate and
+save. Backend checks also reject incompatible API/CLI/Python requests before
+allocation. Restarting or choosing manual argv cannot bypass them. Invalid,
+unsupported, stale or unassociated metadata leaves output ownership unknown:
+review it or use explicit manual argv with fixed-parent capture. The UI does not
+silently change saved choices. Completed records and original folders are preserved.
+
+For a script without SWSS metadata that explicitly supports the SimShelf adapter,
+choose **Launcher-coordinated subfolder (requires support)** to isolate successive
+or concurrent originals. The capture output folder
 becomes the parent; Start creates `run_<unique ID>` beneath it. Validation and
 Save settings create no directories. The preview shows the parent and explains
 allocation; the run's capture summary shows the exact absolute folder.
+
+Fixed-parent overlap guards reject simultaneous recorders watching overlapping
+parents. Independently running scripts can still write there; watching a shared
+parent is not proof of per-process attribution. SWSS metadata/binding indicators
+do not certify scientific conformance. Required new/changed logs must be copied;
+missing, ignored, referenced or oversized logs make capture partial independently
+of process success. Unchanged logs from earlier runs cannot satisfy this check.
 
 ### Explicit launcher allocation signal
 

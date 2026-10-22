@@ -248,6 +248,21 @@ def reject_legacy(root):
             raise ValueError(f'{name} is unsupported for new runs. Review and replace it explicitly with swss.toml schema 2; historical records remain intact.')
 
 
+def output_policy_status(discovery, present):
+    """Local allocation eligibility, never a claim of SWSS conformance."""
+    provenance = discovery['provenance']
+    if provenance and not provenance['binding_reasons']:
+        return {'state': 'valid', 'launcher_allowed': False,
+                'binding': provenance['binding_status'],
+                'reason': 'Use Fixed output parent: the simulation creates its unique run directory and SimShelf watches the parent. Metadata does not establish a coordinated-root agreement.'}
+    if present or provenance:
+        return {'state': 'unavailable', 'launcher_allowed': False,
+                'binding': provenance['binding_status'] if provenance else 'unverified',
+                'reason': 'SWSS metadata is invalid, unsupported, stale or not associated. Output ownership is unknown. Review the capture parent and explicitly choose Fixed output parent for manual execution, or correct the metadata before reviewing again.'}
+    return {'state': 'absent', 'launcher_allowed': True, 'binding': 'unverified',
+            'reason': 'No SWSS metadata. Launcher-coordinated allocation requires explicit script support for SIMSHELF_OUTPUT_DIR or joined run.output_dir.'}
+
+
 def review(simulation, decision=None):
     """Recheck before launch; client supplies only a digest and explicit mode."""
     from .parameters import discover_parameters

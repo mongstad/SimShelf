@@ -14,7 +14,7 @@ import time
 from .common import contained
 from .config import validate_config
 from .store import Store
-from .output_paths import output_review
+from .output_paths import output_review, validate_simulation_output_policy
 from .interpreters import probe_interpreter
 
 
@@ -23,6 +23,7 @@ def execution_settings(simulation: dict, data: dict, *, probe=False) -> dict:
         raise ValueError("Use interpreter, cwd, arguments, output_dir and optional output_mappings execution settings")
     from .swss import review
     metadata = review(simulation, data.get("parameter_review"))
+    validate_simulation_output_policy(simulation, data.get("output_policy", "fixed"), metadata)
     interpreter = data.get("interpreter", "")
     if not isinstance(interpreter, str) or not interpreter or "\0" in interpreter:
         raise ValueError("Select an absolute path to the simulation's Python interpreter")

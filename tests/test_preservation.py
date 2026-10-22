@@ -117,7 +117,10 @@ def test_reference_ignore_selection_and_size_omissions(library, monkeypatch):
     assert 'budget' in ledger['unique/large.json']['reason']
     assert event['record']['completeness'] == 'partial'
     assert result['capture_counts']['referenced'] == result['capture_counts']['ignored'] == 1
-    assert result['capture_status'] == 'complete'
+    # The SWSS fixture wrote no current-run log; archive omissions remain
+    # independent, while fixed-parent capture must report the missing log.
+    assert result['capture_status'] == 'partial'
+    assert any('Required log' in error for error in result['capture_errors'])
 
 
 def test_disabled_disconnected_missing_identity_and_recording(library):
@@ -372,17 +375,57 @@ def test_pinned_standalone_reference_new_policy_fixed_and_uncoordinated(tmp_path
     archive.set_global_enabled(store, True)
     sim = store.add_simulation(root, entrypoint='simulate.py')
     enable(store, sim)
+    from fastapi.testclient import TestClient
+    from simshelf.api import create_app
+    from test_portal import headers, settings, finish
     original = []
-    for policy in ('fixed', 'fixed', 'per_run'):
-        argv = [sys.executable, str(root / 'simulate.py'), '--rate=0.005', '--steps=10']
-        ident, code = record_command(store, sim['id'], argv, cwd=root, quiet=True, output_policy=policy)
-        run = store.run(ident); event = verify(store, repo, run)
-        assert code == 0 and run['version'] == '0.1.3' and run['command'] == argv
-        assert len([f for f in event['files'] if f['category'] == 'result']) == (4 if policy == 'fixed' else 0)
-        assert event['record']['completeness'] == ('verified' if policy == 'fixed' else 'partial')
-        if policy == 'per_run': assert list(Path(run['capture_root']).iterdir()) == []
-        original.append((run, event))
-    for run, event in original: assert verify(store, repo, run) == event
+    originals = {}
+    with TestClient(create_app(store.path)) as client:
+        auth = headers(client)
+        for parent in ('outputs', 'outputs', 'custom-results'):
+            if parent != sim['config']['output_dir']:
+                sim = store.update_simulation(sim['id'], config={**sim['config'], 'output_dir': parent})
+                enable(store, sim)
+            before = set((root / parent).iterdir()) if (root / parent).exists() else set()
+            args = ['-k', '1e-1', '-n', '0010', '--dt=0.25', '--label', '', '--output-parent', parent]
+            config = settings(arguments=args, output_dir=parent)
+            response = client.post(f"/api/simulations/{sim['id']}/launch", headers=auth, json=config)
+            assert response.status_code == 201, response.text
+            run = finish(store, response.json()['run_id'])
+            event = verify(store, repo, run)
+            assert run['exit_code'] == 0 and run['version'] == '0.1.3'
+            assert run['command'] == [sys.executable, str(root / 'simulate.py'), *args]
+            assert run['capture_status'] == 'complete' and run['capture_counts']['copied'] == 4
+            added = set((root / parent).iterdir()) - before
+            assert len(added) == 1 and next(iter(added)).name != 'run_' + run['id']
+            files = {p: p.read_bytes() for p in next(iter(added)).iterdir()}
+            assert len(files) == 4 and all(files.values())
+            for path, data in originals.items(): assert path.read_bytes() == data
+            originals.update(files)
+            for artifact in run['artifacts']:
+                assert artifact['policy'] == 'copy'
+                assert blob_path(store.path, artifact['blob']).read_bytes() == (root / parent / artifact['name']).read_bytes()
+            assert len([f for f in event['files'] if f['category'] == 'result']) == 4
+            assert event['record']['completeness'] == 'verified'
+            assert json.loads(next(data for path, data in files.items() if path.name == 'provenance.json'))['argv'] == args
+            original.append((run, event))
+        # Argument failure creates no simulation output; historical logs cannot
+        # satisfy this run's required evidence or be attributed to it.
+        response = client.post(f"/api/simulations/{sim['id']}/launch", headers=auth,
+                               json=settings(output_dir='custom-results'))
+        assert response.status_code == 201, response.text
+        failed = finish(store, response.json()['run_id'])
+        assert failed['status'] == 'failed' and failed['exit_code'] == 2
+        assert failed['capture_status'] == 'partial' and not failed['artifacts']
+    before = set(root.rglob('*'))
+    with pytest.raises(ValueError, match='Launcher-coordinated'):
+        record_command(store, sim['id'], [sys.executable, str(root/'simulate.py'), '-k', '0.1'],
+                       cwd=root, quiet=True, output_policy='per_run')
+    assert set(root.rglob('*')) == before
+    for path, data in originals.items(): assert path.read_bytes() == data
+    for run, event in original:
+        assert verify(store, repo, run) == event
+        assert store.run(run['id']) == run
     for name, digest in hashes.items(): assert hashlib.sha256((root / name).read_bytes()).hexdigest() == digest
 
 

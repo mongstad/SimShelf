@@ -106,12 +106,22 @@ explicit saved configuration for future runs. Editing the companion does not
 silently overwrite saved capture settings. No extension selects an interpreter,
 working directory, portable identity or argv. Rules are first-match; file/run
 copy budgets and source exclusions retain their existing behavior. `.log` files
-are copied by default. For a SWSS-described per-run output launch, absence of an
+are copied by default. For a SWSS-described launch, absence of an
 automatically copied log is reported as incomplete capture independently of exit
 status (including ignored, referenced or oversized logs). A log outside the
-watched root cannot satisfy that check. Authors remain responsible for timestamped
-names, log content, diagnostics and use of the supplied root; allocating a folder
-does not redirect arbitrary writes. See [isolated outputs](DATA.md).
+watched root or an unchanged historical log cannot satisfy that check. Authors
+remain responsible for timestamped names, log content and diagnostics.
+
+New run shows **SWSS schema 2 · metadata valid** separately from **Source binding**
+(listed bytes verified, unverified, or stale/manual-only). These describe bounded
+checks at scan time, not baseline conformance. Valid associated metadata recommends
+**Fixed output parent — simulation creates its unique run directory** and disables
+launcher-coordinated allocation. No coordinated-root agreement is inferred from
+schema or source hashes. Existing incompatible settings require explicit fixed
+selection and validation/save; history is untouched. Invalid/unsupported/stale or
+unassociated metadata reports uncertainty, disables launcher allocation, and keeps
+explicit manual fixed-parent execution available. Scripts without a companion
+retain both policies. See [output policy](RUNNING.md#unique-output-folders-for-cooperating-scripts).
 
 This is a portable-editor/configuration integration, not certification of a
 simulation's SWSS baseline, scientific export, numerical equivalence, checkpoint

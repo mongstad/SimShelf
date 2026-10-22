@@ -13,11 +13,18 @@ export type Parameter = {
   reason: string;
 };
 export type Discovery = {
+  output_policy?: OutputPolicyStatus;
   parameters: Parameter[];
   warnings: string[];
   source: string;
   fingerprint: string | null;
   provenance?: { binding_status: string; binding_reasons: string[] } | null;
+};
+export type OutputPolicyStatus = {
+  state: "valid" | "unavailable" | "absent";
+  launcher_allowed: boolean;
+  binding: string;
+  reason: string;
 };
 export function overrideTokens(p: Parameter, value: string): string[] {
   if (!p.supported) throw Error("Use the manual editor for " + p.name);

@@ -21,6 +21,7 @@ export function ArgumentEditor({
   entry,
   validation,
   reviewed,
+  discovered,
   initialManual = false,
   validationAttempt = 0,
 }: {
@@ -33,6 +34,7 @@ export function ArgumentEditor({
   entry: string;
   validation: (error: string) => void;
   reviewed: (review: {mode: string; fingerprint: string | null}) => void;
+  discovered?: (discovery: Discovery | null) => void;
 }) {
   const [rows, setRows] = useState<Row[]>(() => parameterRows(initial, []));
   const [query, setQuery] = useState("");
@@ -73,6 +75,7 @@ export function ArgumentEditor({
   async function scan() {
     const id = ++request.current;
     setLoading(true);
+    discovered?.(null);
     setScanError("");
     try {
       const next = await api<Discovery>(
@@ -85,6 +88,7 @@ export function ArgumentEditor({
       );
       previous.current = next;
       setDiscovery(next);
+      discovered?.(next);
       setRows(
         parameterRows(
           rowArguments(current.current),
