@@ -19,6 +19,7 @@ Once SimShelf is running, no terminal recording command is needed:
    Only select code and interpreters you trust. **Check selected Python** reports
    its version; optional **Check dependencies** compares declared requirements
    with that environment's installed-distribution metadata.
+   Expand **Check environment…** to access these checks and their execution warning.
 3. Add paired runtime arguments: parameter `--seed`, value `42`. Use **Add flag /
    positional** for a single token such as `--headless`. **No value** adds no token;
    a blank field passes an explicit empty argument. Type spaces directly, without

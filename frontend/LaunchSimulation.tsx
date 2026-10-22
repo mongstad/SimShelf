@@ -206,15 +206,8 @@ export function LaunchSimulation({
   }
   return (
     <form onSubmit={start} className="launch-form">
-      <p>
-        Launch <strong>{simulation.name}</strong> on this computer. Only run
-        code and interpreters you trust.
-      </p>
       <p className="muted">
         Source folder: <code>{simulation.root}</code>
-        <br />
-        Registered entry:{" "}
-        <code>{simulation.entrypoint || "No entry file registered"}</code>
       </p>
       <fieldset disabled={busy}>
         <ProgressSettings value={progressMode} change={value => {setProgressMode(value);edited();}} />
@@ -304,7 +297,7 @@ export function LaunchSimulation({
             }}
           />
           <small>
-            Relative to source folder. Your script must write here; capture does not redirect writes.
+            Relative to source folder.
           </small>
         </label>
         <label>
@@ -318,8 +311,6 @@ export function LaunchSimulation({
           </select>
           <small id="output-policy-help">
             {policyStatus?.reason || "Checking SWSS metadata for output policy. If this fails, rescan the declarations below before continuing."}
-            {policyStatus?.state === "valid" && " Recommended: fixed output parent. Shared-parent overlap safeguards still apply."}
-            {" "}Arguments and script writes are never redirected automatically.
           </small>
         </label>
         {policyStatus && policyStatus.state !== "absent" && <div className="notice output-policy-notice" role="status">
@@ -398,9 +389,7 @@ export function LaunchSimulation({
             {JSON.stringify(preview, null, 2)}
           </pre>
         </details>
-        <small>
-          No shell: metacharacters and wildcards are literal.
-        </small>
+        <p className="execution-warning">Validation executes the selected Python. Only use an interpreter you trust.</p>
         <div className="modal-actions">
           <button
             type="button"
@@ -440,9 +429,8 @@ export function LaunchSimulation({
           {error}
         </div>
       )}
-      <p className="muted">
-        Start saves settings and runs your script. Closing this tab leaves it running;
-        stopping the server requests cancellation. Stop a run from its details.
+      <p className="execution-warning">
+        Start executes your script. Only run code you trust. Closing this tab leaves it running.
       </p>
       {outputReview?.requires_acknowledgement && (
         <label className="check-label">

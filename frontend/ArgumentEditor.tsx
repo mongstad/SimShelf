@@ -176,9 +176,6 @@ export function ArgumentEditor({
       {discovery && !discovery.provenance && <p role="status" className="text-amber">{discovery.warnings[0]}</p>}
       {discovery?.provenance && <p role="status">{discovery.provenance.binding_status}</p>}
       {changed && !manual && <button type="button" onClick={() => setChanged(false)}>I reviewed the changed declarations</button>}
-      <p className="muted">
-        Disabled options are omitted; declared defaults are hints, never inserted. Review the command before launch.
-      </p>
       {scanError && (
         <p role="alert" className="error-banner">
           {scanError} Manual editing remains available.
@@ -420,11 +417,11 @@ export function ArgumentEditor({
                 </small>}
                 {p ? (
                   <ParameterHint parameter={p} token={row.token} value={row.value} enabled={row.enabled} id={`${editorId}-hint-${row.id}`} />
-                ) : (
-                  <small>
-                    {row.manual || row.parameter?.reason || "Manual argument"}
-                  </small>
-                )}
+                ) : row.manual && row.manual !== "Manual argument; original tokens preserved." ? (
+                  <small>{row.manual}</small>
+                ) : row.parameter?.reason ? (
+                  <small>{row.parameter.reason}</small>
+                ) : null}
                 {!p && (
                   <div className="argument-actions">
                     {!row.enabled && (

@@ -2286,9 +2286,9 @@ details label {
 /* New run owns its rhythm; compact parameter rows retain their existing layout. */
 .launch-form {
   --launch-helper-gap: 6px;
-  --launch-action-gap: 10px;
-  --launch-setting-gap: 22px;
-  --launch-section-gap: 28px;
+  --launch-action-gap: 16px;
+  --launch-setting-gap: 28px;
+  --launch-section-gap: 36px;
 }
 .launch-form > p + p { margin-top: var(--launch-helper-gap); }
 .launch-form > fieldset { margin-top: var(--launch-setting-gap); }
@@ -2319,3 +2319,34 @@ details label {
 .launch-form .output-policy-notice p { margin-top: var(--launch-helper-gap); }
 .launch-form .launch-output > label + label { margin-top: var(--launch-setting-gap); }
 .launch-form .form-grid { row-gap: var(--launch-setting-gap); }
+
+/* Keep action hit areas and feedback visibly distinct, including wrapped rows. */
+.launch-form .argument-actions,
+.launch-form .modal-actions,
+.launch-form .parameter-search-controls {
+  gap: 12px 16px;
+  margin-top: var(--launch-action-gap);
+}
+.launch-form .argument-actions button { padding: 8px 12px; }
+.launch-form .parameter-heading { gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
+.launch-form .launch-setting > p,
+.launch-form .launch-setting > small { margin-top: 16px; }
+.launch-form .launch-setting > .interpreter-checks { margin-top: 20px; }
+.launch-form .interpreter-checks { padding: 16px; border: 1px solid var(--line); border-radius: 8px; }
+.launch-form details > * + * { margin-top: 20px; }
+.launch-form .execution-warning { margin-top: 20px; }
+.launch-form .launch-command > .modal-actions { margin-top: 16px; }
+.launch-form .output-mapping { margin-block: 20px; padding: 20px; }
+.launch-form .output-mapping > * + * { margin-top: 20px; }
+.launch-form .output-paths > p { margin-top: 16px; }
+.launch-form .output-policy-notice > button { margin-top: 16px; }
+.launch-form .argument-editor > .error-banner,
+.launch-form .argument-editor > .text-amber,
+.launch-form .argument-editor > [role="status"],
+.launch-form .argument-paste > p { margin-block: 16px; }
+.launch-form .argument-actions + p,
+.launch-form .argument-actions + small { display: block; margin-top: 16px; }
+.launch-form .parameter-group { margin-top: 28px; }
+.launch-form .parameter-row { margin-block: 16px; padding: 16px; }
+.launch-form .argument-no-value { gap: 16px; }
+.launch-form .progress-settings > [role="group"] > p + p { margin-top: 16px; }

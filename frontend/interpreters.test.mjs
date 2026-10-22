@@ -72,8 +72,9 @@ test("custom saved path stays visible and checks disclose executable boundary", 
   });
   assert.match(html, /\/custom env\/bin\/python/);
   assert.match(html, /Enter custom path/);
-  assert.match(html, /Discovery does not run executables/);
-  assert.match(html, /Only select interpreters you trust/);
+  assert.match(html, /Check environment…/);
+  assert.match(html, /These checks execute the selected Python/);
+  assert.doesNotMatch(html, /Interpreter not checked|Recheck after environment changes|Discovery does not run/);
 });
 
 test("interpreter entries stay concise with repeated discovery sources", () => {

@@ -31,6 +31,7 @@ window.fetch = async (url, options = {}) => {
     if (scanFails) return new Response(JSON.stringify({detail: "Fixture discovery unavailable"}), {status: 500});
     value = discovery();
   } else if (url.endsWith("/interpreters")) value = {candidates: []};
+  else if (url.endsWith("/interpreter/check")) return new Response(JSON.stringify({detail: "Fixture interpreter unavailable"}), {status: 400});
   else if (url.endsWith("/execution/outputs")) value = output(data);
   else if (url.endsWith("/execution/validate")) value = {output_review: output(data), command: data.arguments,
     cwd: "/disposable", output_path: "/disposable/outputs", validation: {version: "3.14", message: "Fixture only"}};
@@ -117,8 +118,21 @@ async function tests() {
     const a = fields[0].getBoundingClientRect(), b = fields[1].getBoundingClientRect();
     assert(b.left > a.left ? Math.abs(a.top - b.top) < 1 : b.top - a.bottom >= 20,
       "fields align in columns or separate when stacked");
-    assert(document.body.textContent.includes("Only select interpreters you trust"), "trust disclosure retained");
-    assert(document.body.textContent.includes("Interpreter not checked."), "unchecked status retained");
+    const checks = document.querySelector('.interpreter-checks');
+    assert(!checks.open, "checks are opt-in disclosure");
+    assert(!document.body.textContent.includes("Interpreter not checked"), "no redundant idle prose");
+    await act(async () => { checks.querySelector('summary').click(); });
+    assert(checks.innerText.includes("These checks execute the selected Python"), "trust warning at check action");
+    const buttons = checks.querySelectorAll('button');
+    const first = buttons[0].getBoundingClientRect(), second = buttons[1].getBoundingClientRect();
+    assert(second.top > first.top ? second.top - first.bottom >= 12 : second.left - first.right >= 16,
+      "check buttons have visible horizontal or wrapped gap");
+    await click("Check selected Python");
+    const checkRequest = requests.find(r => r.url.endsWith("/interpreter/check"));
+    assert(checkRequest.data.confirmed === true && checkRequest.data.interpreter === "/usr/bin/python3", "check consent payload unchanged");
+    await act(async () => { checks.querySelector('summary').click(); });
+    const checkError = [...document.querySelectorAll('[role="alert"]')].find(e => e.textContent.includes("Fixture interpreter unavailable"));
+    assert(checkError && checkError.getBoundingClientRect().height > 0, "specific errors stay visible when checks collapse");
     const progress = document.querySelector('.progress-settings');
     await act(async () => { progress.querySelector('summary').click(); });
     assert(progress.open && !progress.querySelector('select').disabled, "expanded progress control");

@@ -40,13 +40,6 @@ export function OutputPaths({
         Capture uses a new run_&lt;unique ID&gt; subfolder allocated at launch. Your script must use
         SIMSHELF_OUTPUT_DIR or joined run.output_dir. Fixed paths do not follow it; arguments are unchanged.
       </p>}
-      {captureReview?.output_policy !== "per_run" && <p className="muted">Simulation-owned unique output directories beneath this fixed parent are inspected recursively. No launcher coordination is required.</p>}
-      <p className="muted">
-        Declare paths to check capture coverage. Other writes are unknown; references are not backups.
-      </p>
-      <p className="muted">
-        Select the path token and confirm file or directory. Paths resolve from the working directory, without shell expansion.
-      </p>
       {outputCandidates(args)
         .filter(
           (candidate) =>
@@ -133,8 +126,8 @@ export function OutputPaths({
                 aria-describedby={`output-${i}-help`}
               />
               <small id={`output-${i}-help`}>
-                {m.value === "" ? `Output ${i + 1} is incomplete. Enter a ${m.kind} path or remove this mapping before validating, saving or starting. Example text is not an entered path.` :
-                  "Relative to working directory. Missing paths and empty directories are allowed; this does not create or redirect outputs."}
+                {m.value === "" ? `Output ${i + 1} is incomplete. Enter a ${m.kind} path or remove this mapping to continue.` :
+                  "Relative to working directory; does not redirect writes."}
               </small>
             </label>
           ) : (
@@ -230,8 +223,7 @@ export function OutputPaths({
       )}
       {!mappings.length && (
         <p className="muted">
-          No output paths declared. Coverage of your script’s actual outputs is
-          unknown. You can still run it.
+          No paths declared; output coverage unknown.
         </p>
       )}
     </section>

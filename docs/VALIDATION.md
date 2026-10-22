@@ -442,3 +442,7 @@ history-preservation regressions, installed theme/keyboard checks and limitation
 See [issue #122 New run layout](validation/issue-122-new-run-layout.md) for scoped
 field grouping, concise safety-aware copy, responsive geometry regressions,
 installed-browser/package checks and limitations. Historical evidence is unchanged.
+
+The [owner-review revision](validation/issue-122-review-layout.md) records wider
+button/feedback spacing, removal of routine prose, execution-adjacent trust
+warnings and before/after desktop/narrow screenshots.

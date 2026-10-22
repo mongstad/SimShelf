@@ -25,9 +25,6 @@ export function ProgressSettings({
   return (
     <details className="progress-settings">
       <summary>Progress reporting (optional)</summary>
-      <p>
-        Use the progress API or select a supported log format. Logs are not interpreted automatically.
-      </p>
       {schema !== null && schema < 4 && !review && (
         <button type="button" onClick={() => setReview(true)}>
           Enable progress reporting…
@@ -98,12 +95,6 @@ export function ProgressSettings({
           </div>
         </div>
       )}
-      {schema === 4 && (
-        <p className="muted">
-          Progress reporting is enabled for this library. Structured API reports
-          take priority over interpreted text.
-        </p>
-      )}
       <label>
         Interpret terminal progress
         <select
@@ -115,9 +106,6 @@ export function ProgressSettings({
           <option value="step">Step counts: step 10/100</option>
           <option value="percent">Percentage: 25%</option>
         </select>
-        <small>
-          Matches whole stdout/stderr lines, including carriage-return updates. Saved for future launches.
-        </small>
       </label>
       {value !== "off" && (
         <div className="muted" aria-label="Supported console progress examples">

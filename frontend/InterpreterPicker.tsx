@@ -228,11 +228,8 @@ export function InterpreterPicker({
           onChange={(e) => change(e.target.value)}
         />
       </label>
-      {selected && (
+      {selected?.simshelf_runtime && (
         <p>
-          {selected.kind} · Discovered via:{" "}
-          {[...new Set(selected.sources)].join(", ")}.{" "}
-          {python ? `Python ${python.version} checked` : selected.state}.{" "}
           {selected.simshelf_runtime && (
             <strong>
               This is SimShelf’s own runtime; it may not contain your
@@ -241,10 +238,9 @@ export function InterpreterPicker({
           )}
         </p>
       )}
-      <p className="muted">
-        Discovery does not run executables. Only select interpreters you trust:
-        checks execute the selected Python with isolated startup.
-      </p>
+      <details className="interpreter-checks">
+        <summary>Check environment…</summary>
+        <p className="execution-warning">These checks execute the selected Python. Only proceed if you trust it.</p>
       <div className="argument-actions">
         <button
           type="button"
@@ -261,29 +257,17 @@ export function InterpreterPicker({
           Check dependencies
         </button>
       </div>
-      {busy && <p role="status">Checking the selected interpreter…</p>}
+      </details>
+      {busy && <p role="status">Checking Python…</p>}
       {error && (
         <p role="alert" className="error-banner">
           {error}
         </p>
       )}
-      {python ? (
-        <p role="status">
-          Checked at {checkedAt}: Python {python.version} ·{" "}
-          <code>{python.prefix}</code>. Advisory results; validate launch
-          settings before starting.
-        </p>
-      ) : (
-        !busy && (
-          <p className="muted">
-            Interpreter not checked.
-          </p>
-        )
+      {python && (
+        <p role="status">Python {python.version} · checked {checkedAt} (metadata only)</p>
       )}
       {dependencies && <DependencyResults result={dependencies} />}
-      <small>
-        Checks inspect metadata, not imports or GPU access. Recheck after environment changes.
-      </small>
       </div>
     </section>
   );
