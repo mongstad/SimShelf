@@ -532,7 +532,10 @@ Automatic preservation now uses one effective-state gate: global ON, verified
 shared repository, individual participation, and valid reviewed scope. The global
 preference defaults OFF when absent; connection alone never activates Git. The
 single simulation switch retains exact reviewed choices when paused, including
-legacy consent. Both preferences are included in backups; location/identity checks
+legacy consent. Simulation preferences can be edited while the global gate is
+OFF; ON still validates repository and reviewed scope, while OFF remains available
+without Git. The compact header distinguishes saved preference from effective
+activity, with amber ON when the master is disabled. Both preferences are included in backups; location/identity checks
 still prevent implicit activation after restore. Active runs retain frozen plans.
 See [two-level state details](LIBRARY_PRESERVATION_DESIGN.md#two-level-automatic-participation).
 

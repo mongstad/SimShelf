@@ -39,6 +39,14 @@ valid unchanged policy can resume without reapproval. A disabled unreviewed draf
 cannot resume merely because it exists; it must pass the same enabled-policy
 validation or receive explicit review.
 
+Issue #124 separates preference editing from the global execution gate: a
+reviewed preference can be saved/resumed while global OFF, with the same
+repository, scope and location validation. OFF never requires Git availability.
+The header uses a compact status row; a saved ON preference with global OFF has
+an amber switch and **Master Git Archive disabled**, not an active claim. First
+approval still requires explicit preview/confirmation. No frozen plans, prior
+events, capture settings or storage formats are rewritten by a toggle.
+
 Legacy ON uses the original active settings. OFF atomically moves the exact
 consent to `archive_v1:paused_settings:<simulation>`, clearing its old active key.
 Resume revalidates and restores the identical consent; it does not convert legacy

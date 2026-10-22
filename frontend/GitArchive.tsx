@@ -11,12 +11,14 @@ export function ArchiveSwitch({
   disabled,
   onChange,
   actionRef,
+  describedBy,
 }: {
   label: string;
   checked: boolean | null;
   disabled: boolean;
   onChange: () => void;
   actionRef?: React.RefObject<HTMLButtonElement | null>;
+  describedBy?: string;
 }) {
   return (
     <button
@@ -25,6 +27,7 @@ export function ArchiveSwitch({
       role="switch"
       aria-label={label}
       aria-checked={checked === true}
+      aria-describedby={describedBy}
       className="archive-toggle"
       disabled={disabled}
       onClick={onChange}

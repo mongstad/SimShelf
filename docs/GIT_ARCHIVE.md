@@ -26,10 +26,14 @@ eligible managed copies do not require Git.
    back ON resumes an unchanged valid policy without another review. Changed or
    unreviewed settings require explicit review; consent is never silently widened.
 4. Global OFF keeps the repository connected and every simulation's participation
-   preference. Individual switches become unavailable and show that global Git
-   is off. Global ON restores only saved participants whose repository identity
-   and policy remain valid. A disconnected/unavailable repository shows **Git
-   unavailable**, even if a saved preference is ON; local recording continues.
+   preference. Individual switches remain editable: a saved ON preference shows
+   an amber toggle and **Master Git Archive disabled**. Turning it OFF remains
+   OFF when the master is enabled later. You can also review or resume a valid
+   preference while the master is OFF; this does not create archives. Global ON
+   restores only saved participants whose repository identity and policy remain
+   valid. Unconfigured, unavailable and stale scopes have distinct concise status
+   text. Turning OFF is still possible when Git is unavailable; turning ON requires
+   the existing repository/scope validation. Local recording continues throughout.
 
 **Preservation settings → Capture and Git options** configures what is captured
 and archived: ordered copy/reference/ignore rules, source patterns/selection,
