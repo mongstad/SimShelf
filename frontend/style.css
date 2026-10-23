@@ -1324,7 +1324,16 @@ details label {
 .run-title-row h1 { min-width: 0; overflow-wrap: anywhere; }
 .run-favorite { flex: 0 0 36px; width: 36px; height: 36px; color: var(--muted); }
 .run-favorite[aria-pressed="true"] { color: var(--amber); }
-.run-heading > button { flex-shrink: 0; }
+.run-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+  max-width: 100%;
+  flex-shrink: 0;
+}
+.run-heading-actions > button { flex-shrink: 0; }
 .run-heading .eyebrow > span {
   margin: 0 8px;
   color: var(--line);
