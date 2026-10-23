@@ -591,7 +591,11 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
                 if artifact["run_id"] != ident or artifact["policy"] != "copy" or artifact.get("media_type") not in {"image/png", "image/jpeg", "image/webp", "image/gif"}:
                     raise ValueError("Choose a saved image from this run")
             store.emit(ident, "annotation", data)
-            return store.run(ident)
+            saved = store.run(ident)
+        # Match GET's detail shape: replacing the browser's confirmed run must
+        # not temporarily erase recorder ownership after an annotation save.
+        # Query jobs outside the workspace lock, as launch takes these in reverse.
+        return {**saved, **jobs.control(ident)}
 
     @app.get("/api/runs/{ident}/logs")
     def logs(ident: str, stream: str = "stdout"):
