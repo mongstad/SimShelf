@@ -9,7 +9,7 @@ test('search matches names aliases help and types case insensitively, with count
  for(const term of ['--dt','-d','INTEGRATION time','float']) assert.equal(parameterPresentation(rows,term).matches,term==='-d'||term==='--dt'||term==='float'?1:2);
  const empty=parameterPresentation(rows,'unmatched');
  assert.equal(empty.total,2);assert.equal(empty.matches,0);
- assert.equal(empty.sections.length,1);assert.equal(empty.sections[0].rows[0].row.token,'--unknown');
+ assert.equal(empty.sections.length,3);assert.equal(empty.sections.at(-1).rows[0].row.token,'--unknown');
  assert.equal(parameterPresentation(rows,'  ').matches,2);
 });
 test('required presentation comes first without changing exact argv or original edit indexes',()=>{
@@ -17,11 +17,12 @@ test('required presentation comes first without changing exact argv or original 
  const args=['--no-plots','--dt=1e-3','--label','','--other','x','--','--dt=2'];
  const rows=parameterRows(args,[p,flag,required]);
  const view=parameterPresentation(rows,'');
- assert.equal(view.sections[0].name,'Required arguments');
+ assert.equal(view.sections[0].name,'Parameters');
  assert.equal(view.sections[0].rows[0].index,2);
  for(const section of view.sections) for(const {row,index} of section.rows) assert.equal(row,rows[index]);
  assert.deepEqual(rowArguments(rows),args);
- assert.ok(!parameterPresentation(parameterRows([], [p,flag]),'').sections.some(s=>s.name==='Required arguments'));
+ assert.deepEqual(view.sections.map(s=>s.name),['Parameters','Flags','Manual / undiscovered arguments']);
+ assert.equal(view.sections[0].required,1);
 });
 test('filtering preserves enabled and disabled drafts, aliases repeats delimiters and numeric spelling',()=>{
  const args=['-d','1e-3','--dt=1e-3','--unknown','','--','tail'];
@@ -56,7 +57,8 @@ test('required flags stay distinct in semantics and unsupported/repeated declara
  const unsupported={...p,name:'--custom',flags:['--custom'],supported:false};
  const rows=parameterRows(['--custom','value','--dt=1','--dt=1'],[p,requiredFlag,unsupported]);
  const view=parameterPresentation(rows,'');
- assert.equal(view.sections[0].name,'Required arguments');
+ assert.equal(view.sections[0].name,'Flags');
+ assert.equal(view.sections[0].required,1);
  assert.equal(view.sections[0].rows[0].row.parameter.action,'store_false');
  assert.equal(view.sections.at(-1).rows.length,3);
  assert.equal(view.total,1);
@@ -65,5 +67,13 @@ test('required flags stay distinct in semantics and unsupported/repeated declara
 test('inline human-readable types remain searchable without changing argv',()=>{
  const rows=parameterRows([], [{...p,help:'',type:'int'}, {...p,help:'',name:'--label',flags:['--label'],type:'str'}]);
  for(const term of ['int','integer','str','string']) assert.equal(parameterPresentation(rows,term).matches,1);
+ assert.deepEqual(rowArguments(rows),[]);
+});
+
+test('group totals and required counts survive filtering; empty declaration groups are omitted',()=>{
+ const rows=parameterRows([], [p,{...flag,required:true}]);
+ const view=parameterPresentation(rows,'--dt');
+ assert.deepEqual(view.sections.slice(0,2).map(s=>[s.name,s.total,s.required,s.rows.length]), [['Parameters',1,0,1],['Flags',1,1,0]]);
+ assert.deepEqual(parameterPresentation(parameterRows([],[]),'').sections.map(s=>s.name),['Manual / undiscovered arguments']);
  assert.deepEqual(rowArguments(rows),[]);
 });

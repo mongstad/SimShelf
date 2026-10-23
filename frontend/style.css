@@ -2359,3 +2359,14 @@ details label {
 .launch-form .parameter-row { margin-block: 16px; padding: 16px; }
 .launch-form .argument-no-value { gap: 16px; }
 .launch-form .progress-settings > [role="group"] > p + p { margin-top: 16px; }
+
+.parameter-disclosure {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-weight: 600;
+}
+.parameter-disclosure[aria-disabled="true"] { cursor: default; }
+.parameter-required-count { margin-left: auto; color: var(--amber); font-size: 12px; }

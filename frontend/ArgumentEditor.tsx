@@ -38,6 +38,8 @@ export function ArgumentEditor({
 }) {
   const [rows, setRows] = useState<Row[]>(() => parameterRows(initial, []));
   const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const searching = query.trim().length > 0;
   const searchInput = useRef<HTMLInputElement>(null);
   const editorId = useId();
   const presentation = parameterPresentation(rows, query);
@@ -61,12 +63,18 @@ export function ArgumentEditor({
     setAttempted(true);
     // Reveal filtered omissions before moving focus; changing visibility never edits argv.
     setQuery("");
+    setExpanded(previous => ({...previous, ...Object.fromEntries(
+      parameterPresentation(rows, "").sections.filter(section => section.rows.some(({row}) => missing.includes(row.id)))
+        .map(section => [section.name, true]),
+    )}));
   }, [validationAttempt]);
   useEffect(() => {
     if (!focusMissing.current || !attempted || query) return;
+    if (presentation.sections.some(section =>
+      section.rows.some(({row}) => missing.includes(row.id)) && !expanded[section.name])) return;
     focusMissing.current = false;
     editor.current?.querySelector<HTMLElement>('[data-missing="true"] input, [data-missing="true"] select')?.focus();
-  }, [validationAttempt, attempted, query]);
+  }, [validationAttempt, attempted, query, expanded]);
   const problem = manual ? "" : discovery && !discovery.provenance ? "Choose manual argv or provide valid SWSS declarations before continuing." : parameterError(rows, discovery?.parameters || []);
   useEffect(() => {
     validation(loading ? "Reading parameter declarations…" : changed && !manual ? "Review changed declarations before typed use." : problem);
@@ -227,17 +235,28 @@ export function ArgumentEditor({
             }}>Clear search</button>
           </div>
           <p id={`${editorId}-search-status`} role="status" className="muted">
-            {presentation.matches} of {presentation.total} declared controls shown.
-            {" "}Search only changes visibility; arguments and edits are retained. Manual arguments remain below.
+            {searching ? `${presentation.matches} of ${presentation.total} declared controls match.` : `${presentation.total} declared controls.`}
+            {" "}Matching groups open during search; clearing search restores your groups. Manual arguments remain below.
           </p>
           {presentation.matches === 0 && <p>No matching parameters or flags. Try another term or clear search.</p>}
         </div>
       )}
       <fieldset disabled={changed && !manual}>
-      {presentation.sections.map(({name: group, rows: visibleRows}) => (
-        <section className="parameter-group" aria-label={group} key={group}>
-          <h4>{group} <small>({visibleRows.length})</small></h4>
-          {!visibleRows.length && <p className="muted">No manual arguments added.</p>}
+      {presentation.sections.map(({name: group, rows: visibleRows, total, required}, groupIndex) => {
+        const declared = group === "Parameters" || group === "Flags";
+        const open = !declared || searching || !!expanded[group];
+        const contentId = `${editorId}-group-${groupIndex}`;
+        return <section className="parameter-group" aria-label={group} key={group}>
+          {declared ? <h4><button type="button" className="parameter-disclosure"
+            aria-expanded={open} aria-controls={contentId} aria-disabled={searching || undefined}
+            onClick={() => { if (!searching) setExpanded(previous => ({...previous, [group]: !open})); }}>
+            <span aria-hidden="true">{open ? "▾" : "▸"}</span>
+            <span>{group} <small>({searching ? `${visibleRows.length} of ${total}` : total})</small></span>
+            {required > 0 && <span className="parameter-required-count">{required} required</span>}
+          </button></h4> : <h4>{group} <small>({visibleRows.length})</small></h4>}
+          <div id={contentId} hidden={!open}>
+          {declared && searching && !visibleRows.length && <p className="muted">No matches in this group.</p>}
+          {!declared && !visibleRows.length && <p className="muted">No manual arguments added.</p>}
           {visibleRows.map(({row, index: i}) => {
             const p =
               row.parameter?.supported && !row.manual
@@ -534,8 +553,9 @@ export function ArgumentEditor({
               </div>
             );
           })}
-        </section>
-      ))}
+          </div>
+        </section>;
+      })}
       </fieldset>
       {problem && !(missing.length > 0) && (
         <p className="error-banner" role="alert">
