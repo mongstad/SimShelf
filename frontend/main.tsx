@@ -1444,10 +1444,9 @@ function App() {
       setBackingUp(false);
     }
   }
-  if (quitting) return <main className="content"><h1>SimShelf is shutting down</h1>
-    <p>Cancellation requested for portal runs; final capture is attempted. Slow capture may continue after the server exits.</p>
-    <p>You can close this tab. Terminal/editor recorders remain independent. Restart using the launcher when needed.</p>
-    <p className="muted">Interrupted status does not guarantee detached processes stopped. Check retained runs and capture status after restarting.</p></main>;
+  if (quitting) return <main className="content">
+    <p role="status">SimShelf is shutting down. You can close this tab.</p>
+  </main>;
   return (
     <div className={`app-shell${sidebar.collapsed ? " sidebar-collapsed" : ""}${sidebar.dragging ? " sidebar-dragging" : ""}`} style={sidebar.style}>
       <div className="sidebar-frame" hidden={sidebar.collapsed}>

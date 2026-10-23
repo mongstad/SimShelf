@@ -453,3 +453,9 @@ See [issue #128 master status](validation/issue-128-master-status.md) for effect
 ON/OFF availability, separately disclosed repository health, pending/error states,
 focused regressions, installed browser/package checks and limitations.
 Historical reports remain unchanged.
+
+## Concise shutdown page
+
+See [issue #130 shutdown copy](validation/issue-130-shutdown-copy.md) for the
+single-message page, unchanged lifecycle regressions, installed browser/package
+checks and limitations. Historical reports remain unchanged.
