@@ -636,29 +636,31 @@ function RunDetails({
             </span>
           </div>
         </div>
-        {run.can_stop && run.status === "running" && (
-          <button
-            disabled={busy || run.stop_requested}
-            onClick={async () => {
-              setBusy(true);
-              setError("");
-              try {
-                await api(`/runs/${id}/stop`, { method: "POST" });
-                setNotice(
-                  "Stop requested. Waiting for the process to exit and final output capture to finish.",
-                );
-                await refresh();
-              } catch (e) {
-                setError((e as Error).message);
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            {run.stop_requested ? "Stopping…" : "Stop run"}
-          </button>
-        )}
-        <button disabled={busy || run.status === "running" || run.capture_status === "pending"} onClick={() => requestRemoval(run)}>Remove run…</button>
+        <div className="run-heading-actions" role="group" aria-label="Run actions">
+          {run.can_stop && run.status === "running" && (
+            <button
+              disabled={busy || run.stop_requested}
+              onClick={async () => {
+                setBusy(true);
+                setError("");
+                try {
+                  await api(`/runs/${id}/stop`, { method: "POST" });
+                  setNotice(
+                    "Stop requested. Waiting for the process to exit and final output capture to finish.",
+                  );
+                  await refresh();
+                } catch (e) {
+                  setError((e as Error).message);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {run.stop_requested ? "Stopping…" : "Stop run"}
+            </button>
+          )}
+          <button disabled={busy || run.status === "running" || run.capture_status === "pending"} onClick={() => requestRemoval(run)}>Remove run…</button>
+        </div>
       </header>
       <RunProgress run={run} />
       <PreservationSummary key={run.id} run={run} />
