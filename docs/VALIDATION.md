@@ -446,3 +446,10 @@ installed-browser/package checks and limitations. Historical evidence is unchang
 The [owner-review revision](validation/issue-122-review-layout.md) records wider
 button/feedback spacing, removal of routine prose, execution-adjacent trust
 warnings and before/after desktop/narrow screenshots.
+
+## Effective master archive status
+
+See [issue #128 master status](validation/issue-128-master-status.md) for effective
+ON/OFF availability, separately disclosed repository health, pending/error states,
+focused regressions, installed browser/package checks and limitations.
+Historical reports remain unchanged.

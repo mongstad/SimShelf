@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { api, uploadFile } from "./api";
 import type { Artifact, Run, Simulation } from "./types";
 
@@ -45,19 +45,32 @@ export function ArchiveSettings() {
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
   const [activating, setActivating] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const statusId = useId();
   const request = useRef(0);
   const panel = useRef<HTMLDetailsElement>(null),
     input = useRef<HTMLInputElement>(null),
     toggle = useRef<HTMLButtonElement>(null);
   async function load() {
     const sequence = ++request.current;
-    const c = await api<Review>("/workspace/archive");
-    if (sequence !== request.current) return;
-    setState(c);
-    setPath(c.connection?.path || c.remembered_connection?.path || "");
+    try {
+      const c = await api<Review>("/workspace/archive");
+      if (sequence !== request.current) return;
+      setState(c);
+      setLoadError(false);
+      setPath(c.connection?.path || c.remembered_connection?.path || "");
+    } catch (e) {
+      if (sequence !== request.current) return;
+      setState(null);
+      setLoadError(true);
+      throw e;
+    }
   }
   useEffect(() => {
     void load().catch((e) => setMessage(e.message));
+    return () => {
+      request.current++;
+    };
   }, []);
   const post = (suffix: string, body: Review = {}) =>
     api<Review>("/workspace/archive/" + suffix, {
@@ -118,38 +131,38 @@ export function ArchiveSettings() {
         <h2>Master Git Archive</h2>
         <ArchiveSwitch
           label="Master Git Archive"
-          checked={!!state?.enabled}
+          checked={state ? !!state.enabled : null}
           disabled={busy || !state}
           onChange={change}
           actionRef={toggle}
+          describedBy={statusId}
+        />
+        <MasterArchivingStatus
+          id={statusId}
+          state={state}
+          pending={busy}
+          error={loadError}
         />
       </div>
-      <p>
-        One shared local repository. SimShelf always captures runs in your local
-        library.
-      </p>
-      <MasterArchiveStatus
-        status={state?.status}
-        configured={!!state?.connection}
-      />
-      <p className="path">
-        Repository:{" "}
-        <code>
-          {state?.connection?.path ||
-            state?.remembered_connection?.path ||
-            "Not configured"}
-        </code>
-      </p>
-      <p role="status">
-        {state?.enabled
-          ? state.status.state === "connected"
-            ? "ON for participating simulations."
-            : "Git unavailable. Local library capture continues."
-          : "OFF. Saved simulation choices are retained."}
-      </p>
       {message && <p role="status">{message}</p>}
       <details ref={panel}>
         <summary>Repository location and setup</summary>
+        <MasterArchiveStatus
+          status={busy ? null : state?.status}
+          error={loadError && !busy}
+        />
+        <p className="path">
+          Repository:{" "}
+          <code>
+            {state?.connection?.path ||
+              state?.remembered_connection?.path ||
+              path ||
+              (state ? "Not configured" : "Unknown")}
+          </code>
+        </p>
+        <button disabled={busy} onClick={() => void action(async () => {})}>
+          Refresh archive status
+        </button>
         <p>
           Use a dedicated bare SimShelf archive outside source folders and the
           library. No uploads or remote synchronization. Back it up separately.
@@ -210,9 +223,6 @@ export function ArchiveSettings() {
           </button>
         )}
       </details>
-      <button disabled={busy} onClick={() => void action(async () => {})}>
-        Refresh archive status
-      </button>
     </section>
   );
 }
@@ -626,25 +636,64 @@ export function RunArchive({
   );
 }
 
+export function MasterArchivingStatus({
+  id,
+  state,
+  pending = false,
+  error = false,
+}: {
+  id?: string;
+  state: Review | null;
+  pending?: boolean;
+  error?: boolean;
+}) {
+  let text = "Checking archive status…",
+    tone = "muted";
+  if (!pending) {
+    if (error) {
+      text = "⚠ Archive status unavailable";
+      tone = "preservation-unavailable";
+    } else if (state?.enabled === false) {
+      text = "Git archiving disabled";
+    } else if (state?.enabled === true) {
+      if (state.status?.state === "connected") {
+        text = "✓ Git active";
+        tone = "archive-connected";
+      } else {
+        text = "⚠ Git unavailable";
+        tone = "preservation-unavailable";
+      }
+    }
+  }
+  return (
+    <span id={id} role="status" className={tone}>
+      {text}
+    </span>
+  );
+}
+
 export function MasterArchiveStatus({
   status,
+  error = false,
 }: {
   status?: Review | null;
   configured?: boolean;
+  error?: boolean;
 }) {
-  const connected = status?.state === "connected";
+  const connected = !error && status?.state === "connected";
   return (
     <div className="automatic-archive-control">
       <span role="status" className={connected ? "archive-connected" : ""}>
         {connected && <span aria-hidden="true">✓ </span>}Repository —{" "}
-        {connected
-          ? "Connected"
-          : status?.state === "disconnected"
-            ? "Disconnected"
-            : "Unavailable"}
+        {!status && !error
+          ? "Checking availability…"
+          : connected
+            ? "Connected"
+            : status?.state === "disconnected"
+              ? "Disconnected"
+              : "Unavailable"}
       </span>
       {status?.reason && <p>{status.reason}</p>}
-      {!status && <small>Checking repository availability…</small>}
     </div>
   );
 }

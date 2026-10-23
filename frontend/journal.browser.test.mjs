@@ -453,6 +453,40 @@ async function start() {
           "Inactive simulation still polls",
         );
       });
+      await test("master health matrix, pending/error refresh and recovery stay separate from activation", async () => {
+        await click("Master Git Archive", document.querySelector("aside"));
+        const section = document.querySelector(".master-archive-settings");
+        const status = () => section.querySelector(".automatic-archive-line [role=status]");
+        const setup = section.querySelector("details");
+        check(!setup.open, "Repository setup should start collapsed");
+        check(setup.querySelector(".archive-connected"), "Repository health must live in setup");
+        check(setup.querySelector("input").value === "/disposable/archive", "Configured path lost");
+        setup.open = true;
+        for (const enabled of [false, true]) {
+          for (const health of ["connected", "disconnected", "invalid", "unavailable"]) {
+            const pending = hold("/workspace/archive");
+            await click("Refresh archive status", setup);
+            check(status().textContent === "Checking archive status…", "Refresh claims stale effective status");
+            check(setup.textContent.includes("Checking availability"), "Repository pending state missing");
+            await release(pending, {enabled, status: {state:health}, connection:{path:"/disposable/archive"}});
+            const expected = !enabled ? "Git archiving disabled" : health === "connected" ? "Git active" : "Git unavailable";
+            check(status().textContent.includes(expected), "Incorrect master matrix state");
+            check(status().classList.contains("archive-connected") === (enabled && health === "connected"), "False green master status");
+          }
+        }
+        // Both the failed refresh and its recovery read fail, then a new explicit refresh succeeds.
+        const first = hold("/workspace/archive"), retry = hold("/workspace/archive");
+        await click("Refresh archive status", setup);
+        await release(first, {detail:"Fixture read failure"}, 503);
+        await release(retry, {detail:"Fixture read failure"}, 503);
+        check(status().textContent.includes("Archive status unavailable"), "Failed load still claims known status");
+        check(section.querySelector('[role="switch"]').disabled, "Unknown preference remains editable");
+        check(!setup.textContent.includes("Checking availability"), "Error looks pending forever");
+        await click("Refresh archive status", setup);
+        check(status().textContent.includes("Git active"), "Refresh recovery failed");
+        check(section.querySelector('[role="switch"]').getAttribute("aria-describedby") === status().id, "Switch status is not accessible");
+        await choose("alpha");
+      });
       await test("global OFF preserves individual ON; unavailable preserves preference without claiming active", async () => {
         await click("Master Git Archive", document.querySelector("aside"));
         check(
@@ -464,6 +498,8 @@ async function start() {
             '[role="switch"][aria-label="Master Git Archive"]',
           ),
         );
+        await flush();
+        check(document.querySelector(".master-archive-settings .automatic-archive-line [role=status]").textContent === "Git archiving disabled", "Successful OFF did not update master status");
         await choose("alpha");
         state(true, "Master Git Archive disabled");
         check(!toggle().disabled, "Master OFF must allow editing participation");

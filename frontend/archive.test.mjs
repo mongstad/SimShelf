@@ -6,6 +6,7 @@ import {
   RunFilesTable,
   runFileRows,
   MasterArchiveStatus,
+  MasterArchivingStatus,
   RunArchive,
   archiveLimits,
   PreservationStatus,
@@ -246,7 +247,9 @@ test("global archive area has exactly one activation switch", () => {
   assert.equal((html.match(/role="switch"/g) || []).length, 1);
   assert.match(html, /aria-label="Master Git Archive"/);
   assert.match(html, /Repository location and setup/);
-  assert.match(html, /always captures runs in your local library/);
+  assert.match(html, /Checking archive status/);
+  assert.doesNotMatch(html, />OFF<|Git active/);
+  assert.match(html, /<details>.*Repository —.*Refresh archive status.*<\/details>/);
   assert.doesNotMatch(html, /Archive this simulation/);
 });
 
@@ -270,4 +273,27 @@ test("archive setup is global and has no per-simulation consent editor", () => {
   assert.match(html, /Global Master Git Archive/);
   assert.match(html, /No uploads or remote synchronization/);
   assert.doesNotMatch(html, /Review preservation settings|Archive this simulation/);
+});
+
+
+test("master effective status gives OFF precedence over every repository health", () => {
+  for (const health of ["connected", "disconnected", "unavailable", "invalid", "missing", "unknown", null]) {
+    for (const enabled of [false, true]) {
+      const html = render(MasterArchivingStatus, {state: {enabled, status: health ? {state: health} : null}});
+      const active = enabled && health === "connected";
+      assert.match(html, new RegExp(!enabled ? "Git archiving disabled" : active ? "Git active" : "Git unavailable"));
+      assert.equal(html.includes("archive-connected"), active);
+      assert.equal(html.includes("preservation-unavailable"), enabled && !active);
+    }
+  }
+});
+test("master pending and request errors never claim OFF or activity", () => {
+  for (const props of [{state: null}, {state: {enabled: true, status:{state:"connected"}}, pending: true}, {state: null, error: true}]) {
+    const html = render(MasterArchivingStatus, props);
+    assert.doesNotMatch(html, /Git active|Git archiving disabled|archive-connected/);
+    assert.match(html, props.error ? /Archive status unavailable/ : /Checking archive status/);
+  }
+  assert.match(render(MasterArchiveStatus, {}), /Checking availability/);
+  assert.doesNotMatch(render(MasterArchiveStatus, {}), /Unavailable/);
+  assert.match(render(MasterArchiveStatus, {error:true}), /Unavailable/);
 });
