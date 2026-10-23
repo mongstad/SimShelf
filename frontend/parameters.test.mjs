@@ -335,3 +335,26 @@ test("required omission projection preserves argv and ignores optional defaults/
   assert.deepEqual(missingRequiredRows(parameterRows(['--d=1'], [required])), []);
   assert.deepEqual(missingRequiredRows(parameterRows([], [])), []);
 });
+
+test('typed error projection includes supplied invalid values without changing exact argv', async () => {
+  const {invalidParameterRows} = await import('./parameterRows.ts');
+  for (const args of [['--dt='], ['-d', 'NaN'], ['--dt=Infinity'], []]) {
+    const rows = parameterRows(args, [{...p, required:true}]);
+    const errors = invalidParameterRows(rows);
+    assert.equal(errors.size, 1);
+    assert.equal(errors.get(rows[0].id), parameterError(rows, [{...p,required:true}]));
+    assert.deepEqual(rowArguments(rows), args);
+  }
+});
+test('typed errors respect disabled drafts, choices and manual ambiguity', async () => {
+  const {invalidParameterRows} = await import('./parameterRows.ts');
+  const rows = parameterRows([], [p]); rows[0].value = 'invalid draft';
+  assert.equal(invalidParameterRows(rows).size, 0);
+  const choice = {...p, choices:[1,2]};
+  assert.equal(invalidParameterRows(parameterRows(['--dt=3'],[choice])).size, 1);
+  for (const args of [['--dt=1','--dt=2'],['-d.25'],['--','--dt=']]) {
+    const manual = parameterRows(args,[p]);
+    assert.equal(invalidParameterRows(manual).size, 0);
+    assert.deepEqual(rowArguments(manual), args);
+  }
+});

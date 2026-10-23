@@ -211,3 +211,17 @@ export function missingRequiredRows(rows: Row[]): number[] {
       !!parameterError(rows, [p]);
   }).map(row => row.id);
 }
+
+// Associate accepted validator errors only with unambiguous typed controls.
+// Manual/ambiguous tokens and argv-wide limits retain their existing summary.
+export function invalidParameterRows(rows: Row[]): Map<number, string> {
+  const errors = new Map<number, string>();
+  if (argumentError(rowArguments(rows))) return errors;
+  for (const row of rows) {
+    const p = row.parameter;
+    if (!p?.supported || row.manual) continue;
+    const error = parameterError(rows, [p]);
+    if (error) errors.set(row.id, error);
+  }
+  return errors;
+}

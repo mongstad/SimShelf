@@ -9,7 +9,7 @@ import {
   parameterRows,
   rowArguments,
   parameterError,
-  missingRequiredRows,
+  invalidParameterRows,
   type Row,
 } from "./parameterRows";
 
@@ -44,7 +44,7 @@ export function ArgumentEditor({
   const editorId = useId();
   const presentation = parameterPresentation(rows, query);
   const editor = useRef<HTMLElement>(null);
-  const focusMissing = useRef(false);
+  const focusInvalid = useRef(false);
   const [attempted, setAttempted] = useState(false);
   const current = useRef(rows);
   current.current = rows;
@@ -56,24 +56,24 @@ export function ArgumentEditor({
   const [changed, setChanged] = useState(false),
     [paste, setPaste] = useState<string | null>(null);
   const [manual, setManual] = useState(initialManual);
-  const missing = manual ? [] : missingRequiredRows(rows);
+  const errors = manual ? new Map<number, string>() : invalidParameterRows(rows);
   useEffect(() => {
-    if (!validationAttempt || !missing.length) return;
-    focusMissing.current = true;
+    if (!validationAttempt || !errors.size) return;
+    focusInvalid.current = true;
     setAttempted(true);
-    // Reveal filtered omissions before moving focus; changing visibility never edits argv.
+    // Reveal filtered errors before moving focus; changing visibility never edits argv.
     setQuery("");
     setExpanded(previous => ({...previous, ...Object.fromEntries(
-      parameterPresentation(rows, "").sections.filter(section => section.rows.some(({row}) => missing.includes(row.id)))
+      parameterPresentation(rows, "").sections.filter(section => section.rows.some(({row}) => errors.has(row.id)))
         .map(section => [section.name, true]),
     )}));
   }, [validationAttempt]);
   useEffect(() => {
-    if (!focusMissing.current || !attempted || query) return;
+    if (!focusInvalid.current || !attempted || query) return;
     if (presentation.sections.some(section =>
-      section.rows.some(({row}) => missing.includes(row.id)) && !expanded[section.name])) return;
-    focusMissing.current = false;
-    editor.current?.querySelector<HTMLElement>('[data-missing="true"] input, [data-missing="true"] select')?.focus();
+      section.rows.some(({row}) => errors.has(row.id)) && !expanded[section.name])) return;
+    focusInvalid.current = false;
+    editor.current?.querySelector<HTMLElement>('[data-invalid="true"] [data-validation-control="true"]')?.focus();
   }, [validationAttempt, attempted, query, expanded]);
   const problem = manual ? "" : discovery && !discovery.provenance ? "Choose manual argv or provide valid SWSS declarations before continuing." : parameterError(rows, discovery?.parameters || []);
   useEffect(() => {
@@ -263,12 +263,12 @@ export function ArgumentEditor({
                 ? row.parameter
                 : undefined;
             const flag = p && p.action !== "store";
-            const invalid = attempted && missing.includes(row.id);
+            const invalid = attempted && errors.has(row.id);
             const description = `${editorId}-hint-${row.id}${invalid ? ` ${editorId}-error-${row.id}` : ""}`;
             return (
               <div
                 className={p ? "parameter-row" : "argument-row"}
-                data-missing={invalid || undefined}
+                data-invalid={invalid || undefined}
                 data-value-kind={p ? flag ? "flag" : p.type === "str" && !p.choices ? "long" : "compact" : undefined}
                 data-enabled={p ? row.enabled : undefined}
                 role={p ? "group" : undefined}
@@ -283,6 +283,7 @@ export function ArgumentEditor({
                           <input
                             type="checkbox"
                             aria-label={`Enable ${p.name}`}
+                            data-validation-control={flag || undefined}
                             aria-describedby={description}
                             aria-invalid={invalid || undefined}
                             checked={row.enabled}
@@ -316,6 +317,7 @@ export function ArgumentEditor({
                         {p.choices ? (
                           <select
                             aria-label={`Value for ${p.name}`}
+                            data-validation-control="true"
                             aria-describedby={description}
                             aria-invalid={invalid || undefined}
                             disabled={!p.required && !row.enabled}
@@ -361,6 +363,7 @@ export function ArgumentEditor({
                         ) : (
                           <input
                             aria-label={`Value for ${p.name}`}
+                            data-validation-control="true"
                             aria-describedby={description}
                             aria-invalid={invalid || undefined}
                             inputMode={
@@ -432,7 +435,7 @@ export function ArgumentEditor({
                   </div>
                 </div>
                 {invalid && <small className="parameter-error" id={`${editorId}-error-${row.id}`} role="alert">
-                  {flag ? "Enable required flag." : "Enter required value."}
+                  {errors.get(row.id)}
                 </small>}
                 {p ? (
                   <ParameterHint parameter={p} token={row.token} value={row.value} enabled={row.enabled} id={`${editorId}-hint-${row.id}`} />
@@ -557,7 +560,7 @@ export function ArgumentEditor({
         </section>;
       })}
       </fieldset>
-      {problem && !(missing.length > 0) && (
+      {problem && !errors.size && (
         <p className="error-banner" role="alert">
           {problem}
         </p>
