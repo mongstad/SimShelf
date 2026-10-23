@@ -9,7 +9,7 @@ import {
   parameterRows,
   rowArguments,
   parameterError,
-  missingRequiredRows,
+  invalidParameterRows,
   type Row,
 } from "./parameterRows";
 
@@ -38,11 +38,13 @@ export function ArgumentEditor({
 }) {
   const [rows, setRows] = useState<Row[]>(() => parameterRows(initial, []));
   const [query, setQuery] = useState("");
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const searching = query.trim().length > 0;
   const searchInput = useRef<HTMLInputElement>(null);
   const editorId = useId();
   const presentation = parameterPresentation(rows, query);
   const editor = useRef<HTMLElement>(null);
-  const focusMissing = useRef(false);
+  const focusInvalid = useRef(false);
   const [attempted, setAttempted] = useState(false);
   const current = useRef(rows);
   current.current = rows;
@@ -54,19 +56,25 @@ export function ArgumentEditor({
   const [changed, setChanged] = useState(false),
     [paste, setPaste] = useState<string | null>(null);
   const [manual, setManual] = useState(initialManual);
-  const missing = manual ? [] : missingRequiredRows(rows);
+  const errors = manual ? new Map<number, string>() : invalidParameterRows(rows);
   useEffect(() => {
-    if (!validationAttempt || !missing.length) return;
-    focusMissing.current = true;
+    if (!validationAttempt || !errors.size) return;
+    focusInvalid.current = true;
     setAttempted(true);
-    // Reveal filtered omissions before moving focus; changing visibility never edits argv.
+    // Reveal filtered errors before moving focus; changing visibility never edits argv.
     setQuery("");
+    setExpanded(previous => ({...previous, ...Object.fromEntries(
+      parameterPresentation(rows, "").sections.filter(section => section.rows.some(({row}) => errors.has(row.id)))
+        .map(section => [section.name, true]),
+    )}));
   }, [validationAttempt]);
   useEffect(() => {
-    if (!focusMissing.current || !attempted || query) return;
-    focusMissing.current = false;
-    editor.current?.querySelector<HTMLElement>('[data-missing="true"] input, [data-missing="true"] select')?.focus();
-  }, [validationAttempt, attempted, query]);
+    if (!focusInvalid.current || !attempted || query) return;
+    if (presentation.sections.some(section =>
+      section.rows.some(({row}) => errors.has(row.id)) && !expanded[section.name])) return;
+    focusInvalid.current = false;
+    editor.current?.querySelector<HTMLElement>('[data-invalid="true"] [data-validation-control="true"]')?.focus();
+  }, [validationAttempt, attempted, query, expanded]);
   const problem = manual ? "" : discovery && !discovery.provenance ? "Choose manual argv or provide valid SWSS declarations before continuing." : parameterError(rows, discovery?.parameters || []);
   useEffect(() => {
     validation(loading ? "Reading parameter declarations…" : changed && !manual ? "Review changed declarations before typed use." : problem);
@@ -227,29 +235,40 @@ export function ArgumentEditor({
             }}>Clear search</button>
           </div>
           <p id={`${editorId}-search-status`} role="status" className="muted">
-            {presentation.matches} of {presentation.total} declared controls shown.
-            {" "}Search only changes visibility; arguments and edits are retained. Manual arguments remain below.
+            {searching ? `${presentation.matches} of ${presentation.total} declared controls match.` : `${presentation.total} declared controls.`}
+            {" "}Matching groups open during search; clearing search restores your groups. Manual arguments remain below.
           </p>
           {presentation.matches === 0 && <p>No matching parameters or flags. Try another term or clear search.</p>}
         </div>
       )}
       <fieldset disabled={changed && !manual}>
-      {presentation.sections.map(({name: group, rows: visibleRows}) => (
-        <section className="parameter-group" aria-label={group} key={group}>
-          <h4>{group} <small>({visibleRows.length})</small></h4>
-          {!visibleRows.length && <p className="muted">No manual arguments added.</p>}
+      {presentation.sections.map(({name: group, rows: visibleRows, total, required}, groupIndex) => {
+        const declared = group === "Parameters" || group === "Flags";
+        const open = !declared || searching || !!expanded[group];
+        const contentId = `${editorId}-group-${groupIndex}`;
+        return <section className="parameter-group" aria-label={group} key={group}>
+          {declared ? <h4><button type="button" className="parameter-disclosure"
+            aria-expanded={open} aria-controls={contentId} aria-disabled={searching || undefined}
+            onClick={() => { if (!searching) setExpanded(previous => ({...previous, [group]: !open})); }}>
+            <span aria-hidden="true">{open ? "▾" : "▸"}</span>
+            <span>{group} <small>({searching ? `${visibleRows.length} of ${total}` : total})</small></span>
+            {required > 0 && <span className="parameter-required-count">{required} required</span>}
+          </button></h4> : <h4>{group} <small>({visibleRows.length})</small></h4>}
+          <div id={contentId} hidden={!open}>
+          {declared && searching && !visibleRows.length && <p className="muted">No matches in this group.</p>}
+          {!declared && !visibleRows.length && <p className="muted">No manual arguments added.</p>}
           {visibleRows.map(({row, index: i}) => {
             const p =
               row.parameter?.supported && !row.manual
                 ? row.parameter
                 : undefined;
             const flag = p && p.action !== "store";
-            const invalid = attempted && missing.includes(row.id);
+            const invalid = attempted && errors.has(row.id);
             const description = `${editorId}-hint-${row.id}${invalid ? ` ${editorId}-error-${row.id}` : ""}`;
             return (
               <div
                 className={p ? "parameter-row" : "argument-row"}
-                data-missing={invalid || undefined}
+                data-invalid={invalid || undefined}
                 data-value-kind={p ? flag ? "flag" : p.type === "str" && !p.choices ? "long" : "compact" : undefined}
                 data-enabled={p ? row.enabled : undefined}
                 role={p ? "group" : undefined}
@@ -264,6 +283,7 @@ export function ArgumentEditor({
                           <input
                             type="checkbox"
                             aria-label={`Enable ${p.name}`}
+                            data-validation-control={flag || undefined}
                             aria-describedby={description}
                             aria-invalid={invalid || undefined}
                             checked={row.enabled}
@@ -297,6 +317,7 @@ export function ArgumentEditor({
                         {p.choices ? (
                           <select
                             aria-label={`Value for ${p.name}`}
+                            data-validation-control="true"
                             aria-describedby={description}
                             aria-invalid={invalid || undefined}
                             disabled={!p.required && !row.enabled}
@@ -342,6 +363,7 @@ export function ArgumentEditor({
                         ) : (
                           <input
                             aria-label={`Value for ${p.name}`}
+                            data-validation-control="true"
                             aria-describedby={description}
                             aria-invalid={invalid || undefined}
                             inputMode={
@@ -413,7 +435,7 @@ export function ArgumentEditor({
                   </div>
                 </div>
                 {invalid && <small className="parameter-error" id={`${editorId}-error-${row.id}`} role="alert">
-                  {flag ? "Enable required flag." : "Enter required value."}
+                  {errors.get(row.id)}
                 </small>}
                 {p ? (
                   <ParameterHint parameter={p} token={row.token} value={row.value} enabled={row.enabled} id={`${editorId}-hint-${row.id}`} />
@@ -534,10 +556,11 @@ export function ArgumentEditor({
               </div>
             );
           })}
-        </section>
-      ))}
+          </div>
+        </section>;
+      })}
       </fieldset>
-      {problem && !(missing.length > 0) && (
+      {problem && !errors.size && (
         <p className="error-banner" role="alert">
           {problem}
         </p>

@@ -2062,7 +2062,7 @@ details label {
 .parameter-help + .parameter-metadata { margin-top: 4px; }
 .parameter-type { font-weight: normal; color: var(--muted); }
 .parameter-required { color: var(--red); font-weight: bold; }
-.parameter-row[data-missing="true"] { border-color: var(--red); background: color-mix(in srgb, var(--red) 7%, var(--surface)); }
+.parameter-row[data-invalid="true"] { border-color: var(--red); background: color-mix(in srgb, var(--red) 7%, var(--surface)); }
 .parameter-error { display: block; margin-top: 8px; color: var(--red); }
 @media (max-width: 600px) {
   .parameter-row .argument-fields { grid-template-columns: 1fr; gap: 8px; }
@@ -2359,3 +2359,14 @@ details label {
 .launch-form .parameter-row { margin-block: 16px; padding: 16px; }
 .launch-form .argument-no-value { gap: 16px; }
 .launch-form .progress-settings > [role="group"] > p + p { margin-top: 16px; }
+
+.parameter-disclosure {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-weight: 600;
+}
+.parameter-disclosure[aria-disabled="true"] { cursor: default; }
+.parameter-required-count { margin-left: auto; color: var(--amber); font-size: 12px; }
