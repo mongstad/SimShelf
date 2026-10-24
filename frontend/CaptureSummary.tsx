@@ -40,11 +40,11 @@ export function CaptureSummary({ run }: { run: Run }) {
         <p>Capture counts are not available for this run.</p>
       )}
       <p className="muted">
-        “Complete” means inspection finished without reported errors, not that
-        all script outputs were preserved. Only copied files are backed up;
-        references need the original files. Unchanged and ignored files are
-        excluded. Later attachments are listed separately in Files.
+        Complete means error-free inspection, not full output preservation.
+        Only copies enter library backups; references need originals. Ignored and
+        unchanged files are excluded. Later attachments are listed separately.
       </p>
+      {run.capture_errors?.map((error, i) => <p key={`error-${i}`} className="text-amber" role="alert">{error}</p>)}
       {run.launch?.output_review?.targets.map((target, i) => (
         <p key={i}>
           <code>{target.resolved_path}</code> —{" "}

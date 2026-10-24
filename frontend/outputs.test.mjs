@@ -21,8 +21,8 @@ test("complete inspection with zero files never implies preservation", () => {
     },
   });
   assert.match(html, /No eligible files observed/);
-  assert.match(html, /not that all script outputs were preserved/);
-  assert.match(html, /Only copied files are backed up/);
+  assert.match(html, /not full output preservation/);
+  assert.match(html, /Only copies enter library backups/);
 });
 test("partial and historical runs distinguish counts from missing evidence", () => {
   const partial = render(CaptureSummary, {
