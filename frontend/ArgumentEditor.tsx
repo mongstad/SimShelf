@@ -177,10 +177,10 @@ export function ArgumentEditor({
           {loading ? "Reading parameters…" : "Rescan parameters"}
         </button>
       </div>
-      <label className="check-label">Use manual argv (skip metadata validation)<input type="checkbox" checked={manual} onChange={e => {
+      <label className="check-label"><input type="checkbox" checked={manual} onChange={e => {
         setManual(e.target.checked);
         setRows(parameterRows(rowArguments(current.current), e.target.checked ? [] : discovery?.parameters || [], current.current));
-      }} /></label>
+      }} />Use manual argv (skip metadata validation)</label>
       {discovery && !discovery.provenance && <p role="status" className="text-amber">{discovery.warnings[0]}</p>}
       {discovery?.provenance && <p role="status">{discovery.provenance.binding_status}</p>}
       {changed && !manual && <button type="button" onClick={() => setChanged(false)}>I reviewed the changed declarations</button>}
@@ -236,7 +236,6 @@ export function ArgumentEditor({
           </div>
           <p id={`${editorId}-search-status`} role="status" className="muted">
             {searching ? `${presentation.matches} of ${presentation.total} declared controls match.` : `${presentation.total} declared controls.`}
-            {" "}Matching groups open during search; clearing search restores your groups. Manual arguments remain below.
           </p>
           {presentation.matches === 0 && <p>No matching parameters or flags. Try another term or clear search.</p>}
         </div>
