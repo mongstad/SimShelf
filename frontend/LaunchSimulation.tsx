@@ -206,12 +206,13 @@ export function LaunchSimulation({
   }
   return (
     <form onSubmit={start} className="launch-form">
-      <p className="muted">
+      <p className="muted launch-source">
         Source folder: <code>{simulation.root}</code>
       </p>
       <fieldset disabled={busy}>
-        <ProgressSettings value={progressMode} change={value => {setProgressMode(value);edited();}} />
-        <div className="launch-setting">
+        <section className="launch-setup" aria-label="Run setup">
+        <h3>Run setup</h3>
+        <div className="launch-setting launch-entry">
         <label>
           Registered entry file
           <input
@@ -252,14 +253,6 @@ export function LaunchSimulation({
           Update registered entry
         </button>
         </div>
-        <InterpreterPicker
-          simulationId={simulation.id}
-          value={interpreter}
-          change={(next) => {
-            setInterpreter(next);
-            edited();
-          }}
-        />
         <div className="form-grid">
           <label>
             Working directory
@@ -285,44 +278,15 @@ export function LaunchSimulation({
             />
           </label>
         </div>
-        <section className="launch-output" aria-label="Capture settings">
-        <label>
-          Capture output folder
-          <input
-            required
-            value={output}
-            onChange={(e) => {
-              setOutput(e.target.value);
-              edited();
-            }}
-          />
-          <small>
-            Relative to source folder.
-          </small>
-        </label>
-        <label>
-          Output folder policy
-          <select value={outputPolicy} disabled={!policyStatus} aria-describedby="output-policy-help" onChange={(e) => {
-            setOutputPolicy(e.target.value as "fixed" | "per_run");
-            edited();
-          }}>
-            <option value="fixed">{policyStatus?.state === "valid" ? "Fixed output parent — simulation creates its unique run directory" : "Fixed output parent"}</option>
-            <option value="per_run" disabled={!policyStatus?.launcher_allowed}>Launcher-coordinated subfolder (requires support)</option>
-          </select>
-          <small id="output-policy-help">
-            {policyStatus?.reason || "Checking SWSS metadata for output policy. If this fails, rescan the declarations below before continuing."}
-          </small>
-        </label>
-        {policyStatus && policyStatus.state !== "absent" && <div className="notice output-policy-notice" role="status">
-          <strong>{policyStatus.state === "valid" ? "SWSS schema 2 · metadata valid" : "SWSS metadata unavailable for use"}</strong>
-          <p>Source binding: {policyStatus.binding === "binding unverified" ? "unverified" : policyStatus.binding}.</p>
-          <small>Metadata and listed-byte checks do not verify scientific behavior or full SWSS conformance.</small>
-        </div>}
-        {policyStatus && policyBlocked && <div className="notice output-policy-notice" role="alert">
-          <p>The selected launcher-coordinated policy is unavailable. Saved settings have not changed. Review the capture parent and use fixed output before validating or launching.</p>
-          <button type="button" onClick={() => {setOutputPolicy("fixed"); edited();}}>Use fixed output parent</button>
-        </div>}
         </section>
+        <InterpreterPicker
+          simulationId={simulation.id}
+          value={interpreter}
+          change={(next) => {
+            setInterpreter(next);
+            edited();
+          }}
+        />
         <ArgumentEditor
           discovered={discovery => {setPolicyStatus(discovery?.output_policy || null); setPlan(null);}}
           validationAttempt={validationAttempt}
@@ -345,6 +309,44 @@ export function LaunchSimulation({
             edited();
           }}
         />
+        <section className="launch-output" aria-label="Capture settings">
+        <h3>Outputs &amp; capture</h3>
+        <label>
+          Capture output folder
+          <input
+            required
+            value={output}
+            onChange={(e) => {
+              setOutput(e.target.value);
+              edited();
+            }}
+          />
+          <small>
+            Relative to source folder.
+          </small>
+        </label>
+        <label>
+          Output folder policy
+          <select value={outputPolicy} disabled={!policyStatus} aria-describedby="output-policy-help" onChange={(e) => {
+            setOutputPolicy(e.target.value as "fixed" | "per_run");
+            edited();
+          }}>
+            <option value="fixed">Fixed output parent</option>
+            <option value="per_run" disabled={!policyStatus?.launcher_allowed}>Launcher-coordinated subfolder (requires support)</option>
+          </select>
+          <small id="output-policy-help">
+            {policyStatus?.reason || "Checking SWSS metadata for output policy. If this fails, rescan the declarations below before continuing."}
+          </small>
+        </label>
+        {policyStatus && policyStatus.state !== "absent" && <div className="notice output-policy-notice" role="status">
+          <strong>{policyStatus.state === "valid" ? "SWSS schema 2 · metadata valid" : "SWSS metadata unavailable for use"}</strong>
+          <p>Source binding: {policyStatus.binding === "binding unverified" ? "unverified" : policyStatus.binding}.</p>
+          <small>Metadata and listed-byte checks do not verify scientific behavior or full SWSS conformance.</small>
+        </div>}
+        {policyStatus && policyBlocked && <div className="notice output-policy-notice" role="alert">
+          <p>The selected launcher-coordinated policy is unavailable. Saved settings have not changed. Review the capture parent and use fixed output before validating or launching.</p>
+          <button type="button" onClick={() => {setOutputPolicy("fixed"); edited();}}>Use fixed output parent</button>
+        </div>}
         {!policyBlocked && <OutputPaths
           args={args}
           mappings={mappings}
@@ -373,13 +375,15 @@ export function LaunchSimulation({
             edited();
           }}
         />}
+        </section>
+        <ProgressSettings value={progressMode} change={value => {setProgressMode(value);edited();}} />
         {argsError && (
           <p className="error-banner" role="alert">
             {argsError}
           </p>
         )}
         <section className="launch-command" aria-label="Command review">
-        <h3>Command preview</h3>
+        <h3>Review &amp; start</h3>
         <pre className="log-block launch-preview" aria-label="Command preview">
           {formatCommand(preview)}
         </pre>
@@ -413,7 +417,7 @@ export function LaunchSimulation({
         </section>
       </fieldset>
       {plan && (
-        <div className="notice" role="status">
+        <div className="notice launch-validation" role="status">
           Python {plan.validation.version} validated. {plan.validation.message}
           <p>
             Working directory: <code>{plan.cwd}</code>

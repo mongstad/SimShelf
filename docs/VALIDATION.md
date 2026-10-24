@@ -466,3 +466,10 @@ See [issue #135 idle Quit](validation/issue-135-idle-quit.md) for guarded one-cl
 idle shutdown, concise active-work consent, race/focus/failure checks, disposable
 server and browser validation, package checks and limitations. Historical reports
 remain unchanged.
+
+## New run interface polish
+
+See [issue #127 New run polish](validation/issue-127-new-run-polish.md) for the
+visual audit, paired screenshots, section/action refinements, preserved consent
+and argv behavior, focused validation, installed-package evidence and limitations.
+Earlier reports and captures remain unchanged.

@@ -112,11 +112,13 @@ function Modal({
   close,
   children,
   wide = false,
+  ariaLabel,
 }: {
   title: string;
   close: () => void;
   children: React.ReactNode;
   wide?: boolean;
+  ariaLabel?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -125,6 +127,7 @@ function Modal({
   return (
     <dialog
       ref={ref}
+      aria-label={ariaLabel}
       className={wide ? "modal wide" : "modal"}
       onCancel={close}
       onClick={(e) => {
@@ -2077,7 +2080,7 @@ function App() {
           closeSimulationAdministration(); setNotice("Source location updated. Review launch settings and Git archival preferences before your next run."); refresh();
         }} />}
       {modal === "launch" && simulation && (
-        <Modal title="Start a simulation" close={() => setModal("")} wide>
+        <Modal title="New run" ariaLabel="New run" close={() => setModal("")} wide>
           <LaunchSimulation
             simulation={simulation}
             saved={refresh}

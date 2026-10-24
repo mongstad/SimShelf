@@ -2370,3 +2370,47 @@ details label {
 }
 .parameter-disclosure[aria-disabled="true"] { cursor: default; }
 .parameter-required-count { margin-left: auto; color: var(--amber); font-size: 12px; }
+
+/* New run: visible sections and aligned actions without changing launch state. */
+.launch-form .launch-source { overflow-wrap: anywhere; margin: 0; }
+.launch-form > fieldset > * + * { margin-top: 28px; }
+.launch-form > fieldset > section + section {
+  border-top: 1px solid var(--line);
+  padding-top: 28px;
+}
+.launch-form .launch-setup > .form-grid { margin-top: 24px; }
+.launch-form .launch-entry,
+.launch-form .interpreter-detection {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 16px;
+}
+.launch-form .launch-entry > button,
+.launch-form .interpreter-detection > button { margin-top: 24px; white-space: nowrap; }
+.launch-form .interpreter-detection > p { grid-column: 1 / -1; margin: 0; }
+.launch-form .interpreter-picker > .launch-setting + .launch-setting { margin-top: 20px; }
+.launch-form .launch-output > label + label { margin-top: 24px; }
+.launch-form .launch-output > .output-paths {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.launch-form > fieldset > .progress-settings { margin-top: 28px; }
+.launch-form .launch-command { padding-top: 28px; border-top: 1px solid var(--line); }
+.launch-form .output-paths > h3 { font-size: 13px; }
+.launch-form .parameter-search-controls { align-items: end; }
+.launch-form .parameter-search-controls > label { margin: 0; }
+.launch-form .parameter-heading { align-items: center; }
+.launch-form .launch-command .launch-preview { overflow-wrap: anywhere; }
+.launch-form > .execution-warning { padding-top: 20px; border-top: 1px solid var(--line); }
+@media (max-width: 640px) {
+  .launch-form .launch-entry,
+  .launch-form .interpreter-detection { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .launch-form .launch-entry > button,
+  .launch-form .interpreter-detection > button { margin-top: 0; justify-self: start; white-space: normal; }
+}
+
+.launch-form .launch-validation,
+.launch-form .output-mapping > .notice { display: block; }
+.launch-form .launch-validation > p { margin-top: 12px; }

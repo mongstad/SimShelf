@@ -175,7 +175,7 @@ export function InterpreterPicker({
   return (
     <section className="interpreter-picker" aria-label="Python environment">
       <h3>Python environment</h3>
-      <div className="launch-setting">
+      <div className="launch-setting interpreter-detection">
       <label>
         Detected interpreters
         <select

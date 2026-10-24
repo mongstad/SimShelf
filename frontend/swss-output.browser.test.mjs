@@ -114,7 +114,7 @@ async function tests() {
     const outputLabels = document.querySelectorAll('.launch-output > label');
     assert(outputLabels[1].getBoundingClientRect().top - outputLabels[0].getBoundingClientRect().bottom >= 20,
       "capture helper is separated from next setting");
-    const fields = document.querySelectorAll('.launch-form > fieldset > .form-grid > label');
+    const fields = document.querySelectorAll('.launch-form .launch-setup > .form-grid > label');
     const a = fields[0].getBoundingClientRect(), b = fields[1].getBoundingClientRect();
     assert(b.left > a.left ? Math.abs(a.top - b.top) < 1 : b.top - a.bottom >= 20,
       "fields align in columns or separate when stacked");
