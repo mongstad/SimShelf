@@ -17,6 +17,7 @@ from .common import json_text
 from .config import validate_config
 from .git_provenance import git, repository, workspace_identity
 from .workspace_lock import locked_store
+from .location_identity import device_identity, remember_location
 
 MAX_ENTRIES = 1000
 MAX_RULES = 100
@@ -83,7 +84,7 @@ def inventory(store, ident, *, config=None):
         repo, reason = None, None
         try:
             if any(os.path.lexists(p / '.git') for p in (source, *source.parents)):
-                repo = repository(source)
+                repo = repository(source, store)
         except (OSError, ValueError):
             reason = 'Git inspection unavailable. Preferences remain local; ignore writes are disabled.'
         files, ignores, blocked = [], [], []
@@ -92,7 +93,7 @@ def inventory(store, ident, *, config=None):
         count = 0
         with directory(source) as rootfd:
             rootstat = os.fstat(rootfd)
-            binding = {'source': str(source), 'inode': [rootstat.st_dev, rootstat.st_ino],
+            binding = {'source': str(source), 'inode': [device_identity(store, source, rootstat, rootfd), rootstat.st_ino],
                        'workspace': workspace_identity(store), 'repository': repo}
             def scan(fd, prefix='', depth=0):
                 nonlocal count
@@ -236,6 +237,10 @@ def save_selection(store, ident, review):
     with store.connection() as conn:
         conn.execute('INSERT OR REPLACE INTO metadata(key,value) VALUES (?,?)',
                      (KEY + ident, json_text({'format': 1, 'binding': current['binding'], 'rules': checked['rules']})))
+    source = Path(store.simulation(ident)['root'])
+    remember_location(store, source)
+    if current['binding']['repository']:
+        repository(source, store, remember=True)
     return {'saved': True}
 
 

@@ -20,6 +20,7 @@ from pathlib import Path, PurePosixPath
 
 from .common import clean_name, json_text, now
 from .git_provenance import workspace_identity
+from .location_identity import device_identity, remember_location
 from .git_selection import directory, inventory, matches
 from .source import blob_path
 from .workspace_lock import locked_store
@@ -221,7 +222,7 @@ def repo_lock(store, saved):
 
 @unavailable_errors
 @locked_store
-def connect(store, path, initialize=False, confirmed=False, expected_connection=None):
+def connect(store, path, initialize=False, confirmed=False, expected_connection=None, remap=False):
     if confirmed is not True:
         raise ValueError('Explicitly confirm local archive setup.')
     if get(store, 'connection') is not None:
@@ -233,6 +234,8 @@ def connect(store, path, initialize=False, confirmed=False, expected_connection=
             raise ValueError('The remembered archive cannot be reinitialized. Restore it or choose another empty directory.')
         # Manual path confirmation must not bypass the remembered identity.
         validate_repo(store, remembered)
+        if remap is not True and expected_connection is None:
+            expected_connection = remembered
     if expected_connection is not None:
         # A quick reconnect must never adopt a replacement repository or move
         # an old library binding. Deliberate setup remains a separate action.
@@ -267,19 +270,22 @@ def connect(store, path, initialize=False, confirmed=False, expected_connection=
     validate_repo(store, saved)
     if expected_connection is not None and saved != expected_connection:
         raise ValueError('Archive identity changed. Restore the original archive or review archive location and setup.')
+    remember_location(store, store.path)
     save_connection(store, saved, saved)
     return saved
 
 
 def connection(store):
     saved = get(store, 'connection')
-    if not saved or saved['workspace'] != workspace_identity(store):
-        raise ValueError('Connect or explicitly remap the master archive for this library first.')
+    if not saved:
+        raise ValueError('Connect the master archive for this library first.')
+    if saved['workspace'] != workspace_identity(store):
+        raise ValueError('Library binding changed (host, path or filesystem identity). Restore the original library location or explicitly review archive setup; refreshing cannot authorize a remap.')
     return saved
 
 
 def connection_status(store):
-    """Read-only availability hint; downloads still verify exact objects."""
+    """Availability hint; downloads still verify exact objects."""
     saved = get(store, 'connection')
     if not saved:
         return {'state': 'disconnected', 'reason': None, 'identity': None}
@@ -288,9 +294,18 @@ def connection_status(store):
         validate_repo(store, saved)
         if not shutil.which('git'):
             raise ValueError('Git unavailable. Workspace copies remain downloadable.')
+        remember_location(store, store.path)
         return {'state': 'connected', 'reason': None, 'identity': saved['identity']}
     except (ValueError, OSError, KeyError, TypeError) as exc:
-        return {'state': 'unavailable', 'reason': str(exc), 'identity': None}
+        if isinstance(exc, FileNotFoundError):
+            reason = 'Archive path or required repository file is missing. Restore the mount/path, then refresh archive status.'
+        elif isinstance(exc, PermissionError):
+            reason = 'Archive access denied. Restore directory/file permissions, then refresh archive status.'
+        elif isinstance(exc, OSError):
+            reason = f'Archive filesystem access failed ({exc.strerror}). Check the mount, then refresh archive status.'
+        else:
+            reason = str(exc)
+        return {'state': 'unavailable', 'reason': reason, 'identity': None}
 
 
 @locked_store

@@ -45,6 +45,7 @@ export function ArchiveSettings() {
   const [busy, setBusy] = useState(false),
     [message, setMessage] = useState("");
   const [activating, setActivating] = useState(false);
+  const [remap, setRemap] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const statusId = useId();
   const request = useRef(0);
@@ -108,12 +109,14 @@ export function ArchiveSettings() {
       path,
       initialize,
       confirmed: true,
+      remap,
       expected_connection:
-        state?.remembered_connection?.path === path
+        !remap && state?.remembered_connection?.path.replace(/\/+$/, "") === path.replace(/\/+$/, "")
           ? state.remembered_connection
           : undefined,
     });
     setInitialize(false);
+    setRemap(false);
     if (activating) {
       await post("automatic", { enabled: true });
       setActivating(false);
@@ -173,7 +176,7 @@ export function ArchiveSettings() {
             ref={input}
             value={path}
             disabled={busy || !!state?.connection}
-            onChange={(e) => setPath(e.target.value)}
+            onChange={(e) => { setPath(e.target.value); setRemap(false); }}
           />
         </label>
         {state?.connection ? (
@@ -198,6 +201,11 @@ export function ArchiveSettings() {
               />{" "}
               Initialize this existing empty directory as a dedicated archive
             </label>
+            {state?.remembered_connection && <label className="archive-choice">
+              <input type="checkbox" checked={remap} disabled={busy || initialize}
+                onChange={e => setRemap(e.target.checked)} />
+              Review this archive for a changed library location. Simulation preservation settings will need review.
+            </label>}
             <button
               disabled={busy || !path.trim()}
               onClick={() => void action(connect)}

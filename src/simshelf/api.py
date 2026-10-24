@@ -56,6 +56,7 @@ class ArchiveRequest(BaseModel):
     review: dict = Field(default_factory=dict)
     operation: str = Field('', max_length=32)
     expected_connection: dict | None = None
+    remap: bool = False
 
 
 class SimulationInput(BaseModel):
@@ -257,7 +258,7 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
     @app.post("/api/workspace/archive/connect")
     def archive_connect(body: ArchiveRequest):
         try:
-            return archive.connect(store, body.path, body.initialize, body.confirmed, body.expected_connection)
+            return archive.connect(store, body.path, body.initialize, body.confirmed, body.expected_connection, body.remap)
         except OSError as exc:
             raise ValueError('Archive folder unavailable. Inspect any partially initialized directory before retrying.') from exc
 

@@ -130,7 +130,7 @@ def test_restore_requires_remap_and_preserves_associations(setup,tmp_path):
     assert archive.entries(restored,ident)==[e]
     with pytest.raises(ValueError):archive.download(restored,ident,e['id'],0)
     archive.disconnect(restored)
-    archive.connect(restored,str(repo),False,True)
+    archive.connect(restored,str(repo),False,True,remap=True)
     assert archive.download(restored,ident,e['id'],0)[1]
     assert store.run(ident,False)==restored.run(ident,False)
 
@@ -711,3 +711,128 @@ def test_source_limit_api_refuses_consent_without_state_change(setup):
         assert 'File capture' in response.json()['detail']
         assert client.get(f'/api/simulations/{a["id"]}/archive').json()['automatic_status']['state'] == 'disabled'
     assert archive.get(store, 'settings:' + a['id']) is None
+
+@pytest.mark.parametrize('slash', ['', '/'])
+def test_boot_device_renumber_preserves_archive_and_reviewed_consent(setup, monkeypatch, slash):
+    from types import SimpleNamespace
+    from simshelf import location_identity, git_provenance, git_selection, preservation
+    store, repo, (sim, _) = setup
+    # Deterministic Btrfs-like stable filesystem identity on any test filesystem.
+    monkeypatch.setattr(location_identity, 'btrfs_id', lambda fd, info: 123456789)
+    archive.disconnect(store)
+    saved = archive.connect(store, str(repo) + slash, confirmed=True)
+    options = {'enabled':True,'all_sources':True,'sources':[], 'extensions':['.csv'],'process_logs':False}
+    review = preservation.preview(store, sim['id'], sim['config'], options)
+    preservation.save(store, sim['id'], review, True)
+    policy = preservation.get(store, 'settings:' + sim['id'])
+    assert preservation.status(store, sim['id'])['state'] == 'enabled'
+    class RenumberedOS:
+        def __getattr__(self, name): return getattr(os, name)
+        def fstat(self, fd):
+            st = os.fstat(fd)
+            return SimpleNamespace(st_dev=st.st_dev + 10000, st_ino=st.st_ino)
+    # Only the identity observations are renumbered, not file-reading signatures.
+    monkeypatch.setattr(git_provenance, 'os', RenumberedOS())
+    monkeypatch.setattr(preservation, 'os', RenumberedOS())
+    reloaded = Store(store.path)
+    assert archive.connection_status(reloaded)['state'] == 'connected'
+    assert preservation.status(reloaded, sim['id'])['state'] == 'enabled'
+    assert archive.get(reloaded, 'connection') == saved
+    assert preservation.get(reloaded, 'settings:' + sim['id']) == policy
+    # A real filesystem change still fails closed; no automatic remapping.
+    monkeypatch.setattr(location_identity, 'btrfs_id', lambda fd, info: 987654321)
+    assert archive.connection_status(reloaded)['state'] == 'unavailable'
+    assert archive.get(reloaded, 'connection') == saved
+
+
+def test_same_path_spellings_cannot_bypass_changed_library_review(setup):
+    store, repo, _ = setup
+    saved = archive.get(store, 'connection')
+    archive.put(store, 'connection', {**saved, 'workspace':'different-library'})
+    archive.disconnect(store)
+    for path in [str(repo), str(repo) + '/']:
+        with pytest.raises(ValueError, match='Review the archive location'):
+            archive.connect(store, path, confirmed=True)
+        assert archive.get(store, 'connection') is None
+    restored = archive.connect(store, str(repo) + '/', confirmed=True, remap=True)
+    assert restored == saved
+
+
+def test_refresh_recovers_missing_mount_without_reconnect_or_consent_change(setup):
+    store, repo, (sim, _) = setup
+    saved = archive.get(store, 'connection')
+    policy = archive.get(store, 'settings:' + sim['id'])
+    hidden = repo.with_name('temporarily-unmounted'); repo.rename(hidden)
+    try:
+        status = archive.connection_status(Store(store.path))
+        assert status['state'] == 'unavailable' and 'missing' in status['reason']
+        assert archive.automatic_status(store, sim['id'])['state'] == 'unavailable'
+    finally:
+        hidden.rename(repo)
+    assert archive.connection_status(Store(store.path))['state'] == 'connected'
+    assert archive.automatic_status(store, sim['id'])['state'] == 'enabled'
+    assert archive.get(store, 'connection') == saved
+    assert archive.get(store, 'settings:' + sim['id']) == policy
+
+
+def test_identity_anchor_rejects_reused_device_and_inode(setup, monkeypatch):
+    from simshelf import location_identity
+    from simshelf.git_provenance import workspace_identity
+    store, _, _ = setup
+    monkeypatch.setattr(location_identity, 'btrfs_id', lambda fd, info: 111)
+    location_identity.remember_location(store, store.path)
+    first = workspace_identity(store)
+    monkeypatch.setattr(location_identity, 'btrfs_id', lambda fd, info: 222)
+    assert workspace_identity(store) != first
+    monkeypatch.setattr(location_identity, 'btrfs_id', lambda fd, info: 111)
+    assert workspace_identity(store) == first
+
+
+def test_status_diagnostics_recover_access_and_git_without_mutating_consent(setup, monkeypatch):
+    store, _, (sim, _) = setup
+    saved = archive.get(store, 'connection')
+    consent = archive.get(store, 'settings:' + sim['id'])
+    validate = archive.validate_repo
+    def denied(*args): raise PermissionError('fixture denied')
+    monkeypatch.setattr(archive, 'validate_repo', denied)
+    assert 'access denied' in archive.connection_status(store)['reason']
+    assert archive.automatic_status(store, sim['id'])['state'] == 'unavailable'
+    monkeypatch.setattr(archive, 'validate_repo', validate)
+    which = archive.shutil.which
+    monkeypatch.setattr(archive.shutil, 'which', lambda _: None)
+    assert 'Git unavailable' in archive.connection_status(store)['reason']
+    monkeypatch.setattr(archive.shutil, 'which', which)
+    assert archive.automatic_status(store, sim['id'])['state'] == 'enabled'
+    assert archive.get(store, 'connection') == saved
+    assert archive.get(store, 'settings:' + sim['id']) == consent
+
+
+@pytest.mark.parametrize('slash', ['', '/'])
+def test_connection_in_fresh_process_with_both_path_spellings(setup, slash):
+    import subprocess, sys
+    store, repo, _ = setup
+    saved = archive.get(store, 'connection')
+    archive.disconnect(store)
+    archive.connect(store, str(repo) + slash, confirmed=True)
+    code = 'from simshelf.store import Store; from simshelf.git_archive import connection_status; import sys; assert connection_status(Store(sys.argv[1]))["state"] == "connected"'
+    subprocess.run([sys.executable, '-B', '-c', code, str(store.path)], check=True)
+    assert archive.get(store, 'connection') == saved
+
+
+def test_failed_binding_check_never_seeds_identity_anchor(setup, monkeypatch):
+    from simshelf import location_identity
+    store, _, _ = setup
+    monkeypatch.setattr(location_identity, 'btrfs_id', lambda fd, info: 333)
+    saved = archive.get(store, 'connection')
+    archive.put(store, 'connection', {**saved, 'workspace':'stale'})
+    with store.connection() as db:
+        before = list(db.execute("SELECT key,value FROM metadata WHERE key LIKE 'location_device_v1:%'"))
+    assert archive.connection_status(store)['state'] == 'unavailable'
+    with store.connection() as db:
+        assert list(db.execute("SELECT key,value FROM metadata WHERE key LIKE 'location_device_v1:%'")) == before
+
+
+def test_non_linux_retains_existing_device_binding(monkeypatch):
+    from simshelf import location_identity
+    monkeypatch.setattr(location_identity.sys, 'platform', 'darwin')
+    assert location_identity.btrfs_id(None, None) is None

@@ -149,3 +149,29 @@ locks cannot control arbitrary same-user writes.
 See the [two-level activation validation](validation/issue-118-two-level-archive.md),
 [implemented architecture](LIBRARY_PRESERVATION_DESIGN.md) and
 [validation evidence](validation/issue-118-library-preservation.md).
+
+## Availability after restart or boot
+
+Refresh archive status rechecks the existing connection; it does not disconnect,
+recreate, or remap the repository. Missing paths/files and denied permissions now
+have distinct recovery instructions. Restore the mount/access and refresh first.
+A changed library binding is different: it requires explicit location review.
+
+On Linux Btrfs, a verified connection retains its existing device-based binding
+using auxiliary filesystem/subvolume-ID and inode anchors. This avoids treating
+an anonymous device-number change as a new library. Valid preservation settings
+retain their original binding bytes; no completed records or archive commits are
+rewritten. The first successful verification establishes these anchors in the
+existing metadata table, without a schema migration. Missing/unverified locations
+cannot establish them. Other filesystems retain the existing device/inode checks.
+
+Start the updated version while the connection is valid, and visit Master Git
+Archive and the participating simulations before rebooting. An already stale
+legacy hash cannot prove which identity component changed; it is not automatically
+repaired. If a library was deliberately moved/restored, disconnect only as part
+of that explicit recovery, then select **Review this archive for a changed library
+location** before connecting. Review simulation preservation settings afterward.
+Trailing slash and non-trailing-slash paths use the same reconnect checks.
+Repository replacement, changed filesystem identity, and changed source/library
+locations still require review. Cloned filesystems, kernel changes to filesystem
+IDs and other unverified environments may conservatively require renewed review.

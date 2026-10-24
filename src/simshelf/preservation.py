@@ -55,10 +55,10 @@ def policy_options(value):
     return result
 
 
-def location_binding(sim):
+def location_binding(sim, store):
     with directory(sim['root']) as fd:
         info = os.fstat(fd)
-        return {**source_binding(sim), 'device': info.st_dev, 'inode': info.st_ino}
+        return {**source_binding(sim), 'device': archive.device_identity(store, Path(sim['root']), info, fd), 'inode': info.st_ino}
 
 
 @archive.unavailable_errors
@@ -94,7 +94,7 @@ def preview(store, ident, config, options):
         f['git_reason'] = (f.get('reason') or ('Exceeds Git per-file limit' if f['size'] > archive.FILE_LIMIT else None)
                            if f['git_selected'] else 'Not selected' if f['action'] == 'copy' else f['action'])
     result = {'format': 2, 'simulation': ident, 'config': config, 'options': options,
-              'repository': saved, 'workspace': workspace_identity(store), 'binding': location_binding(sim) if options['enabled'] else source_binding(sim),
+              'repository': saved, 'workspace': workspace_identity(store), 'binding': location_binding(sim, store) if options['enabled'] else source_binding(sim),
               'source_revision': revision, 'sources': source, 'outputs': outputs, 'warnings': warnings,
               'previous_config': sim['config'], 'previous': get(store, 'settings:' + ident),
               'legacy': archive.get(store, 'settings:' + ident) or archive.get(store, 'paused_settings:' + ident),
@@ -129,6 +129,8 @@ def save(store, ident, review, confirmed=False):
         for key, value in ((PREFIX + 'settings:' + ident, policy), (archive.PREFIX + 'settings:' + ident, None),
                            (archive.PREFIX + 'paused_settings:' + ident, None)):
             db.execute('INSERT OR REPLACE INTO metadata VALUES (?,?)', (key, json_text(value)))
+    if policy['options']['enabled']:
+        archive.remember_location(store, Path(sim['root']))
     return {'saved': True, 'revision': policy['revision']}
 
 
@@ -206,7 +208,7 @@ def set_participation(store, ident, enabled):
 
 def validate_plan(store, sim, policy):
     policy_options(policy['options'])
-    if policy['format'] != 2 or policy['workspace'] != workspace_identity(store) or policy['binding'] != location_binding(sim):
+    if policy['format'] != 2 or policy['workspace'] != workspace_identity(store) or policy['binding'] != location_binding(sim, store):
         raise ValueError('Library or source location changed; review preservation settings.')
     if policy['config'] != sim['config']:
         raise ValueError('Capture settings changed; review preservation settings.')
@@ -215,6 +217,7 @@ def validate_plan(store, sim, policy):
     archive.validate_repo(store, policy['repository'])
     if archive.connection_status(store)['state'] != 'connected':
         raise ValueError('Git archive unavailable. Recording continues locally.')
+    archive.remember_location(store, Path(sim['root']))
 
 
 def selected_output(name, plan):

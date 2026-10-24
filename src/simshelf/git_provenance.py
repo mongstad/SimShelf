@@ -15,6 +15,7 @@ import time
 
 from .common import json_text
 from .workspace_lock import locked_store
+from .location_identity import device_identity, remember_location
 
 KEY = 'git_connection_v1'
 LIMIT = 4 * 1024 * 1024
@@ -74,7 +75,7 @@ def text(root, *args):
     return git(root, *args).decode('utf-8', 'replace').strip()
 
 
-def repository(path: str | Path) -> dict:
+def repository(path: str | Path, store=None, *, remember=False) -> dict:
     try:
         root = Path(path).expanduser().resolve(strict=True)
     except (OSError, ValueError, TypeError) as exc:
@@ -84,8 +85,13 @@ def repository(path: str | Path) -> dict:
     top = Path(text(root, 'rev-parse', '--show-toplevel')).resolve(strict=True)
     gitdir = Path(text(top, 'rev-parse', '--absolute-git-dir')).resolve(strict=True)
     # Identity prevents a different repository silently taking over an old path.
-    st = gitdir.stat()
-    identity = hashlib.sha256(f'{top}\0{gitdir}\0{st.st_dev}\0{st.st_ino}'.encode()).hexdigest()
+    fd = os.open(gitdir, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        st = os.fstat(fd)
+        device = device_identity(store, gitdir, st, fd, remember=remember) if store is not None else st.st_dev
+    finally:
+        os.close(fd)
+    identity = hashlib.sha256(f'{top}\0{gitdir}\0{device}\0{st.st_ino}'.encode()).hexdigest()
     return {'root': str(top), 'identity': identity}
 
 
@@ -96,14 +102,19 @@ def connection(store):
 
 
 def workspace_identity(store):
-    st = store.path.stat()
-    return hashlib.sha256(f'{socket.gethostname()}\0{store.path}\0{st.st_dev}\0{st.st_ino}'.encode()).hexdigest()
+    fd = os.open(store.path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        st = os.fstat(fd)
+        device = device_identity(store, store.path, st, fd)
+    finally:
+        os.close(fd)
+    return hashlib.sha256(f'{socket.gethostname()}\0{store.path}\0{device}\0{st.st_ino}'.encode()).hexdigest()
 
 
 def preview(store, path: str, simulation_ids: list[str]) -> dict:
     if not path.strip() or len(path) > 4096 or len(simulation_ids) > 1000:
         raise ValueError('Choose a repository and at most 1,000 registered simulations.')
-    repo = repository(path)
+    repo = repository(path, store)
     root = Path(repo['root'])
     if root.is_relative_to(store.path) or store.path.is_relative_to(root):
         raise ValueError('Keep the source repository separate from the SimShelf library.')
@@ -113,7 +124,7 @@ def preview(store, path: str, simulation_ids: list[str]) -> dict:
             source = Path(store.simulation(ident)['root']).resolve(strict=True)
         except OSError as exc:
             raise ValueError('A selected simulation folder is unavailable.') from exc
-        if not source.is_relative_to(root) or repository(source) != repo:
+        if not source.is_relative_to(root) or repository(source, store) != repo:
             raise ValueError('Every selected simulation must belong to this repository, not a nested repository.')
         mappings[ident] = source.relative_to(root).as_posix()
     return {**repo, 'mappings': mappings, 'workspace': str(store.path), 'workspace_identity': workspace_identity(store), 'format': 1}
@@ -147,7 +158,7 @@ def discover(store, ident: str):
             checked += 1
             try:
                 candidate = Path(other['root']).resolve(strict=True)
-                if candidate.is_relative_to(root) and repository(candidate) == {k: proposed[k] for k in ('root', 'identity')}:
+                if candidate.is_relative_to(root) and repository(candidate, store) == {k: proposed[k] for k in ('root', 'identity')}:
                     eligible.append({'id': other['id'], 'subdirectory': candidate.relative_to(root).as_posix()})
             except (OSError, ValueError):
                 continue
@@ -168,6 +179,8 @@ def connect_repository(store, proposed: dict):
         raise ValueError('Disconnect the current repository before connecting another.')
     if not checked['mappings']:
         raise ValueError('Select at least one registered simulation.')
+    repository(proposed['root'], store, remember=True)
+    remember_location(store, store.path)
     with store.connection() as conn:
         conn.execute('INSERT INTO metadata(key,value) VALUES (?,?)', (KEY, json_text(checked)))
     return checked
@@ -286,12 +299,12 @@ def observe(store, simulation, snapshot=None, *, history=False):
     try:
         if saved.get('workspace') != str(store.path) or saved.get('workspace_identity') != workspace_identity(store):
             raise Unavailable('Restored or moved library: disconnect and explicitly reconnect Git on this computer.')
-        repo = repository(saved['root'])
+        repo = repository(saved['root'], store)
         if repo['identity'] != saved['identity']:
             raise Unavailable('Repository identity changed; disconnect and review a new connection.')
         root = Path(repo['root'])
         source = Path(simulation['root']).resolve(strict=True)
-        if source != (root / subdir).resolve() or not source.is_relative_to(root) or repository(source) != repo:
+        if source != (root / subdir).resolve() or not source.is_relative_to(root) or repository(source, store) != repo:
             raise Unavailable('Simulation mapping changed or is no longer inside the connected repository.')
         result['repository'] = repo
         # symbolic-ref returns empty for detached HEAD without executing hooks/config commands.
