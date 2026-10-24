@@ -549,3 +549,20 @@ Backups still exclude the external Git repository; Git alone cannot restore a
 workspace. Source Git remains independent. See the unchanged
 [Phase 1 audit](validation/issue-118-library-preservation-audit.md) and the
 [implementation validation](validation/issue-118-library-preservation.md).
+
+## Stable archive location observations
+
+`location_identity.py` retains verified legacy device tokens for Btrfs locations
+under additive `location_device_v1:` metadata. Keys bind hostname, canonical path,
+filesystem/subvolume ID and inode. Successful archive/preservation verification or
+explicit setup can establish an anchor; failed checks cannot. Checks read existing
+anchors without rewriting consent, completed records or archive objects. A new
+filesystem at a previously observed path gets a distinct string token, avoiding
+both device/inode reuse and JSON integer precision loss. Other filesystems keep
+existing checks. The auxiliary metadata is backup-compatible and does not change
+schema versions. Old builds do not gain the reboot recovery behavior.
+
+Reconnect checks canonicalize paths in the backend. An explicit `remap` choice is
+required to adopt a changed library binding at the remembered archive path; a
+trailing slash cannot switch from verified reconnect to implicit remapping.
+Archive marker/configuration and location safety checks still apply to remapping.

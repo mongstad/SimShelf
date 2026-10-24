@@ -349,7 +349,7 @@ def test_pending_addition_survives_attachment_removal_backup_restart(library, tm
     restored = restore_backup(backup, tmp_path / 'restored-pending')
     monkeypatch.setattr(archive, 'git', original)
     archive.disconnect(restored)
-    archive.connect(restored, str(repo), confirmed=True)
+    archive.connect(restored, str(repo), confirmed=True, remap=True)
     event = archive.publish(restored, run['id'])
     assert event['id'] == op and event['record'] == review['record']
     assert archive.download(restored, run['id'], event['id'], 0)[1] == image.read_bytes()
