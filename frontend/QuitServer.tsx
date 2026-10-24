@@ -9,87 +9,113 @@ type State = {
 };
 export function QuitServer({
   close,
-  accepted: onAccepted,
+  accepted,
 }: {
   close: () => void;
   accepted: () => void;
 }) {
+  const dialog = useRef<HTMLDialogElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    const timer = setTimeout(() => cancel.current?.focus(), 0);
-    return () => clearTimeout(timer);
-  }, []);
   const [state, setState] = useState<State | null>(null);
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [accepted, setAccepted] = useState(false);
-  const load = () => api<State>("/server").then(setState);
-  useEffect(() => {
-    load().catch((e) => setError(e.message));
-  }, []);
-  async function quit() {
-    if (!state || busy) return;
-    setBusy(true);
-    setError("");
+  const [busy, setBusy] = useState(true);
+  const [review, setReview] = useState(false);
+  const started = useRef(false);
+
+  function dismiss() {
+    dialog.current?.close();
+    close();
+  }
+  async function request(current: State, stopRuns: boolean) {
     try {
       await api("/server/quit", {
         method: "POST",
         body: JSON.stringify({
           confirmed: true,
-          generation: state.generation,
-          stop_runs: state.active_runs > 0,
+          generation: current.generation,
+          stop_runs: stopRuns,
         }),
       });
-      setAccepted(true);
-      onAccepted();
     } catch (e) {
-      setError(
+      throw Error(
         `${(e as Error).message} If the connection closed, shutdown may already be underway. Check the original terminal before restarting.`,
       );
-      await load().catch(() => {});
+    }
+    accepted();
+  }
+  async function check() {
+    setBusy(true);
+    setError("");
+    try {
+      const current = await api<State>("/server");
+      setState(current);
+      if (current.closing) {
+        accepted();
+        return;
+      }
+      if (!current.can_quit)
+        throw Error(
+          "This launch mode cannot quit from the portal. Stop its server in the original terminal or service manager.",
+        );
+      if (current.active_runs === 0) await request(current, false);
+      else setReview(true);
+    } catch (e) {
+      setError((e as Error).message);
+      // Never retry a rejected idle request with cancellation consent.
+      setReview(true);
+      await api<State>("/server")
+        .then(setState)
+        .catch(() => {});
     } finally {
       setBusy(false);
     }
   }
-  if (accepted || state?.closing)
-    return (
-      <div role="status">
-        <p>Shutdown requested. This portal is closing.</p>
-        <p className="muted">
-          Portal runs receive cancellation and final capture is attempted. Slow
-          capture may continue after the server exits; interruption does not
-          guarantee detached processes stopped.
-        </p>
-        <p>
-          You can close this tab. Restart SimShelf from its launcher when
-          needed. Terminal/editor recorders remain independent.
-        </p>
-      </div>
-    );
+  useEffect(() => {
+    if (!started.current) {
+      started.current = true;
+      void check();
+    }
+  }, []);
+  useEffect(() => {
+    if (review && !busy) {
+      dialog.current?.showModal();
+      cancel.current?.focus();
+    }
+  }, [review, busy]);
+  async function confirm() {
+    if (!state || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await request(state, state.active_runs > 0);
+    } catch (e) {
+      setError((e as Error).message);
+      await api<State>("/server")
+        .then(setState)
+        .catch(() => {});
+      cancel.current?.focus();
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (!review) return <p role="status">Checking active runs…</p>;
   return (
-    <>
-      <p>
-        Quit this local SimShelf server? The browser portal will become
-        unavailable.
-      </p>
-      {!state && !error && <p>Checking active portal runs…</p>}
-      {state && (
-        <p role="status">
-          {state.active_runs} active portal recorder
-          {state.active_runs === 1 ? "" : "s"} (including startup or final
-          capture).
-          {state.active_runs > 0 &&
-            " Quitting requests cancellation and attempts to preserve partial outputs and logs."}
-        </p>
-      )}
-      <p className="muted">
-        Closing a tab leaves the server and simulations running. Terminal/editor
-        recorders are independent and will continue outside this portal.
-      </p>
-      {state && !state.can_quit && (
-        <p role="alert">
-          This launch mode cannot quit from the portal. Stop its server in the
-          original terminal or service manager.
+    <dialog
+      ref={dialog}
+      className="modal"
+      aria-labelledby="quit-title"
+      onCancel={(e) => {
+        e.preventDefault();
+        if (!busy) dismiss();
+      }}
+    >
+      <div className="modal-heading">
+        <h2 id="quit-title">Quit SimShelf</h2>
+      </div>
+      {state && state.active_runs > 0 && (
+        <p>
+          Stop {state.active_runs} active{" "}
+          {state.active_runs === 1 ? "run" : "runs"} and quit SimShelf?
         </p>
       )}
       {error && (
@@ -98,13 +124,22 @@ export function QuitServer({
         </p>
       )}
       <div className="modal-actions">
-        <button ref={cancel} autoFocus onClick={close} disabled={busy}>
+        <button ref={cancel} autoFocus onClick={dismiss} disabled={busy}>
           Cancel
         </button>
-        <button disabled={!state?.can_quit || busy} onClick={quit}>
-          {busy ? "Requesting shutdown…" : "Stop runs and quit"}
+        <button
+          disabled={busy || (state !== null && !state.can_quit)}
+          onClick={state ? confirm : check}
+        >
+          {busy
+            ? "Requesting shutdown…"
+            : state && state.active_runs > 0
+              ? "Stop runs and quit"
+              : state
+                ? "Quit SimShelf"
+                : "Retry"}
         </button>
       </div>
-    </>
+    </dialog>
   );
 }

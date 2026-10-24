@@ -103,8 +103,14 @@ def test_real_quit_releases_port_and_preserves_independent_recorder(project, act
                     if (root / "outputs/partial.txt").exists(): break
                     time.sleep(.05)
                 assert (root / "outputs/partial.txt").exists()
-                stale = client.post("/api/server/quit", headers=auth, json={"confirmed": True, "generation": old["generation"], "stop_runs": True})
-                assert stale.status_code == 400
+                for stop_runs in (False, True):
+                    stale = client.post("/api/server/quit", headers=auth, json={"confirmed": True, "generation": old["generation"], "stop_runs": stop_runs})
+                    assert stale.status_code == 400
+                assert store.run(run)["status"] == "running"
+                assert client.get("/api/server").json()["closing"] is False
+                current = client.get("/api/server").json()
+                unconfirmed = client.post("/api/server/quit", headers=auth, json={"confirmed": True, "generation": current["generation"], "stop_runs": False})
+                assert unconfirmed.status_code == 400
                 assert store.run(run)["status"] == "running"
             status = client.get("/api/server").json()
             assert status["active_runs"] == int(active)
