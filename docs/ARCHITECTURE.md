@@ -189,6 +189,9 @@ idempotent. Cancellation closes the existing control pipes immediately; response
 background work requests server exit after the acknowledgement. Normal lifespan
 cleanup retains the existing 15-second shared wait and independent capture owner.
 No new recorder lifecycle, auto-restart, unload handler or data migration exists.
+The browser checks this authoritative status on Quit. Idle requests carry no
+active-run cancellation consent; active work opens a concise confirmation with
+Cancel focused. A stale idle request must be reviewed again after rejection.
 The browser stops polling after acknowledgement and describes shutdown as requested,
 not proof of completed capture or termination of detached processes. Failed/lost
 responses advise checking the original terminal before restarting.

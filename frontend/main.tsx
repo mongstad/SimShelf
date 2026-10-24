@@ -2055,7 +2055,7 @@ function App() {
           )}
         </div>
       </main>
-      {modal === "quit" && <Modal title="Quit SimShelf" close={() => setModal("")}><QuitServer close={() => setModal("")} accepted={() => setQuitting(true)} /></Modal>}
+      {modal === "quit" && <QuitServer close={() => setModal("")} accepted={() => setQuitting(true)} />}
       {modal === "add" && (
         <AddSimulation
           close={() => setModal("")}

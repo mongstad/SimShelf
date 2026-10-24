@@ -459,3 +459,10 @@ Historical reports remain unchanged.
 See [issue #130 shutdown copy](validation/issue-130-shutdown-copy.md) for the
 single-message page, unchanged lifecycle regressions, installed browser/package
 checks and limitations. Historical reports remain unchanged.
+
+## Idle Quit and active-work confirmation
+
+See [issue #135 idle Quit](validation/issue-135-idle-quit.md) for guarded one-click
+idle shutdown, concise active-work consent, race/focus/failure checks, disposable
+server and browser validation, package checks and limitations. Historical reports
+remain unchanged.
