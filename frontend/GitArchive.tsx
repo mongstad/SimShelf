@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from "react";
 import { api, uploadFile } from "./api";
+import { RunOverviewWarnings } from "./RunOverviewWarnings";
 import type { Artifact, Run, Simulation } from "./types";
 
 type Review = Record<string, any>;
@@ -314,7 +315,7 @@ export function RunArchive({
         .catch((e) => {
           if (active) {
             setView((old) =>
-              old ? { ...old, connection_status: null } : null,
+              old ? { ...old, connection_status: null, preservation: null } : null,
             );
             setMessage(e.message);
           }
@@ -364,6 +365,8 @@ export function RunArchive({
       </p>
       {message && <p role="status">{message}</p>}
       {view?.error && <p role="alert">Preservation: {view.error}</p>}
+      {view ? <PreservationStatus value={view.preservation || null} /> : <p role="status">Git preservation details unavailable until loaded.</p>}
+      {view?.connection_status?.reason && <p role="alert">Repository access: {view.connection_status.reason}</p>}
       <div className="toolbar">
         <input
           aria-label="Filter filenames"
@@ -974,25 +977,9 @@ export function RunFilesTable({
   );
 }
 
-export function PreservationStatus({
-  run,
-  value,
-}: {
-  run: Run;
-  value: Review | null;
-}) {
-  const counts = run.capture_counts || {};
+export function PreservationStatus({ value }: { value: Review | null }) {
   return (
-    <section
-      className="preservation-status"
-      aria-label="Run preservation status"
-    >
-      <p>
-        <strong>Execution:</strong> {run.status} ·{" "}
-        <strong>Workspace capture:</strong> {run.capture_status || "unknown"} (
-        {counts.copied || 0} copied, {counts.referenced || 0} referenced,{" "}
-        {counts.ignored || 0} ignored, {counts.skipped || 0} skipped)
-      </p>
+    <section className="preservation-status" aria-label="Run preservation status">
       <p>
         <strong>Master Git preservation:</strong>{" "}
         {value?.state === "verified"
@@ -1014,17 +1001,18 @@ export function PreservationStatus({
     </section>
   );
 }
-export function PreservationSummary({ run }: { run: Run }) {
+export function PreservationSummary({ run, openFiles }: { run: Run; openFiles: () => void }) {
+  const [loading, setLoading] = useState(true);
   const [value, setValue] = useState<Review | null>(null);
   useEffect(() => {
     let active = true;
     const load = () =>
       api<Review>(`/runs/${run.id}/archive`)
         .then((v) => {
-          if (active) setValue(v.preservation);
+          if (active) { setValue(v.preservation || null); setLoading(false); }
         })
         .catch(() => {
-          if (active) setValue(null);
+          if (active) { setValue(null); setLoading(false); }
         });
     void load();
     const timer = setInterval(load, 3000);
@@ -1033,5 +1021,5 @@ export function PreservationSummary({ run }: { run: Run }) {
       clearInterval(timer);
     };
   }, [run.id]);
-  return <PreservationStatus run={run} value={value} />;
+  return <RunOverviewWarnings run={run} preservation={value} loading={loading} openFiles={openFiles} />;
 }

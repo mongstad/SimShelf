@@ -264,7 +264,7 @@ test("one source row exists before archival and joins exact source revisions", (
 });
 test("execution and capture never imply Git output preservation", () => {
   const html=render(PreservationStatus,{run:{...run,capture_status:"complete",capture_counts:{copied:3}},value:{state:"partial",reason:"Legacy manifest only: no scientific payloads.",source_files:0,output_files:0,copied_outputs:3,events:1,annotations:0,connection:"connected"}});
-  assert.match(html,/Execution:/); assert.match(html,/Workspace capture:/);
+  assert.doesNotMatch(html,/Execution:|Workspace capture:/);
   assert.match(html,/Master Git preservation:/); assert.match(html,/Legacy manifest only/);
   assert.match(html,/0 of 3 copied outputs/); assert.doesNotMatch(html,/Verified for the reviewed scope/);
 });

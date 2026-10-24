@@ -99,6 +99,21 @@ References show **available**, **changed**, **missing**, or **another computer**
 They are not backups. Changing the browser's file-list filter never changes
 capture rules or removes anything.
 
+### Reading run status
+
+Overview keeps process status and progress separate from capture and Git
+preservation. Completed execution does not prove all outputs were retained or
+archived. Brief notices link to Files when capture is pending, incomplete or
+needs attention, or Git preservation/access is uncertain.
+
+Files shows the recorded inspected folder, counts, capture errors and limitations,
+plus preservation status, source/annotation evidence, omissions and exact
+historical downloads. Capture complete means inspection finished without reported
+errors within its configured scope. Verified Git preservation describes the
+reviewed scope at publication; current repository access is reported separately.
+Intentional absence of Git preservation is recorded in Files without a routine
+Overview warning. Full execution errors and terminal output are in Logs.
+
 ### Concurrent runs
 
 Give simultaneous runs distinct output folders **and point both the simulation

@@ -473,3 +473,10 @@ See [issue #127 New run polish](validation/issue-127-new-run-polish.md) for the
 visual audit, paired screenshots, section/action refinements, preserved consent
 and argv behavior, focused validation, installed-package evidence and limitations.
 Earlier reports and captures remain unchanged.
+
+## Run Overview diagnostic placement
+
+See [issue #141 run Overview](validation/issue-141-run-overview.md) for concise
+state-specific notices, capture/preservation details in Files, retained provenance
+and downloads, focused regressions, installed checks and limitations. Earlier
+reports and screenshots remain unchanged.

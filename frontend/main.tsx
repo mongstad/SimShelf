@@ -486,6 +486,15 @@ function RunDetails({
   const screenshotsHeading = useRef<HTMLHeadingElement>(null);
   const deleteTrigger = useRef<HTMLButtonElement | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const filesPanel = useRef<HTMLElement>(null);
+  const focusFiles = useRef(false);
+  function openFiles() { focusFiles.current = true; setTab("files"); }
+  useEffect(() => {
+    if (tab === "files" && focusFiles.current) {
+      filesPanel.current?.focus();
+      focusFiles.current = false;
+    }
+  }, [tab]);
   const activeRunId = useRef(id);
   const requests = useRef(runRequests()).current;
   activeRunId.current = id;
@@ -666,7 +675,7 @@ function RunDetails({
         </div>
       </header>
       <RunProgress run={run} />
-      <PreservationSummary key={run.id} run={run} />
+      {tab === "overview" && <PreservationSummary key={run.id} run={run} openFiles={openFiles} />}
       <nav className="tabs" aria-label="Run detail sections">
         {[
           "overview",
@@ -700,24 +709,21 @@ function RunDetails({
       )}
       {run.status === "failed" && (
         <div className="error-banner" role="alert">
-          The simulation exited with code {run.exit_code}. Open Logs → stderr
-          for dependency, argument or script errors. No dependencies are
-          installed automatically.
+          Execution failed (exit code {run.exit_code ?? "unknown"}).{" "}
+          <button className="text-button" onClick={() => setTab("logs")}>View logs</button>
         </div>
       )}
       {run.status === "interrupted" && (
-        <p className="notice">
-          Execution was interrupted. Check logs and capture details before using
-          partial results.
+        <p className="notice" role="alert">
+          Execution was interrupted.{" "}
+          <button className="text-button" onClick={() => setTab("logs")}>View logs</button>
         </p>
       )}
       {run.status === "running" &&
         run.launch?.kind === "portal" &&
         !run.can_stop && (
-          <p className="notice">
-            This server does not own the recorder. A previous server's run may
-            still be stopping or capturing outputs; refresh to see recovery
-            status.
+          <p className="notice" role="status">
+            Recorder owned by another server; stopping or capture may still be in progress.
           </p>
         )}
       {tab === "overview" && (
@@ -789,18 +795,6 @@ function RunDetails({
                 </>}
                 <dt>Exit code</dt>
                 <dd>{run.exit_code ?? "—"}</dd>
-                <dt>Capture inspection</dt>
-                <dd>
-                  <span
-                    className={
-                      run.capture_status === "complete"
-                        ? "text-green"
-                        : "text-amber"
-                    }
-                  >
-                    {run.capture_status}
-                  </span>
-                </dd>
               </dl>
               {run.source_change === "changed" && (
                 <div className="callout small">
@@ -855,23 +849,6 @@ function RunDetails({
             <section className="surface">
               <h3>Notes</h3>
               <p className="preserve-lines">{run.notes}</p>
-            </section>
-          )}
-          <CaptureSummary run={run} />
-          {run.capture_errors?.length > 0 && (
-            <section className="surface">
-              <h3>Capture details</h3>
-              {run.capture_errors.map((e, i) => (
-                <p className="text-amber" key={i}>
-                  {e}
-                </p>
-              ))}
-            </section>
-          )}
-          {run.error && (
-            <section className="surface">
-              <h3>Execution details</h3>
-              <pre className="log-block">{run.error}</pre>
             </section>
           )}
         </>
@@ -1038,9 +1015,9 @@ function RunDetails({
         </section>
       )}
       {tab === "files" && (
-        <section className="surface">
-          <RunArchive key={run.id} run={run} reload={() => void refresh()} openSource={path => {setSourcePath(path); setTab("source");}} />
+        <section className="surface run-file-details" ref={filesPanel} tabIndex={-1} aria-label="Run files and preservation details">
           <CaptureSummary run={run} />
+          <RunArchive key={run.id} run={run} reload={() => void refresh()} openSource={path => {setSourcePath(path); setTab("source");}} />
         </section>
       )}
       {tab === "source" && (
@@ -1095,6 +1072,13 @@ function RunDetails({
       )}
       {tab === "logs" && (
         <section className="surface">
+          {run.error && (
+            <section className="surface">
+              <h3>Execution details</h3>
+              <pre className="log-block">{run.error}</pre>
+            </section>
+          )}
+
           <div className="section-heading">
             <h2>Terminal output</h2>
             <select

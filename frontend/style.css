@@ -2414,3 +2414,10 @@ details label {
 .launch-form .launch-validation,
 .launch-form .output-mapping > .notice { display: block; }
 .launch-form .launch-validation > p { margin-top: 12px; }
+
+.run-overview-warnings { margin: 16px 0; }
+.run-overview-warnings > p { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 16px; margin: 8px 0; }
+.run-overview-warnings [role="alert"] { color: var(--amber); }
+.run-overview-warnings .text-button { flex-shrink: 0; }
+.run-file-details:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.run-file-details > .capture-summary { margin-top: 0; margin-bottom: 28px; }
