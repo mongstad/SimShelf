@@ -4,7 +4,7 @@ import { ArgumentEditor } from "./ArgumentEditor";
 import { argumentError, formatCommand } from "./arguments";
 import { api } from "./api";
 import { InterpreterPicker } from "./InterpreterPicker";
-import { OutputPaths } from "./OutputPaths";
+import { CapturePath, OutputPaths } from "./OutputPaths";
 import { incompleteOutputMappings } from "./outputCandidates";
 import type { Simulation, OutputMapping, OutputReview } from "./types";
 import type { OutputPolicyStatus } from "./parameters";
@@ -257,21 +257,7 @@ export function LaunchSimulation({
           Update registered entry
         </button>
         </div>
-        <div className="form-grid">
-          <label>
-            Working directory
-            <input
-              required
-              value={cwd}
-              onChange={(e) => {
-                setCwd(e.target.value);
-                edited();
-              }}
-            />
-            <small>
-              Relative to source folder (<code>.</code> = source folder).
-            </small>
-          </label>
+        <div className="launch-run-name">
           <label>
             Run name (optional)
             <input
@@ -315,6 +301,21 @@ export function LaunchSimulation({
         />
         <section className="launch-output" aria-label="Capture settings">
         <h3>Outputs &amp; capture</h3>
+        {!policyBlocked && <CapturePath review={capture?.review || null} error={capture?.error || ""} />}
+        <p className="muted">{policyStatus?.state === "valid"
+          ? "For standalone SWSS runs, the script creates its unique run folder; SimShelf monitors the shared parent using your preservation rules and limits."
+          : "The script and its arguments choose where it writes. SimShelf monitors the capture folder using your preservation rules and limits."}</p>
+        <p className="capture-coverage" role="status">
+          {!mappings.length
+            ? `${initial?.output_dir === output ? "Saved capture setting" : "Capture setting needs review"} · confirm this is the script’s output parent. Outputs elsewhere are not discovered.`
+            : outputError || (incompleteOutputMappings(mappings).length
+              ? "Output declarations need review. Complete or remove unfinished paths below."
+              : !outputReview ? "Checking declared output coverage…"
+              : outputReview.requires_acknowledgement ? "Declared outputs are outside capture coverage; they may not be retained or backed up."
+              : "Declared paths are within capture coverage; retention depends on preservation rules and limits.")}
+        </p>
+        <details className="capture-override">
+        <summary>Change capture folder</summary>
         <label>
           Capture output folder
           <input
@@ -328,8 +329,18 @@ export function LaunchSimulation({
           <small>
             Relative to source folder.
           </small>
-          {policyStatus && policyStatus.state !== "absent" && <small>Choose the shared parent of all generated run folders. Source capture excludes declared output paths; undeclared output folders cannot be identified automatically.</small>}
+          <small>Choose the shared parent of generated run folders, not one completed run. This changes monitoring, not script output arguments. Source snapshots exclude known capture paths.</small>
         </label>
+        <p className="muted">For external storage, set the script’s own output argument and declare that path under Advanced output coverage. Files outside this capture folder are not collected and need independent backups.</p>
+        </details>
+        <details className="advanced-execution">
+        <summary>Advanced execution settings</summary>
+        <label>
+          Working directory
+          <input required value={cwd} onChange={e => { setCwd(e.target.value); edited(); }} />
+          <small>Relative to source folder (<code>.</code> = source folder). This does not select the output location.</small>
+        </label>
+        {policyStatus?.state === "absent" && <>
         <label>
           Output folder policy
           <select value={outputPolicy} disabled={!policyStatus} aria-describedby="output-policy-help" onChange={(e) => {
@@ -337,27 +348,31 @@ export function LaunchSimulation({
             edited();
           }}>
             <option value="fixed">Fixed output parent</option>
-            <option value="per_run" disabled={!policyStatus?.launcher_allowed}>Launcher-coordinated subfolder (requires support)</option>
+            {policyStatus.launcher_allowed && <option value="per_run">Launcher-coordinated subfolder (requires script support)</option>}
           </select>
           <small id="output-policy-help">
             {policyStatus?.reason || "Checking SWSS metadata for output policy. If this fails, rescan the declarations below before continuing."}
           </small>
         </label>
+        </>}
         {policyStatus && policyStatus.state !== "absent" && <div className="notice output-policy-notice" role="status">
           <strong>{policyStatus.state === "valid" ? "SWSS schema 2 · metadata valid" : "SWSS metadata unavailable for use"}</strong>
           <p>Source binding: {policyStatus.binding === "binding unverified" ? "unverified" : policyStatus.binding}.</p>
           <small>Metadata and listed-byte checks do not verify scientific behavior or full SWSS conformance.</small>
+          <p>SWSS schema 2 does not specify an output parent. Review the capture folder against the script’s documented output location.</p>
         </div>}
+        </details>
+        {!policyStatus && <p className="error-banner" role="status">Checking output settings. If discovery fails, rescan parameters before continuing.</p>}
         {policyStatus && policyBlocked && <div className="notice output-policy-notice" role="alert">
           <p>The selected launcher-coordinated policy is unavailable. Saved settings have not changed. Review the capture parent and use fixed output before validating or launching.</p>
           <button type="button" onClick={() => {setOutputPolicy("fixed"); edited();}}>Use fixed output parent</button>
         </div>}
-        {!policyBlocked && <OutputPaths
+        {!policyBlocked && <details className="advanced-coverage">
+        <summary>Advanced output coverage{mappings.length ? ` (${mappings.length})` : ""}</summary>
+        <OutputPaths
           args={args}
           mappings={mappings}
           review={outputReview}
-          captureReview={capture?.review || null}
-          captureError={capture?.error || ""}
           error={outputError}
           change={(next) => {
             setMappings(next);
@@ -379,7 +394,8 @@ export function LaunchSimulation({
             setArgumentRevision(argumentRevision + 1);
             edited();
           }}
-        />}
+        />
+        </details>}
         </section>
         <ProgressSettings value={progressMode} available={setProgressAvailable} change={value => {setProgressMode(value);edited();}} />
         {argsError && (

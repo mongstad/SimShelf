@@ -35,8 +35,10 @@ Once SimShelf is running, no terminal recording command is needed:
    operators and substitutions remain literal. Backslash-newline continues a
    line. The command preview reflects unsaved edits; expand **Exact argv** to
    inspect token boundaries. Editing settings requires validation again.
-4. Check the working directory (relative to the source folder, `.` by default),
-   capture folder and optional run name. **Validate interpreter & paths** checks
+4. Review **Outputs & capture** and the optional run name. **Change capture folder**
+   edits the monitored parent. **Advanced execution settings** contains the working
+   directory (relative to source, `.` by default); it does not select output storage.
+   **Validate interpreter & paths** checks
    Python without importing the simulation. It cannot certify installed script
    dependencies. **Save settings** remembers the selection without launching.
 5. Choose **Start simulation** to save the settings and execute the registered
@@ -115,7 +117,14 @@ if upgrading an older checkout environment without it, explicitly run
 
 ### Check where outputs will land
 
-In **New run… → Output destinations**, inspect the resolved capture folder.
+In **New run… → Outputs & capture**, inspect the effective capture folder and
+confirm it matches where the script writes. A saved path is configuration, not
+proof that arbitrary Python outputs are discovered. **Change capture folder**
+provides the explicit override. For external storage, set the script's own output
+argument and expand **Advanced output coverage** to declare and review that path.
+Files outside the monitored folder are not collected; retain independent backups.
+
+Optional coverage declarations are under **Advanced output coverage**.
 For a recognized option such as `--wvz`, choose **Map argument … as file** only
 if that is how your script uses it. Choose directory for an output-folder option.
 For a custom flag, select **Declare output path**, then its path argument token.
@@ -291,15 +300,16 @@ charts are planned for Stage 2; Stage 1 shows the latest retained measurements.
 
 ## Unique output folders for cooperating scripts
 
-The default **Output folder policy → Fixed output parent** watches the configured
-parent recursively. With valid associated SWSS schema-2 metadata, this is the
-recommended choice: the simulation creates its own unique run directory.
-Launcher-coordinated allocation is disabled because metadata and source hashes
-do not establish the optional SWSS coordinated-capture agreement. SimShelf does
+Fixed-parent capture watches the configured parent recursively. With valid
+associated SWSS schema-2 metadata, the dialog shows this capture destination
+without a policy selector: the simulation creates its own unique run directory.
+The inapplicable launcher-coordinated option is hidden because metadata and
+source hashes do not establish the optional SWSS coordinated-capture agreement. SimShelf does
 not allocate an extra child or rewrite the simulation's output arguments.
 
-Set **Capture output folder** to the shared parent of all generated run folders,
-not one completed run's child folder. Source capture excludes the registered
+Under **Change capture folder**, set **Capture output folder** to the shared
+parent of all generated run folders, not one completed run's child folder.
+Source capture excludes the registered
 output parent, saved/current capture paths and an associated supported local
 SWSS capture declaration before reading source bytes. For example, if a script
 writes `research_results/run_<id>/`, review and select `research_results`.
@@ -319,7 +329,8 @@ review it or use explicit manual argv with fixed-parent capture. The UI does not
 silently change saved choices. Completed records and original folders are preserved.
 
 For a script without SWSS metadata that explicitly supports the SimShelf adapter,
-choose **Launcher-coordinated subfolder (requires support)** to isolate successive
+open **Advanced execution settings → Output folder policy** and choose
+**Launcher-coordinated subfolder (requires script support)** to isolate successive
 or concurrent originals. The capture output folder
 becomes the parent; Start creates `run_<unique ID>` beneath it. Validation and
 Save settings create no directories. The preview shows the parent and explains

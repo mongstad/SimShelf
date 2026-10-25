@@ -1,13 +1,24 @@
 import React from "react";
 import { outputCandidates } from "./outputCandidates";
 import type { OutputMapping, OutputReview } from "./types";
+
+export function CapturePath({ review, error }: { review: OutputReview | null; error: string }) {
+  return <div className="capture-path" aria-label="Effective capture destination">
+    <p><strong>{review?.output_policy === "per_run" ? "Capture parent" : "Capture folder"}</strong></p>
+    <code>{review?.output_path || (error ? "Capture path unavailable; check the capture settings." : "Checking capture path…")}</code>
+    {error && <p className="error-banner" role="alert">{error}</p>}
+    {review?.output_policy === "per_run" && <p className="notice">
+      Capture uses a new run_&lt;unique ID&gt; subfolder allocated at launch. Your script must use
+      SIMSHELF_OUTPUT_DIR or joined run.output_dir. Fixed paths do not follow it; arguments are unchanged.
+    </p>}
+  </div>;
+}
+
 export function OutputPaths({
   args,
   mappings,
   change,
   review,
-  captureReview = review,
-  captureError = "",
   error,
   apply,
 }: {
@@ -15,8 +26,6 @@ export function OutputPaths({
   mappings: OutputMapping[];
   change: (next: OutputMapping[]) => void;
   review: OutputReview | null;
-  captureReview?: OutputReview | null;
-  captureError?: string;
   error: string;
   apply: (index: number, value: string) => void;
 }) {
@@ -24,22 +33,8 @@ export function OutputPaths({
     change(mappings.map((m, j) => (i === j ? { ...m, ...patch } : m)));
   }
   return (
-    <section aria-label="Output destinations" className="output-paths">
-      <h3>Output destinations</h3>
-      <p>
-        <strong>{captureReview?.output_policy === "per_run" ? "Resolved capture parent:" : "Resolved capture folder:"}</strong>{" "}
-        <code>
-          {captureReview?.output_path ||
-            (captureError
-              ? "Capture path unavailable; check the capture settings."
-              : "Checking capture path…")}
-        </code>
-      </p>
-      {captureError && <p className="error-banner" role="alert">{captureError}</p>}
-      {captureReview?.output_policy === "per_run" && <p className="notice">
-        Capture uses a new run_&lt;unique ID&gt; subfolder allocated at launch. Your script must use
-        SIMSHELF_OUTPUT_DIR or joined run.output_dir. Fixed paths do not follow it; arguments are unchanged.
-      </p>}
+    <section aria-label="Output coverage declarations" className="output-paths">
+      <p className="muted">Declare paths only to check coverage. Declarations do not redirect writes or add capture folders. Relative paths use the working directory.</p>
       {outputCandidates(args)
         .filter(
           (candidate) =>

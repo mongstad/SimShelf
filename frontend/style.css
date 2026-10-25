@@ -2379,7 +2379,8 @@ details label {
   border-top: 1px solid var(--line);
   padding-top: 28px;
 }
-.launch-form .launch-setup > .form-grid { margin-top: 24px; }
+.launch-form .launch-run-name { margin-top: 20px; }
+.launch-form .launch-run-name > label { margin: 0; }
 .launch-form .launch-entry,
 .launch-form .interpreter-detection {
   display: grid;
@@ -2391,12 +2392,15 @@ details label {
 .launch-form .interpreter-detection > button { margin-top: 24px; white-space: nowrap; }
 .launch-form .interpreter-detection > p { grid-column: 1 / -1; margin: 0; }
 .launch-form .interpreter-picker > .launch-setting + .launch-setting { margin-top: 20px; }
-.launch-form .launch-output > label + label { margin-top: 24px; }
-.launch-form .launch-output > .output-paths {
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid var(--line);
-}
+.launch-form .launch-output > * + * { margin-top: 16px; }
+.launch-form .launch-output > details { padding: 12px 16px; border: 1px solid var(--line); border-radius: 8px; }
+.launch-form .launch-output details > label { margin-bottom: 0; gap: 6px; }
+.launch-form .capture-path { overflow-wrap: anywhere; }
+.launch-form .capture-path > p { margin: 0 0 6px; }
+.launch-form .capture-path > code { display: block; }
+.launch-form .capture-path > .notice,
+.launch-form .capture-path > .error-banner { margin-top: 12px; }
+.launch-form .capture-coverage { color: var(--amber); }
 .launch-form > fieldset > .progress-settings { margin-top: 28px; }
 .launch-form .launch-command { padding-top: 28px; border-top: 1px solid var(--line); }
 .launch-form .output-paths > h3 { font-size: 13px; }
