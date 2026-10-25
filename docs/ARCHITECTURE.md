@@ -264,6 +264,24 @@ not run the simulation from an isolated checkout. Lazy imports or source
 introspection after later edits can therefore differ from the startup snapshot.
 Neither external inputs nor absolute dependencies are automatically copied.
 
+Source traversal prunes all known capture trees before reading or hashing files:
+the registered output parent, saved execution capture path, current override and
+an associated companion's supported local `extensions.simshelf.capture.output_dir`.
+Overrides retain the registered parent, so earlier sibling runs cannot become
+source merely because this launch watches one child. Canonical containment covers
+nested paths and internal aliases; escaping paths or aliases to the project root
+are refused. Other similarly named directories and explicitly included research
+files remain source. Fixed and launcher-coordinated runs keep their existing
+capture/allocation/consent behavior. No historical snapshot/fingerprint is rebuilt.
+
+SWSS schema 2 has no portable output-parent field. Parameter defaults and run-folder
+names do not establish ownership. A standalone output parent must be configured
+through the existing capture settings or the supported local extension before
+snapshotting. Unknown output trees cannot be excluded automatically. A newly clean
+snapshot may still differ from an older contaminated baseline; historical records
+remain truthful and unchanged. Changed-source wording covers the entire captured
+package, including non-Python configuration, rather than asserting Python changed.
+
 ## Lifecycle and recovery
 
 Run states are `running`, `completed`, `failed`, and `interrupted`. Completion

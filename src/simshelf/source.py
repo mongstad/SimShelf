@@ -67,18 +67,33 @@ def stable_bytes(path: Path, limit: int = 32 * 1024 * 1024) -> bytes:
 
 
 def source_snapshot(workspace: Path, simulation: dict) -> dict:
-    root = Path(simulation["root"])
+    root = Path(simulation["root"]).resolve()
+    workspace = workspace.resolve()
     config = simulation["config"]
-    output = contained(root, config["output_dir"])
+    from .config import validate_config
+    declared = [config['output_dir'], *simulation.get('source_output_dirs', ())]
+    execution = simulation.get('execution') or {}
+    if execution.get('output_dir') is not None:
+        declared.append(execution['output_dir'])
+    outputs = set()
+    for relative in declared:
+        validate_config({'output_dir': relative})
+        output = contained(root, relative)
+        if output == root:
+            raise ValueError('Output folder resolves to the simulation root; choose a separate output subfolder')
+        outputs.add(output)
+    def excluded(path):
+        canonical = path.resolve()
+        return canonical.is_relative_to(workspace) or any(canonical.is_relative_to(output) for output in outputs)
     files, structures, warnings = [], [], []
     total = 0
     for directory, dirs, names in os.walk(root, followlinks=False):
         parent = Path(directory)
-        dirs[:] = sorted(d for d in dirs if d not in IGNORED_DIRS and not (parent / d).is_symlink() and not (parent / d).resolve().is_relative_to(workspace) and (parent / d).resolve() != output)
+        dirs[:] = sorted(d for d in dirs if d not in IGNORED_DIRS and not (parent / d).is_symlink() and not excluded(parent / d))
         for name in sorted(names):
             path = parent / name
             rel = path.relative_to(root).as_posix()
-            if path.is_symlink() or not path.is_file():
+            if path.is_symlink() or not path.is_file() or excluded(path):
                 continue
             if any(match(rel, p) for p in config["source_exclude"]) or not any(match(rel, p) for p in config["source_include"]):
                 continue

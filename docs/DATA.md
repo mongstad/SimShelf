@@ -40,13 +40,17 @@ Examples:
 - Adding a Python comment or changing formatting keeps the same simulation
   version and structural fingerprint, while preserving a different exact snapshot.
 - Adding a progress bar or print statement keeps the same simulation version,
-  but is shown as **Code changed within version**. Add a version note explaining
+  but is shown as **Captured source changed within version**. Add a version note explaining
   the change when useful.
 - Changing the numerical update without changing the tag also stays in that
   version, with the same visible change notice. Bump the tag when you decide it
   represents a new model revision.
 - Changing runtime arguments creates a new run. It does not by itself change
   the simulation version or source snapshot.
+
+The changed-source notice also covers legitimate included configuration/JSON and
+other non-Python source files; it does not assert that the entrypoint Python
+changed. Compare the whole captured file list as well as individual files.
 
 The first run under each version is the comparison baseline. Later runs can show an
 exact source diff against it. Repeated identical snapshots are stored once.

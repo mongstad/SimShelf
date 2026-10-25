@@ -79,7 +79,7 @@ function SourceBadge({ change }: { change: string }) {
   return change === "text-only" ? (
     <span className="source-note">Comments / formatting</span>
   ) : change === "changed" ? (
-    <span className="source-note changed">Code changed within version</span>
+    <span className="source-note changed">Captured source changed within version</span>
   ) : null;
 }
 function Copy({ text }: { text: string }) {
@@ -784,7 +784,7 @@ function RunDetails({
                         baseline: "First snapshot in version",
                         same: "Matches version baseline",
                         "text-only": "Comments / formatting only",
-                        changed: "Code changed within version",
+                        changed: "Captured source changed within version",
                       } as Record<string, string>
                     )[run.source_change]
                   }
@@ -809,7 +809,7 @@ function RunDetails({
               </dl>
               {run.source_change === "changed" && (
                 <div className="callout small">
-                  The code changed within this named version. Inspect the source
+                  Captured source files changed within this named version. Inspect the source
                   and note whether the change affects the model.
                 </div>
               )}

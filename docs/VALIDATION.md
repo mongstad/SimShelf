@@ -494,3 +494,10 @@ See [issue #144 run rename](validation/issue-144-run-rename.md) for active/final
 editing, append-only previous-name history, polling and failure handling, unchanged
 identity/archive bytes, backup/restart checks and keyboard/theme/narrow evidence.
 Historical reports and screenshots remain unchanged.
+
+## Generated outputs and source comparison
+
+See [issue #146 source/output boundaries](validation/issue-146-source-output-boundaries.md)
+for the reproduced lost-parent defect, declared-root exclusions, source-change
+classification, historical preservation, installed-package/browser evidence and
+the explicit configuration step for an undeclared standalone output parent.

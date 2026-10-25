@@ -84,6 +84,8 @@ class Run:
         self.progress_mode = progress_mode
         self.store = Store(workspace)
         self.simulation = self.store.simulation(simulation)
+        # Narrow capture overrides cannot erase the registered output parent.
+        self.source_output_dirs = [self.simulation['config']['output_dir']]
         if output_dir is not None:
             from .config import validate_config
             self.simulation["config"] = validate_config({**self.simulation["config"], "output_dir": str(output_dir)})
@@ -136,8 +138,23 @@ class Run:
         metadata = review(self.simulation, (self.launch or {}).get('parameter_review'))
         from .output_paths import validate_simulation_output_policy
         validate_simulation_output_policy(self.simulation, self.output_policy, metadata)
+        boundary_warnings = []
+        if metadata['provenance']:
+            # Only our existing local capture extension declares a boundary;
+            # portable parameter hints never establish output ownership.
+            from .config import extension_project
+            from .swss import parse
+            document = {'raw': parse(metadata['provenance']['bytes_utf8'].encode('utf-8'))}
+            try:
+                project = extension_project(document)
+            except ValueError as exc:
+                boundary_warnings.append(f'Local SWSS capture settings unavailable for source exclusion: {exc}. Configured capture paths still apply.')
+            else:
+                local = document['raw'].get('extensions', {}).get('simshelf', {})
+                if document['raw']['swss']['entrypoint'] == self.simulation.get('entrypoint') and 'output_dir' in local.get('capture', {}):
+                    self.source_output_dirs.append(project['config']['output_dir'])
         # Keep source exclusion and archive consent bound to the configured base.
-        source_simulation = self.simulation
+        source_simulation = {**self.simulation, 'source_output_dirs': self.source_output_dirs}
         self.base_capture_config = self.simulation["config"]
         snapshot = source_snapshot(self.store.path, source_simulation)
         declaration = next((f for f in snapshot['files'] if f['path'] == 'swss.toml'), None)
@@ -186,6 +203,7 @@ class Run:
             'warnings': metadata['warnings'], 'argv': self.command[2:] if self.launch else self.command,
         }
         data["progress_mode"] = self.progress_mode
+        data['source_warnings'] = [*snapshot['warnings'], *boundary_warnings]
         if getattr(self, "archive_plan", None):
             data["archive_capture_rules"] = self.archive_plan["future"]
         if self.launch:
