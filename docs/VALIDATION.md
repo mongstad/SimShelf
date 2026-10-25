@@ -515,3 +515,10 @@ See [issue #150 source baselines](validation/issue-150-source-baselines.md) for 
 end-to-end schema-2 version trace, whole-snapshot path evidence, historical
 selection limits, source/installed/browser regressions and exact owner checks.
 Earlier reports and screenshots remain unchanged.
+
+## Primary Python within-version warning
+
+See [issue #152 entrypoint warning](validation/issue-152-entrypoint-warning.md)
+for the narrowed primary-byte/declaration predicate, historical projections,
+unchanged whole-snapshot evidence, source/installed/browser checks and owner steps.
+Earlier reports and screenshots remain unchanged.

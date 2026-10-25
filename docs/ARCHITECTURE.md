@@ -254,6 +254,22 @@ guarantees. Progress reporting is visible as changed code, but never forces a
 new simulation version. Users can add a version explanation without altering
 captured execution metadata.
 
+The named **Captured source changed within version** warning and version-history
+count are a separate read-only projection. Verified retained primary Python bytes
+must differ from the recorded baseline, with unchanged captured SWSS version and
+unchanged literal Python declarations (`VERSION`, `__version__`, `SIMSHELF_VERSION`
+where present). Comment edits count. Helper/configuration/output/permission changes
+do not trigger it. This does not change SWSS version authority or binding checks.
+New start JSON freezes `source_entrypoint`; historical SWSS records use their
+captured root companion and recorded association, never today's registration.
+Unrecoverable identity, dynamic/unparseable declarations, stale bindings, missing
+or corrupt evidence and files above the existing 1 MB preview limit yield an
+unavailable comparison with no named warning. A deleted SWSS baseline can still
+use its retained companion and primary bytes; an old legacy baseline without
+recorded primary identity remains unknown. Request-local bounded caches avoid
+rechecking shared evidence, without persisting derived classifications. Stored
+whole-snapshot classifications, baselines, snapshots and archive bytes are unchanged.
+
 The read-only `source-comparison` endpoint uses the run's recorded baseline ID,
 including a retained snapshot when that baseline run was removed. It verifies
 manifest identities, lists added/removed/changed paths and permission changes,

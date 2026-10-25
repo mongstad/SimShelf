@@ -1,3 +1,4 @@
+import { SourceBadge } from "./EntrypointWarning";
 import { OverviewActions } from "./OverviewActions";
 import { RunTitle } from "./RunTitle";
 import { SourceComparison, RecordedVersionEvidence } from "./SourceComparison";
@@ -75,13 +76,6 @@ function Status({ status }: { status: string }) {
       {status[0].toUpperCase() + status.slice(1)}
     </span>
   );
-}
-function SourceBadge({ change }: { change: string }) {
-  return change === "text-only" ? (
-    <span className="source-note">Comments / formatting</span>
-  ) : change === "changed" ? (
-    <span className="source-note changed">Captured source changed within version</span>
-  ) : null;
 }
 function Copy({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -418,7 +412,7 @@ function Versions({
               <small>Latest run {date(v.latest)}</small>
               {v.changed > 0 && (
                 <p className="text-amber">
-                  {v.changed} {v.changed === 1 ? "run has" : "runs have"} captured source changes within this version.
+                  {v.changed} {v.changed === 1 ? "run has" : "runs have"} primary Python source changes within this version.
                 </p>
               )}
             </div>
@@ -794,11 +788,14 @@ function RunDetails({
                         baseline: "First snapshot in version",
                         same: "Matches version baseline",
                         "text-only": "Comments / formatting only",
-                        changed: "Captured source changed within version",
+                        changed: "Whole snapshot differs from version baseline",
                       } as Record<string, string>
                     )[run.source_change]
                   }
                   {" "}<button className="text-button" onClick={openSourceChanges}>View source comparison</button>
+                  {run.entrypoint_warning?.status === "unavailable" && <small>
+                    Primary Python comparison unavailable: {run.entrypoint_warning.detail}
+                  </small>}
                 </dd>
                 <dt>Source Git commit</dt>
                 <dd>
@@ -818,9 +815,9 @@ function RunDetails({
                 <dt>Exit code</dt>
                 <dd>{run.exit_code ?? "—"}</dd>
               </dl>
-              {run.source_change === "changed" && (
+              {run.entrypoint_warning?.warn && (
                 <div className="callout small">
-                  Captured source differs from this version’s baseline. {" "}
+                  Captured source changed within version. Primary Python bytes differ; recorded version declarations are unchanged. {" "}
                   <button className="text-button" onClick={openSourceChanges}>Inspect changed paths</button>
                 </div>
               )}
@@ -1928,7 +1925,7 @@ function App() {
                                     <code className="version-code">
                                       {r.version}
                                     </code>
-                                    <SourceBadge change={r.source_change} />
+                                    <SourceBadge run={r} />
                                   </td>
                                   {columns.map((p) => (
                                     <td key={p} className="numeric">

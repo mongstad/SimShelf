@@ -3,6 +3,8 @@ import "./style.css";
 const query = new URLSearchParams(location.search);
 localStorage.setItem("simshelf-theme", query.get("theme") || "system");
 let mode = query.get("state") || "healthy";
+const entrypointCase = query.get("entrypoint");
+const entrypointWarns = ["changed", "comment"].includes(entrypointCase);
 location.hash = "#run/fixture-run";
 const requests = [];
 const simulation = {
@@ -56,7 +58,10 @@ function run() {
     notes: "",
     tags: [],
     version_note: "",
-    source_change: "same",
+    source_change: entrypointCase === "comment" ? "text-only" : entrypointCase ? "changed" : "same",
+    entrypoint_warning: entrypointCase ? {warn:entrypointWarns,
+      status:entrypointCase === "unavailable" ? "unavailable" : entrypointWarns ? "changed" : "same",
+      detail:entrypointCase === "unavailable" ? "Fixture retained source is missing" : undefined} : undefined,
     snapshot_id: "0123456789abcdef",
     structure_id: "source-structure",
     baseline_run_id: "fixture-run",
@@ -214,6 +219,10 @@ window.fetch = async (url, options = {}) => {
     };
   else if (path === "/api/simulations") value = [simulation];
   else if (path === "/api/runs") value = [run()];
+  else if (path === "/api/simulations/sim/versions")
+    value = [{version:"0.1.3",run_count:1,snapshots:2,structures:2,latest:run().started_at,changed:entrypointWarns?1:0}];
+  else if (path === "/api/simulations/sim/preservation")
+    value = {config:simulation.config,status:{connection:"connected",participating:false,global_enabled:false}};
   else if (path === "/api/runs/fixture-run") value = run();
   else if (path === "/api/runs/fixture-run/archive") {
     if (mode === "unavailable")

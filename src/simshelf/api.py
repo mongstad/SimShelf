@@ -560,7 +560,9 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
                 run["image_count"] = len(images)
                 run["archive_commits"] = conn.execute("SELECT count(*) FROM metadata WHERE key LIKE ? OR key LIKE ?", tuple(prefix + "event:" + run["id"] + ":%" for prefix in archive.NAMESPACES)).fetchone()[0]
                 run["cover_id"] = run.get("cover_id") if any(a["id"] == run.get("cover_id") for a in images) else (images[0]["id"] if images else None)
-        return result
+        from .entrypoint_warning import EntrypointWarnings
+        warnings = EntrypointWarnings(store)
+        return [warnings.project(run) for run in result]
 
     @app.post("/api/runs/remove")
     def remove_runs(body: RemovalInput):
@@ -575,7 +577,8 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
 
     @app.get("/api/runs/{ident}")
     def run_detail(ident: str):
-        return {**store.run(ident), **jobs.control(ident)}
+        from .entrypoint_warning import EntrypointWarnings
+        return {**EntrypointWarnings(store).project(store.run(ident)), **jobs.control(ident)}
 
     @app.patch("/api/runs/{ident}")
     def annotate(ident: str, body: RunUpdate):
@@ -604,7 +607,8 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
         # Match GET's detail shape: replacing the browser's confirmed run must
         # not temporarily erase recorder ownership after an annotation save.
         # Query jobs outside the workspace lock, as launch takes these in reverse.
-        return {**saved, **jobs.control(ident)}
+        from .entrypoint_warning import EntrypointWarnings
+        return {**EntrypointWarnings(store).project(saved), **jobs.control(ident)}
 
     @app.get("/api/runs/{ident}/logs")
     def logs(ident: str, stream: str = "stdout"):

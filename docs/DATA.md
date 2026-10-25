@@ -39,18 +39,28 @@ Examples:
 
 - Adding a Python comment or changing formatting keeps the same simulation
   version and structural fingerprint, while preserving a different exact snapshot.
+  An edit to the primary entrypoint also triggers the within-version warning when
+  its recorded version declarations are unchanged.
 - Adding a progress bar or print statement keeps the same simulation version,
-  but is shown as **Captured source changed within version**. Add a version note explaining
-  the change when useful.
+  and, if the edit is in the primary entrypoint, is shown as **Captured source
+  changed within version**. Add a version note explaining the change when useful.
 - Changing the numerical update without changing the tag also stays in that
   version, with the same visible change notice. Bump the tag when you decide it
   represents a new model revision.
 - Changing runtime arguments creates a new run. It does not by itself change
   the simulation version or source snapshot.
 
-The changed-source notice also covers legitimate included configuration/JSON and
-other non-Python source files; it does not assert that the entrypoint Python
-changed. Compare the whole captured file list as well as individual files.
+The named warning and version-history count compare the recorded primary Python
+file's bytes against its recorded version baseline. They require unchanged captured
+SWSS and Python version declarations (literal `VERSION`, `__version__` or
+`SIMSHELF_VERSION`, where present). A change to either declaration suppresses this
+within-version warning; it does not change which declaration supplies the run version.
+Configuration/JSON, helper files, generated outputs, permissions and argument changes
+do not trigger it. Full-snapshot differences remain available through **View source
+comparison**, with original historical evidence unchanged. Missing/corrupt/oversized
+evidence, unknown historical primary identity and dynamic Python declarations are
+shown as unavailable in run detail, rather than guessed. SWSS metadata and stale
+source-hash diagnostics remain separate.
 
 On a run, choose **View source comparison** or **Inspect changed paths** to list
 added, removed and changed paths against that run's recorded version baseline.
