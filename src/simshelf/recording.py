@@ -203,6 +203,7 @@ class Run:
             'provenance': metadata['provenance'], 'previous_provenance': metadata['previous_provenance'], 'decision': metadata['decision'],
             'warnings': metadata['warnings'], 'argv': self.command[2:] if self.launch else self.command,
         }
+        data['source_entrypoint'] = self.simulation.get('entrypoint')
         data['source_selection'] = selection
         data["progress_mode"] = self.progress_mode
         data['source_warnings'] = [*snapshot['warnings'], *boundary_warnings]

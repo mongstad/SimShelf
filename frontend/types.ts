@@ -89,6 +89,7 @@ export type Run = {
   status: string;
   version: string;
   source_change: string;
+  entrypoint_warning?: { warn: boolean; status: string; detail?: string; entrypoint?: string };
   snapshot_id: string;
   structure_id: string;
   started_at: string;

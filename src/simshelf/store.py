@@ -352,11 +352,13 @@ class Store:
         return path
 
     def versions(self, simulation: str) -> list[dict]:
+        from .entrypoint_warning import EntrypointWarnings
+        warnings = EntrypointWarnings(self)
         groups = {}
         for run in self.runs(simulation=simulation, limit=100000):
             group = groups.setdefault(run["version"], {"version": run["version"], "run_count": 0, "snapshots": set(), "structures": set(), "latest": run["started_at"], "changed": 0})
             group["run_count"] += 1
             group["snapshots"].add(run["snapshot_id"])
             group["structures"].add(run["structure_id"])
-            group["changed"] += run["source_change"] == "changed"
+            group["changed"] += warnings.check(run)["warn"]
         return [{**g, "snapshots": len(g["snapshots"]), "structures": len(g["structures"])} for g in groups.values()]
