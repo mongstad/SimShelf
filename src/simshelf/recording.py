@@ -156,7 +156,8 @@ class Run:
         # Keep source exclusion and archive consent bound to the configured base.
         source_simulation = {**self.simulation, 'source_output_dirs': self.source_output_dirs}
         self.base_capture_config = self.simulation["config"]
-        snapshot = source_snapshot(self.store.path, source_simulation)
+        selection = {}
+        snapshot = source_snapshot(self.store.path, source_simulation, selection=selection)
         declaration = next((f for f in snapshot['files'] if f['path'] == 'swss.toml'), None)
         provenance = metadata['provenance']
         if provenance:
@@ -202,6 +203,7 @@ class Run:
             'provenance': metadata['provenance'], 'previous_provenance': metadata['previous_provenance'], 'decision': metadata['decision'],
             'warnings': metadata['warnings'], 'argv': self.command[2:] if self.launch else self.command,
         }
+        data['source_selection'] = selection
         data["progress_mode"] = self.progress_mode
         data['source_warnings'] = [*snapshot['warnings'], *boundary_warnings]
         if getattr(self, "archive_plan", None):

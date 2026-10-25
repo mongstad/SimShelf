@@ -2426,3 +2426,14 @@ details label {
 .run-overview-warnings .text-button { flex-shrink: 0; }
 .run-file-details:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .run-file-details > .capture-summary { margin-top: 0; margin-bottom: 28px; }
+
+.source-comparison { margin: 24px 0; overflow-wrap: anywhere; }
+.source-comparison-focus:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.source-comparison > * + * { margin-top: 12px; }
+.source-comparison code { overflow-wrap: anywhere; }
+.source-change-list { padding-left: 20px; }
+.source-change-list > li { padding: 14px 0; border-top: 1px solid var(--line); }
+.source-change-list > li > * { display: block; margin-top: 8px; }
+.source-change-list button { text-align: left; overflow-wrap: anywhere; white-space: normal; }
+.recorded-version-evidence { margin-top: 8px; }
+.run-facts dd > small { display: block; margin-top: 6px; }

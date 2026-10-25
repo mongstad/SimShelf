@@ -254,6 +254,24 @@ guarantees. Progress reporting is visible as changed code, but never forces a
 new simulation version. Users can add a version explanation without altering
 captured execution metadata.
 
+The read-only `source-comparison` endpoint uses the run's recorded baseline ID,
+including a retained snapshot when that baseline run was removed. It verifies
+manifest identities, lists added/removed/changed paths and permission changes,
+and classifies changed Python from verified retained bytes with a 1 MB/file,
+8 MB/page AST budget. Non-Python comparisons use recorded byte identity. The
+paginated explanation never recomputes or replaces stored source classifications.
+The per-file preview can show baseline-only deletions; oversized, missing or
+corrupt evidence is explicit rather than presented as an empty baseline.
+
+New start records add source-selection context to existing run JSON: patterns,
+canonical root-relative output exclusions, ignored directories and any nested
+library boundary. Snapshot bytes/IDs, hashes, schema and historical rows remain
+unchanged. Historical frozen capture settings can identify paths consistent with
+corrected output exclusion, but incomplete selection evidence cannot prove cause
+or generated-file ownership. No current registration is used to reconstruct an
+old snapshot. Run pages link directly to this evidence; New run identifies the
+current SWSS version for future runs separately from versions recorded at start.
+
 ## Capture contract
 
 Every run freezes its capture configuration. Final collection considers new or

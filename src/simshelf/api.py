@@ -23,8 +23,7 @@ from . import __version__
 from .backup import create_backup
 from .capture import preview, save_file
 from .common import clean_name
-from .source import blob_path, read_snapshot
-from .removal import deleted_run
+from .source import blob_path
 from .screenshots import delete_screenshot
 from .workspace_lock import workspace_lock
 from .store import Store
@@ -622,32 +621,34 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
                 text = file.read(200000).decode(errors="replace")
             return {"text": text, "truncated": length > 200000}
 
+    @app.get("/api/runs/{ident}/source-comparison")
+    def source_comparison(ident: str, offset: int = 0, limit: int = 100):
+        from .source_comparison import compare_sources
+        return compare_sources(store, ident, offset, limit)
+
     @app.get("/api/runs/{ident}/source")
     def source(ident: str, path: str, compare: str | None = None):
         with workspace_lock(store.path):
-            run = store.run(ident)
-            entry = next((f for f in run["snapshot"]["files"] if f["path"] == path), None)
-            if not entry:
-                raise ValueError("Source file not found in this snapshot")
-            if entry["size"] > 1024 * 1024:
-                raise ValueError("Source preview is limited to 1 MB per file")
-            text = preservation.retained_source(store, ident, path).decode(errors="replace")
+            from .source_comparison import snapshot, comparison_target, source_bytes
+            run = store.run(ident, detail=False)
+            current = snapshot(store, run['snapshot_id'])
+            entry = next((f for f in current['files'] if f['path'] == path), None)
             if compare:
-                with store.connection() as conn:
-                    removed = deleted_run(conn, compare)
-                if removed and compare == run["baseline_run_id"]:
-                    other_snapshot = read_snapshot(store.path, removed["snapshot_id"])
-                else:
-                    other_snapshot = store.run(compare)["snapshot"]
+                _, other_snapshot = comparison_target(store, run, compare)
                 previous = next((f for f in other_snapshot["files"] if f["path"] == path), None)
-                old = ""
-                if previous and previous["size"] <= 1024 * 1024:
-                    raw = archive.safe_read(blob_path(store.path, previous["blob"]), 1024 * 1024)
-                    if len(raw) != previous['size'] or archive.hash_bytes(raw) != previous['blob']:
-                        raise ValueError('Comparison source failed integrity verification.')
-                    old = raw.decode(errors="replace")
-                return {"text": "".join(difflib.unified_diff(old.splitlines(True), text.splitlines(True), fromfile=f"{compare[:8]}/{path}", tofile=f"{ident[:8]}/{path}")) or "No changes in this file."}
-            return {"text": text}
+                if not entry and not previous:
+                    raise ValueError('Source file not found in either snapshot')
+                old = source_bytes(store, previous).decode(errors='replace') if previous else ''
+                text = source_bytes(store, entry).decode(errors='replace') if entry else ''
+                unchanged = ('File added with empty content.' if previous is None else
+                             'File removed; baseline content was empty.' if entry is None else
+                             'Recorded bytes differ; text rendering does not show the difference. Inspect the recorded hashes and downloads.' if previous['blob'] != entry['blob'] else
+                             f"No byte changes in this file. Permissions changed from {previous['mode']:04o} to {entry['mode']:04o}." if previous['mode'] != entry['mode'] else
+                             'No changes in this file.')
+                return {'text': ''.join(difflib.unified_diff(old.splitlines(True), text.splitlines(True), fromfile=f"{compare[:8]}/{path}", tofile=f"{ident[:8]}/{path}")) or unchanged}
+            if not entry:
+                raise ValueError('Source file not found in this snapshot')
+            return {'text': source_bytes(store, entry).decode(errors='replace')}
 
     @app.post("/api/runs/{ident}/attachments", status_code=201)
     async def upload(ident: str, file: UploadFile):
