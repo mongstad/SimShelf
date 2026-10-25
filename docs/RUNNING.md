@@ -298,6 +298,17 @@ Launcher-coordinated allocation is disabled because metadata and source hashes
 do not establish the optional SWSS coordinated-capture agreement. SimShelf does
 not allocate an extra child or rewrite the simulation's output arguments.
 
+Set **Capture output folder** to the shared parent of all generated run folders,
+not one completed run's child folder. Source capture excludes the registered
+output parent, saved/current capture paths and an associated supported local
+SWSS capture declaration before reading source bytes. For example, if a script
+writes `research_results/run_<id>/`, review and select `research_results`.
+SWSS schema 2 has no portable output-parent field: parameter defaults and folder
+names cannot identify an undeclared output tree automatically. Review existing
+settings explicitly; SimShelf does not migrate them. Previously captured source
+snapshots remain unchanged, so a new clean snapshot can still differ from an old
+baseline that included generated files.
+
 If an older saved configuration selects launcher allocation, **New run…** blocks
 validation/start and offers **Use fixed output parent**. Review the capture folder
 and the simulation's output arguments, choose fixed explicitly, then validate and

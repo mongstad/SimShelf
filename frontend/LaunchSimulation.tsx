@@ -328,6 +328,7 @@ export function LaunchSimulation({
           <small>
             Relative to source folder.
           </small>
+          {policyStatus && policyStatus.state !== "absent" && <small>Choose the shared parent of all generated run folders. Source capture excludes declared output paths; undeclared output folders cannot be identified automatically.</small>}
         </label>
         <label>
           Output folder policy
