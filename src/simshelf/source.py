@@ -66,7 +66,7 @@ def stable_bytes(path: Path, limit: int = 32 * 1024 * 1024) -> bytes:
     raise ValueError(f"File kept changing while being captured: {path.name}")
 
 
-def source_snapshot(workspace: Path, simulation: dict) -> dict:
+def source_snapshot(workspace: Path, simulation: dict, *, selection: dict | None = None) -> dict:
     root = Path(simulation["root"]).resolve()
     workspace = workspace.resolve()
     config = simulation["config"]
@@ -82,6 +82,16 @@ def source_snapshot(workspace: Path, simulation: dict) -> dict:
         if output == root:
             raise ValueError('Output folder resolves to the simulation root; choose a separate output subfolder')
         outputs.add(output)
+    if selection is not None:
+        # New start records retain the actual selection context. Never add it to
+        # a content-addressed snapshot or overwrite historical snapshot metadata.
+        selection.update({
+            'source_include': list(config['source_include']),
+            'source_exclude': list(config['source_exclude']),
+            'output_dirs': sorted(output.relative_to(root).as_posix() for output in outputs),
+            'ignored_dirs': sorted(IGNORED_DIRS),
+            'workspace_dir': workspace.relative_to(root).as_posix() if workspace.is_relative_to(root) else None,
+        })
     def excluded(path):
         canonical = path.resolve()
         return canonical.is_relative_to(workspace) or any(canonical.is_relative_to(output) for output in outputs)

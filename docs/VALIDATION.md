@@ -508,3 +508,10 @@ See [issue #148 output/capture UX](validation/issue-148-output-capture-ux.md) fo
 the single capture summary, advanced controls, preserved schema-2 and manual
 boundaries, focused source/installed regressions, browser evidence, validation
 setup incident and owner checks. Earlier reports and screenshots remain unchanged.
+
+## Recorded versions and source-baseline evidence
+
+See [issue #150 source baselines](validation/issue-150-source-baselines.md) for the
+end-to-end schema-2 version trace, whole-snapshot path evidence, historical
+selection limits, source/installed/browser regressions and exact owner checks.
+Earlier reports and screenshots remain unchanged.

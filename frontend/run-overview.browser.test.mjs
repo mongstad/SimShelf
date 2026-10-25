@@ -222,7 +222,11 @@ window.fetch = async (url, options = {}) => {
         { status: 503 },
       );
     value = archive();
-  } else if (path === "/api/runs/fixture-run/source")
+  } else if (path === "/api/runs/fixture-run/source-comparison")
+    value = {run_id:"fixture-run",version:"0.1.3",recorded_change:"same",snapshot_id:"0123456789abcdef",
+      baseline:{id:"fixture-run",version:"0.1.3",snapshot_id:"0123456789abcdef",deleted:false},
+      counts:{added:0,removed:0,changed:0,unchanged:1},total:0,offset:0,limit:100,changes:[],notes:[],selection_changes:[]};
+  else if (path === "/api/runs/fixture-run/source")
     value = { text: 'print("immutable fixture source")' };
   else if (path === "/api/runs/fixture-run/logs")
     value = { text: "Fixture stderr/stdout evidence", truncated: false };

@@ -1,5 +1,6 @@
 import { OverviewActions } from "./OverviewActions";
 import { RunTitle } from "./RunTitle";
+import { SourceComparison, RecordedVersionEvidence } from "./SourceComparison";
 import { RenameRun } from "./RenameRun";
 import { RunHistoryTitle } from "./RunHistoryTitle";
 import { runRequests } from "./runRequests";
@@ -396,8 +397,8 @@ function Versions({
       <div className="surface">
         <h2>Simulation versions</h2>
         <p className="muted">
-          A version changes when you change its tag. Source snapshots preserve
-          every recorded revision within it.
+          Versions below were recorded when each run started. Current metadata
+          edits apply to future runs; source snapshots preserve each recorded revision.
         </p>
         <ErrorMessage message={error} />
         {versions.map((v) => (
@@ -417,8 +418,7 @@ function Versions({
               <small>Latest run {date(v.latest)}</small>
               {v.changed > 0 && (
                 <p className="text-amber">
-                  {v.changed} {v.changed === 1 ? "run has" : "runs have"} code
-                  changes within this version.
+                  {v.changed} {v.changed === 1 ? "run has" : "runs have"} captured source changes within this version.
                 </p>
               )}
             </div>
@@ -493,12 +493,20 @@ function RunDetails({
   const deleteTrigger = useRef<HTMLButtonElement | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const filesPanel = useRef<HTMLElement>(null);
+  const sourcePanel = useRef<HTMLDivElement>(null);
+  const focusSource = useRef(false);
+  function openSourceChanges() { focusSource.current = true; setTab("source"); setDiff(true); }
   const focusFiles = useRef(false);
   function openFiles() { focusFiles.current = true; setTab("files"); }
   useEffect(() => {
     if (tab === "files" && focusFiles.current) {
       filesPanel.current?.focus();
       focusFiles.current = false;
+    }
+  }, [tab]);
+  useEffect(() => {
+    if (tab === "source" && focusSource.current) {
+      sourcePanel.current?.focus(); focusSource.current = false;
     }
   }, [tab]);
   const activeRunId = useRef(id);
@@ -545,13 +553,14 @@ function RunDetails({
   useEffect(() => {
     if (tab !== "source" || !sourcePath || !run) return;
     let live = true;
+    setSourceText("");
     api<{ text: string }>(
       `/runs/${id}/source?path=${encodeURIComponent(sourcePath)}${diff && run.baseline_run_id !== id ? `&compare=${run.baseline_run_id}` : ""}`,
     )
       .then((r) => {
         if (live) setSourceText(r.text);
       })
-      .catch((e) => setError(e.message));
+      .catch((e) => { if (live) setSourceText(`Source preview unavailable: ${e.message}`); });
     return () => {
       live = false;
     };
@@ -768,9 +777,10 @@ function RunDetails({
             <section className="surface run-facts">
               <h3>Run record</h3>
               <dl>
-                <dt>Simulation version</dt>
+                <dt>Run version (recorded at start)</dt>
                 <dd>
                   <code>{run.version}</code>
+                  <RecordedVersionEvidence run={run} />
                 </dd>
                 <dt>Source snapshot</dt>
                 <dd>
@@ -788,6 +798,7 @@ function RunDetails({
                       } as Record<string, string>
                     )[run.source_change]
                   }
+                  {" "}<button className="text-button" onClick={openSourceChanges}>View source comparison</button>
                 </dd>
                 <dt>Source Git commit</dt>
                 <dd>
@@ -809,8 +820,8 @@ function RunDetails({
               </dl>
               {run.source_change === "changed" && (
                 <div className="callout small">
-                  Captured source files changed within this named version. Inspect the source
-                  and note whether the change affects the model.
+                  Captured source differs from this version’s baseline. {" "}
+                  <button className="text-button" onClick={openSourceChanges}>Inspect changed paths</button>
                 </div>
               )}
               {run.version_note && (
@@ -1039,6 +1050,9 @@ function RunDetails({
             Saved at the start of the run. Changes you make afterward do not
             replace these files.
           </p>
+          <div ref={sourcePanel} tabIndex={-1} className="source-comparison-focus">
+            <SourceComparison runId={id} selectPath={path => { setSourcePath(path); setDiff(true); }} />
+          </div>
           <div className="toolbar">
             <select
               aria-label="Source file"
@@ -1048,12 +1062,13 @@ function RunDetails({
               {run.snapshot?.files.map((f) => (
                 <option key={f.path}>{f.path}</option>
               ))}
+              {sourcePath && !run.snapshot?.files.some(f => f.path === sourcePath) && <option value={sourcePath}>{sourcePath} (baseline only)</option>}
             </select>
             <label className="check-label">
               <input
                 type="checkbox"
                 checked={diff}
-                disabled={run.baseline_run_id === id}
+                disabled={run.baseline_run_id === id || !run.snapshot?.files.some(f => f.path === sourcePath)}
                 onChange={(e) => setDiff(e.target.checked)}
               />
               Compare with version baseline{run.baseline_deleted ? " (run removed; snapshot retained)" : ""}

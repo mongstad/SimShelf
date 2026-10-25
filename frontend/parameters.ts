@@ -18,7 +18,7 @@ export type Discovery = {
   warnings: string[];
   source: string;
   fingerprint: string | null;
-  provenance?: { binding_status: string; binding_reasons: string[] } | null;
+  provenance?: { binding_status: string; binding_reasons: string[]; simulation_version?: string } | null;
 };
 export type OutputPolicyStatus = {
   state: "valid" | "unavailable" | "absent";

@@ -15,7 +15,7 @@ const originalError = console.error;
 console.error = (...args) => { errors.push(args.join(" ")); originalError(...args); };
 function discovery() {
   return { parameters: [], warnings: [], source: "swss.toml", fingerprint: kind,
-    provenance: kind === "valid" ? {binding_status: binding, binding_reasons: []} : null,
+    provenance: kind === "valid" ? {binding_status: binding, binding_reasons: [], simulation_version: '0.3.1'} : null,
     output_policy: {state: kind, binding, launcher_allowed: kind === "absent",
       reason: kind === "valid" ? "Use Fixed output parent: the simulation creates its unique run directory and SimShelf watches the parent. Metadata does not establish a coordinated-root agreement."
         : kind === "absent" ? "No SWSS metadata. Launcher-coordinated allocation requires explicit script support."
@@ -82,6 +82,7 @@ async function tests() {
     assert(document.querySelector('.capture-coverage').innerText.includes("confirm this is the script’s output parent"), "saved path still needs actual-write review");
     assert(document.body.textContent.includes("SWSS schema 2 · metadata valid"), "metadata label");
     assert(document.body.textContent.includes("Source binding: listed bytes verified"), "binding label");
+    assert(document.body.innerText.includes("Current SWSS version for new runs: 0.3.1"), "future-run version explicit");
     await click("Save settings");
     const saved = requests.find(r => r.method === "PUT");
     assert(saved && JSON.stringify(saved.data.arguments) === JSON.stringify(argv), "exact argv save");
@@ -113,6 +114,7 @@ async function tests() {
     kind = "unavailable"; binding = "stale / manual-only"; await click("Rescan parameters");
     assert(!document.body.textContent.includes("SWSS schema 2 · metadata valid"), "stale cannot appear valid");
     assert(!coordinated() && document.body.textContent.includes("stale / manual-only"), "uncertainty discoverable");
+    assert(document.body.innerText.includes("New manual runs record unversioned; existing runs stay unchanged"), "manual attribution explicit");
     assert(!button("Save settings").disabled, "explicit manual fixed remains usable");
   });
   await check("failed refresh blocks stale policy knowledge until successful rescan", async () => {

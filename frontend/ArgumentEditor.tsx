@@ -183,6 +183,16 @@ export function ArgumentEditor({
       }} />Use manual argv (skip metadata validation)</label>
       {discovery && !discovery.provenance && <p role="status" className="text-amber">{discovery.warnings[0]}</p>}
       {discovery?.provenance && <p role="status">{discovery.provenance.binding_status}</p>}
+      {discovery?.provenance?.simulation_version && <p role="status" className={discovery.provenance.binding_reasons.length ? "text-amber" : "muted"}>
+        {discovery.provenance.binding_reasons.length
+          ? "SWSS declaration needs review. New manual runs record unversioned."
+          : <>Current SWSS version for new runs: <code>{discovery.provenance.simulation_version}</code>.</>}
+      </p>}
+      {!!discovery?.provenance?.binding_reasons.length && <div role="alert" className="text-amber">
+        {discovery.provenance.binding_reasons.map(reason => <p key={reason}>{reason}</p>)}
+        <p>Review the associated source and hashes in root swss.toml, then rescan. Existing run versions stay unchanged.</p>
+      </div>}
+      {discovery && !discovery.provenance && discovery.output_policy?.state === "unavailable" && <p className="text-amber">Correct the root SWSS declaration and rescan. New manual runs record unversioned; existing runs stay unchanged.</p>}
       {changed && !manual && <button type="button" onClick={() => setChanged(false)}>I reviewed the changed declarations</button>}
       {scanError && (
         <p role="alert" className="error-banner">

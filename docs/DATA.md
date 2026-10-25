@@ -52,6 +52,21 @@ The changed-source notice also covers legitimate included configuration/JSON and
 other non-Python source files; it does not assert that the entrypoint Python
 changed. Compare the whole captured file list as well as individual files.
 
+On a run, choose **View source comparison** or **Inspect changed paths** to list
+added, removed and changed paths against that run's recorded version baseline.
+The list distinguishes Python text/structure, non-Python bytes and permissions;
+select a path to view its diff, including files present only in the baseline.
+**Recorded file evidence** exposes both hashes, sizes and modes.
+
+**Source selection changed** shows recorded selection differences where available.
+An old baseline containing output children can remain different after those trees
+are correctly excluded. The explanation identifies known boundaries and discloses
+incomplete historical evidence; it does not erase or rebaseline that history.
+The run version is fixed at start. New run separately shows the current associated
+SWSS version for future launches; stale bindings name the affected path and require
+review/rescan for typed use. Explicit manual runs with invalid/stale metadata
+remain unversioned. No source or metadata file is automatically repaired.
+
 The first run under each version is the comparison baseline. Later runs can show an
 exact source diff against it. Repeated identical snapshots are stored once.
 Strings and docstrings are preserved by the structural comparison. Non-Python
