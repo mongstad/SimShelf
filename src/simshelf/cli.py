@@ -34,7 +34,7 @@ def parser() -> argparse.ArgumentParser:
     record.add_argument("--cwd", type=Path, help="Working directory; defaults to your current directory")
     record.add_argument("--output-policy", choices=("fixed", "per_run"), default="fixed", help="Opt in to a unique capture subfolder; the script must honor SIMSHELF_OUTPUT_DIR")
     record.add_argument("--output-dir", help="Run-specific capture folder relative to the simulation folder")
-    record.add_argument("--progress", choices=["off", "step", "percent"], default="off", help="Opt-in whole-line progress parser; requires explicit library enablement")
+    record.add_argument("--progress", choices=["off", "auto", "step", "percent"], default="off", help="Opt-in whole-line progress parser (auto detects labeled formats); requires explicit library enablement")
     record.add_argument("command", nargs=argparse.REMAINDER)
     ui = commands.add_parser("ui", help="Open the local browser interface")
     ui.add_argument("--port", type=int, default=8740)

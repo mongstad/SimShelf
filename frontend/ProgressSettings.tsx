@@ -4,9 +4,11 @@ import { api } from "./api";
 export function ProgressSettings({
   value,
   change,
+  available,
 }: {
   value: string;
   change: (value: string) => void;
+  available?: (value: boolean) => void;
 }) {
   const [schema, setSchema] = useState<number | null>(null);
   const [review, setReview] = useState(false);
@@ -22,6 +24,9 @@ export function ProgressSettings({
   useEffect(() => {
     if (review) cancel.current?.focus();
   }, [review]);
+  useEffect(() => {
+    if (schema !== null) available?.(schema === 4);
+  }, [schema, available]);
   return (
     <details className="progress-settings">
       <summary>Progress reporting (optional)</summary>
@@ -102,15 +107,23 @@ export function ProgressSettings({
           disabled={schema !== 4}
           onChange={(e) => change(e.target.value)}
         >
+          <option value="auto">Auto-detect</option>
           <option value="off">Off</option>
           <option value="step">Step counts: step 10/100</option>
           <option value="percent">Percentage: 25%</option>
         </select>
       </label>
+      {schema !== 4 && <small>Terminal progress stays off until reporting is explicitly enabled for this library.</small>}
       {value !== "off" && (
         <div className="muted" aria-label="Supported console progress examples">
           <p>Recognized whole-line examples:</p>
-          {value === "step" ? (
+          {value === "auto" ? (
+            <ul>
+              <li><code>Step 500 of 1000</code></li>
+              <li><code>Progress: 25%</code></li>
+              <li><code>50% complete</code></li>
+            </ul>
+          ) : value === "step" ? (
             <ul>
               <li><code>step 1,000/50,000 (2.0%)</code></li>
               <li><code>250 / 1000 steps</code></li>
@@ -129,6 +142,7 @@ export function ProgressSettings({
             such as “Energy loss: 50%” are ignored. Reports never stop a run,
             even at 100%.
           </small>
+          {value === "auto" && <p><small>Auto-detect keeps the first valid format and stream for this run. Bare percentages require Percentage mode.</small></p>}
         </div>
       )}
       {error && (

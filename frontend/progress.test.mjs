@@ -60,6 +60,32 @@ test('console examples follow the explicitly selected adapter', () => {
   assert.match(settings('percent'), /Progress: 25%/);
   assert.match(settings('percent'), /50% complete/);
   assert.match(settings('step'), /Reports never stop a run/);
+  assert.match(settings('auto'), /Auto-detect/);
+  assert.match(settings('auto'), /Step 500 of 1000/);
+  assert.match(settings('auto'), /Progress: 25%/);
+  assert.match(settings('auto'), /first valid format and stream/);
+  assert.match(settings('auto'), /Bare percentages require Percentage mode/);
+});
+
+test('auto uses detected format only for text reports and preserves raw telemetry', () => {
+  for (const source of ['text:stdout', 'text:stderr']) {
+    for (const status of ['running', 'completed', 'failed', 'interrupted']) {
+      for (const text_mode of ['step', 'percent', undefined]) {
+        const run = {status, progress_mode:'auto', progress:{...report,source,text_mode,current:.002,total:100}};
+        const before = structuredClone(run);
+        const html = render(run);
+        if (text_mode === 'percent') {
+          assert.doesNotMatch(html, / steps| units/);
+          assert.match(html, status === 'completed' ? /100%/ : /0.002%/);
+        } else {
+          assert.match(html, / units/);
+        }
+        assert.deepEqual(run, before);
+      }
+    }
+    assert.match(render({status:'running',progress_mode:'auto',progress:{...report,source,text_mode:'step',current:8,total:100}}), /8.* \/ .*100.* steps/);
+  }
+  assert.match(render({status:'running',progress_mode:'auto',progress:{...report,text_mode:'percent',current:2,total:100}}), /2.* \/ .*100.* steps/);
 });
 
 

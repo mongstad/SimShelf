@@ -107,7 +107,10 @@ export function LaunchSimulation({
       clearTimeout(timer);
     };
   }, [outputRequest, simulation.id]);
-  const [progressMode, setProgressMode] = useState(initial?.progress_mode || "off");
+  // Missing modes in existing settings retain legacy Off; only fresh settings
+  // default to Auto. No text parsing before explicit schema-4 enablement.
+  const [progressMode, setProgressMode] = useState(initial?.progress_mode ?? (initial ? "off" : "auto"));
+  const [progressAvailable, setProgressAvailable] = useState<boolean | null>(null);
   const [name, setName] = useState("");
   const [plan, setPlan] = useState<Plan | null>(null);
   const [error, setError] = useState("");
@@ -115,7 +118,7 @@ export function LaunchSimulation({
   const [notice, setNotice] = useState("");
   const settings = {
     parameter_review: parameterReview,
-    progress_mode: progressMode,
+    progress_mode: !initial && progressAvailable === false ? "off" : progressMode,
     interpreter,
     cwd,
     arguments: args,
@@ -128,6 +131,7 @@ export function LaunchSimulation({
     setAcknowledge(false);
     setNotice("");
   }
+  useEffect(() => { edited(); }, [progressAvailable]);
   async function validate(save: boolean) {
     setValidationAttempt(n => n + 1);
     if (policyBlocked || pastePending || !!parameterError || argsError) return;
@@ -376,7 +380,7 @@ export function LaunchSimulation({
           }}
         />}
         </section>
-        <ProgressSettings value={progressMode} change={value => {setProgressMode(value);edited();}} />
+        <ProgressSettings value={progressMode} available={setProgressAvailable} change={value => {setProgressMode(value);edited();}} />
         {argsError && (
           <p className="error-banner" role="alert">
             {argsError}

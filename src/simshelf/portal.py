@@ -58,7 +58,7 @@ def execution_settings(simulation: dict, data: dict, *, probe=False) -> dict:
     from .progress import TEXT_MODES
     progress_mode = data.get("progress_mode", "off")
     if not isinstance(progress_mode, str) or progress_mode not in TEXT_MODES:
-        raise ValueError("Choose off, step or percent progress parsing")
+        raise ValueError("Choose off, auto, step or percent progress parsing")
     settings["progress_mode"] = progress_mode
     mappings = data.get("output_mappings", [])
     policy = data.get("output_policy", "fixed")

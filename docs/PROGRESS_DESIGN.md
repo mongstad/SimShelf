@@ -52,8 +52,14 @@ must therefore reject the opted-in library rather than appear fully compatible.
 
 ## Plain-script interoperability
 
-Offer explicit disabled/step-count/percentage text adapter selection in saved
-launch settings and CLI recording. Recognize bounded, anchored supported formats,
+Offer auto/disabled/step-count/percentage text adapter selection in saved
+launch settings and CLI recording. Fresh portal settings prefer auto after
+explicit library enablement; saved settings and CLI defaults retain their
+previous behavior. Auto selects the first valid format and stream, ignores
+competing formats/streams, and excludes bare percentages. Its detected format
+is additive latest-report JSON metadata, with no storage migration. See
+[the detailed detection rules](PROGRESS.md#interpret-an-existing-scripts-text).
+Recognize bounded, anchored supported formats,
 including carriage-return-delimited updates; never infer progress from arbitrary
 numbers, parameters, or an untrusted regex. Keep raw log bytes unchanged. Retain
 the distinction between interpreted text and structured API reporting internally.

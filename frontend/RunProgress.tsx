@@ -22,9 +22,10 @@ export function RunProgress({ run }: { run: Run }) {
   // Use the run's frozen adapter only for text reports: structured input wins
   // over text parsing and has no declared unit. Never infer percent from total=100.
   const textSource = report?.source === "text:stdout" || report?.source === "text:stderr";
-  const percentage = textSource && run.progress_mode === "percent";
+  const textMode = run.progress_mode === "auto" ? report?.text_mode : run.progress_mode;
+  const percentage = textSource && textMode === "percent";
   const discrete = !percentage &&
-    (report?.source === "structured" || (textSource && run.progress_mode === "step")) &&
+    (report?.source === "structured" || (textSource && textMode === "step")) &&
     Number.isInteger(report?.total) &&
     (report?.current == null || Number.isInteger(report.current));
   const unit = discrete ? "steps" : "units";

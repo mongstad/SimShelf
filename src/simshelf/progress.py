@@ -16,7 +16,7 @@ from .common import atomic_write, json_text, now
 from .workspace_lock import locked_store
 from .removal import ID, deleted_run
 
-TEXT_MODES = {"off", "step", "percent"}
+TEXT_MODES = {"off", "auto", "step", "percent"}
 MAX_LINE = 256
 NUMBER = rb"(?:[0-9]{1,3}(?:,[0-9]{3}){1,5}|[0-9]{1,16})(?:\.[0-9]{1,12})?"
 PCT_NUMBER = rb"[0-9]{1,3}(?:\.[0-9]{1,12})?"
@@ -53,7 +53,7 @@ def progress_report(current=None, total=None, *, stage=None):
 
 
 class TextProgressParser:
-    """Consume one stream, recognizing only an explicitly selected whole-line format.
+    """Consume one stream, recognizing supported whole-line formats.
 
     CR, LF and CRLF terminate reports. Overlong lines are discarded until the next
     delimiter, so a suffix of an arbitrary log line can never become a report.
@@ -61,7 +61,7 @@ class TextProgressParser:
     """
     def __init__(self, mode):
         if mode not in TEXT_MODES:
-            raise ValueError("Choose off, step or percent progress parsing")
+            raise ValueError("Choose off, auto, step or percent progress parsing")
         self.mode = mode
         self.pending = bytearray()
         self.overflow = False
@@ -70,11 +70,20 @@ class TextProgressParser:
         result = None
         if not self.overflow:
             line = bytes(self.pending).strip(b" \t")
+            mode = self.mode
             match = (next((m for pattern in STEP_PATTERNS if (m := pattern.fullmatch(line))), None)
-                     if self.mode == "step" else PERCENT.fullmatch(line))
+                     if mode in {"step", "auto"} else None)
+            if mode == "auto":
+                mode = "step" if match else "percent"
+            if mode == "percent":
+                match = PERCENT.fullmatch(line)
+                # Bare percentages can be scientific values. Auto accepts only
+                # the existing labeled Progress: or % complete forms.
+                if self.mode == "auto" and match and match['label'] is None and not line.lower().endswith(b'complete'):
+                    match = None
             if match:
                 try:
-                    if self.mode == "step":
+                    if mode == "step":
                         current = Decimal(match['current'].replace(b',', b'').decode('ascii'))
                         total = Decimal(match['total'].replace(b',', b'').decode('ascii'))
                         result = progress_report(float(current), float(total))
@@ -89,6 +98,8 @@ class TextProgressParser:
                         result = progress_report(float(match['label'] or match['bare']), 100)
                 except ValueError:
                     result = None
+            if result is not None and self.mode == "auto":
+                result['text_mode'] = mode
         self.pending.clear()
         self.overflow = False
         return result
@@ -110,6 +121,24 @@ class TextProgressParser:
 
     def finish(self):
         return self._line() if self.mode != "off" else None
+
+
+class AutoProgressSelection:
+    """First valid report owns the format and stream for one recorder lifetime.
+
+    Selection precedes coalescing and is shared by both stream reader threads.
+    Cross-stream ordering is observational, not the child's emission order.
+    """
+    def __init__(self):
+        self.owner = None
+        self.lock = threading.Lock()
+
+    def select(self, report, source):
+        with self.lock:
+            candidate = (source, report['text_mode'])
+            if self.owner is None:
+                self.owner = candidate
+            return report if candidate == self.owner else None
 
 # Progress is a replaceable latest-state checkpoint, never a scientific event.
 
@@ -145,6 +174,10 @@ def validate_saved_report(report):
     if not isinstance(report, dict):
         raise ValueError("Invalid progress report")
     progress_report(report.get('current'), report.get('total'), stage=report.get('stage'))
+    if 'text_mode' in report and (report['text_mode'] not in ('step', 'percent')
+            or report.get('source') not in ('text:stdout', 'text:stderr')
+            or (report['text_mode'] == 'percent' and report.get('total') != 100)):
+        raise ValueError("Invalid detected progress format")
     if (report.get('source') not in {'structured', 'text:stdout', 'text:stderr'}
             or not isinstance(report.get('reported_at'), str) or len(report['reported_at']) > 64
             or type(report.get('written_at')) not in (int, float)

@@ -331,13 +331,20 @@ It is not a scientific metric or annotation event. Managed-data locking serializ
 checkpoint publication, sequence allocation, replay, finish, backup and removal.
 One-second coalescing plus final flush bounds durable work; one row/checkpoint per
 run bounds retained telemetry. Older finalized run rows remain unchanged.
-Structured API input takes precedence over explicit whole-line text adapters;
+Structured API input takes precedence over whole-line text adapters;
 stdout/stderr bytes and process ownership remain unchanged. Lifecycle status is
 independent of reported fraction. The UI uses report source plus the run's frozen
-`progress_mode` to distinguish text percentages from counts; structured reports
+`progress_mode` to distinguish text percentages from counts. Auto mode retains
+an additive `text_mode` in the latest report/checkpoint, selecting the first valid
+format and stream under a shared recorder-thread lock before coalescing. Other
+formats/streams are ignored for that run; backward values and changing totals in
+the selected format remain valid latest-state telemetry. Bare percentages need
+explicit Percentage mode. Fresh portal settings default to auto only for enabled
+libraries; saved/legacy settings and CLI/Python defaults retain their behavior.
+No schema change or automatic enablement is involved. Structured reports
 remain independent of the adapter. Fractional counters and legacy text reports
-without a known adapter use neutral units. Completion is a display projection,
-and no report, parser, cache or storage semantics change. The [design](PROGRESS_DESIGN.md) specifies the
+without a known adapter use neutral units. Completion remains a display projection
+without rewriting stored telemetry. The [design](PROGRESS_DESIGN.md) specifies the
 separately authorized migration and recovery boundaries.
 
 ## Optional local Git provenance

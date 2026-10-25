@@ -14,13 +14,15 @@ successful execution or stop a process.
 Progress is optional telemetry, separate from measurements, parameters and source
 identity. It does not add pause/resume or change cancellation semantics.
 
-Percentage-adapter reports show the reported percentage alone, including small
+Percentage reports (explicit or auto-detected) show the reported percentage alone, including small
 fractions such as **0.2%** or **0.002%**, without a fictional `/ 100 steps` counter.
 Count reports with integer values show grouped counters such as **8 / 8,000 steps**.
 Fractional structured or count-adapter values use neutral **units**, preserving
 the numeric precision supplied to the UI. Structured reports take precedence
 over the run's text-adapter selection; a total of 100 alone never implies percent.
-Historical text reports without a recognized frozen adapter use neutral units.
+Auto reports retain their detected format in the latest telemetry; the frozen
+run mode remains `auto`. Historical text reports without a recognized frozen
+adapter or detected format use neutral units.
 Unknown totals remain **Progress unavailable**, with any stage retained and no
 invented percentage/count. Completed percentage reports show process completion
 at 100% without counts; completed fractional counts use units, with the same
@@ -90,20 +92,27 @@ reporting on every particle/cell, and measure overhead in your workload.
 
 ## Interpret an existing script's text
 
-In **New run… → Progress reporting**, choose one supported format, or
-leave **Interpret terminal progress** set to **Off**. This setting is saved for
-future launches and frozen in each new run's `progress_mode`. CLI equivalent:
+In **New run… → Progress reporting**, **Auto-detect** is the default for a
+simulation with no saved execution settings, once the library is explicitly
+enabled. Without enablement, terminal interpretation stays off and ordinary
+launches remain available; selecting or displaying Auto-detect never upgrades
+the library. Existing saved choices remain unchanged, including **Off** and
+legacy settings with no mode (Off). Choose **Off**, **Step counts**, or
+**Percentage** to override detection. The choice is saved for future launches
+and frozen in each new run's `progress_mode`. CLI parsing remains opt-in:
 
 ```sh
+simshelf --workspace /path/to/library record -s my-simulation --progress auto -- python model.py
 simshelf --workspace /path/to/library record -s my-simulation --progress step -- python model.py
 simshelf --workspace /path/to/library record -s my-simulation --progress percent -- python model.py
 ```
 
 Supported formats match a whole line, case-insensitively, with spaces/tabs allowed
-around separators and at the edges. Choose the corresponding adapter explicitly:
+around separators and at the edges:
 
 | Adapter | Accepted examples |
 | --- | --- |
+| Auto-detect | All Step counts forms below, `Progress: 25%`, `50% complete` |
 | Step counts | `step 1000/50000`, `step 1,000/50,000 (2.0%)`, `250 / 1000 steps`, `Step 500 of 1000` |
 | Percentage | `25%`, `25.5%`, `Progress: 25%`, `50% complete` |
 
@@ -122,6 +131,19 @@ Bare `25%` remains supported only in explicitly selected percentage mode; choose
 that mode only when such standalone lines mean execution progress in your script.
 The settings show examples for the selected adapter, not a separate parser or
 an unrestricted regex preview.
+
+Auto-detect selects the first valid report observed by the recorder and keeps
+that format (counts or percentage) and stream (stdout or stderr) for the rest of
+the run. Reports from the other stream and changes of format are ignored, even
+if they appear later in the same chunk or at stream end. Simultaneous streams
+have no guaranteed observation order; either can win. Use an explicit adapter
+when a script deliberately changes formats or moves reporting between streams.
+Explicit modes continue to accept their format on both streams. Invalid lines
+do not select or reset detection. Valid backward values and changed positive
+totals in the selected format/stream replace the latest state, as for explicit
+modes; detection never invents monotonic progress or a new run/phase. A new run
+starts detection afresh. Structured reports, including stage-only reports, keep
+priority over all text for the rest of that run.
 
 Reports are observational: even 100% never stops, cancels or finalizes a run.
 The process can continue producing results and can still fail with its real exit
