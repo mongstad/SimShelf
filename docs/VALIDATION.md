@@ -501,3 +501,10 @@ See [issue #146 source/output boundaries](validation/issue-146-source-output-bou
 for the reproduced lost-parent defect, declared-root exclusions, source-change
 classification, historical preservation, installed-package/browser evidence and
 the explicit configuration step for an undeclared standalone output parent.
+
+## New run output and capture simplification
+
+See [issue #148 output/capture UX](validation/issue-148-output-capture-ux.md) for
+the single capture summary, advanced controls, preserved schema-2 and manual
+boundaries, focused source/installed regressions, browser evidence, validation
+setup incident and owner checks. Earlier reports and screenshots remain unchanged.

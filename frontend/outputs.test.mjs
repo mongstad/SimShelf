@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CaptureSummary } from "./CaptureSummary.tsx";
-import { OutputPaths } from "./OutputPaths.tsx";
+import { CapturePath, OutputPaths } from "./OutputPaths.tsx";
 const render = (Component, props) =>
   renderToStaticMarkup(React.createElement(Component, props));
 test("complete inspection with zero files never implies preservation", () => {
@@ -92,11 +92,11 @@ test("candidate hints retain exact indices and do not inspect post-separator opt
 });
 
 test("per-run preview and history distinguish allocation from actual capture", () => {
-  const preview = render(OutputPaths, {
-    args: [], mappings: [], change: () => {}, apply: () => {}, error: "",
+  const preview = render(CapturePath, {
+    error: "",
     review: { output_path: "/source/results", output_policy: "per_run", targets: [], requires_acknowledgement: false },
   });
-  assert.match(preview, /Resolved capture parent/);
+  assert.match(preview, /Capture parent/);
   assert.match(preview, /allocated at/);
   assert.match(preview, /arguments are unchanged/);
   const history = render(CaptureSummary, { run: {
@@ -119,9 +119,7 @@ test("new fixed rows are explicit drafts; completing or removing restores eligib
   const html = render(OutputPaths, {
     args: [], mappings: [draft], change: () => {}, apply: () => {}, error: "",
     review: null,
-    captureReview: { output_path: "/source/outputs", targets: [], requires_acknowledgement: false },
   });
-  assert.match(html, /\/source\/outputs/);
   assert.match(html, /Output 1 is incomplete/);
   assert.match(html, /remove this mapping to continue/);
   assert.match(html, /placeholder="Example: outputs\/data.csv"/);
@@ -129,16 +127,15 @@ test("new fixed rows are explicit drafts; completing or removing restores eligib
   assert.doesNotMatch(html, /Path review unavailable|role="alert"/);
 });
 
-test("mapping errors do not mislabel the independently reviewed capture folder", () => {
-  const props = {args: [], mappings: [], change:()=>{}, apply:()=>{}, review:null,
-    captureReview: { output_path: "/source/new-output", output_policy:"per_run", targets:[], requires_acknowledgement:false },
-    error: "Output 2: Output argument changed: review its mapping again before launching"};
-  const html = render(OutputPaths,props);
-  assert.match(html,/Resolved capture parent/);
+test("capture preview distinguishes resolved, pending and failed paths", () => {
+  const props = {review: { output_path: "/source/new-output", output_policy:"per_run", targets:[], requires_acknowledgement:false }, error: ""};
+  const html = render(CapturePath,props);
+  assert.match(html,/Capture parent/);
   assert.match(html,/\/source\/new-output/);
-  assert.match(html,/Output 2: Output argument changed/);
-  assert.doesNotMatch(html,/Capture path unavailable/);
-  const unavailable = render(OutputPaths,{...props,captureReview:null,captureError:"Working directory does not exist"});
+  const pending = render(CapturePath,{review:null,error:""});
+  assert.match(pending,/Checking capture path/);
+  assert.doesNotMatch(pending,/\/source\/new-output/);
+  const unavailable = render(CapturePath,{review:null,error:"Working directory does not exist"});
   assert.match(unavailable,/Capture path unavailable/);
   assert.match(unavailable,/Working directory does not exist/);
   assert.doesNotMatch(unavailable,/\/source\/new-output/);

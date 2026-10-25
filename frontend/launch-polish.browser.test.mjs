@@ -310,6 +310,7 @@ if (new URLSearchParams(location.search).has("test")) {
         "pending paste blocks validation",
       );
       await click(button("Cancel paste"));
+      await click(dialog.querySelector('.advanced-coverage > summary'));
       await click(button("Declare output path"));
       assert(
         button("Save settings").disabled,

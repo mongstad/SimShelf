@@ -97,6 +97,13 @@ never silently omitted from persisted settings. Mapping diagnostics identify the
 row. The backend still rejects empty declarations on preview, save and launch;
 prospective paths and existing empty directories remain supported.
 
+New run presents one independently resolved capture destination. Capture overrides,
+working-directory settings and optional output-coverage declarations use collapsed
+disclosures; coverage warnings remain visible outside them. Schema-2 SWSS launches
+omit the inapplicable policy selector, while incompatible saved policies still
+require explicit correction. This presentation changes no settings payloads,
+path resolution, argv, allocation or capture engine.
+
 Settings preserve mappings in existing simulation JSON. Each portal run freezes
 its launch-time path review and acknowledgement in `launch`, alongside the
 existing immutable capture root/configuration. This is an expectation, not proof
