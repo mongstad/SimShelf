@@ -583,6 +583,10 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
         with workspace_lock(store.path):
             store.run(ident, False)
             data = body.model_dump(exclude_unset=True)
+            if "name" in data:
+                if data["name"] is None or not data["name"].strip():
+                    raise ValueError("Run name must contain 1–160 characters, including a non-space character")
+                data["name"] = data["name"].strip()
             if any(value is None for key, value in data.items() if key != "cover_id"):
                 raise ValueError("Use empty text or an empty tag list to clear annotations")
             if data.get("tags") is not None and (len(data["tags"]) > 50 or any(not t or len(t) > 80 for t in data["tags"])):
@@ -591,7 +595,12 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
                 artifact = store.artifact(data["cover_id"])
                 if artifact["run_id"] != ident or artifact["policy"] != "copy" or artifact.get("media_type") not in {"image/png", "image/jpeg", "image/webp", "image/gif"}:
                     raise ValueError("Choose a saved image from this run")
-            store.emit(ident, "annotation", data)
+            try:
+                store.emit(ident, "annotation", data)
+            except (OSError, sqlite3.Error) as exc:
+                if "name" not in data:
+                    raise
+                raise HTTPException(409, "Run name could not be confirmed saved. Check library write permissions and free space, then refresh to check the name before retrying.") from exc
             saved = store.run(ident)
         # Match GET's detail shape: replacing the browser's confirmed run must
         # not temporarily erase recorder ownership after an annotation save.

@@ -42,9 +42,11 @@ Path("outputs/result.txt").write_text("preserved output")
         path = f'/api/runs/{ident}'
         assert owner.get(path).json()['can_stop']
         assert not observer.get(path).json()['can_stop']
+        previous_name = store.run(ident)['name']
         for client, headers, owned in ((owner, auth, True), (observer, other, False)):
             for tags in (['control', 'favorite'], ['control'], ['control', 'favorite']):
-                saved = client.patch(path, headers=headers, json={'tags': tags, 'notes': 'Keep these notes'})
+                name = f"{'Owner' if owned else 'Observer'} edit {len(store.run(ident)['annotation_history'])}"
+                saved = client.patch(path, headers=headers, json={'name': name, 'tags': tags, 'notes': 'Keep these notes'})
                 assert saved.status_code == 200, saved.text
                 data = saved.json()
                 assert data['status'] == 'running'
@@ -55,19 +57,23 @@ Path("outputs/result.txt").write_text("preserved output")
                 fresh = Store(store.path).run(ident)
                 assert fresh['tags'] == tags
                 assert fresh['notes'] == 'Keep these notes'
+                assert fresh['name'] == name
                 assert fresh['annotation_history'][0]['tags'] == tags
+                assert fresh['annotation_history'][0]['previous_name'] == previous_name
+                previous_name = name
         before = store.run(ident)
         # A token from another server instance models an old browser after restart.
-        rejected = observer.patch(path, headers=auth, json={'tags': []})
+        rejected = observer.patch(path, headers=auth, json={'name': 'Rejected stale name', 'tags': []})
         assert rejected.status_code == 403
         assert rejected.json()['detail'] == 'Refresh SimShelf before saving.'
         assert observer.patch(path, headers={**other, 'Origin': 'https://elsewhere.example'}, json={'tags': []}).status_code == 403
         assert observer.patch(path, headers=other, json={'tags': ['']}).status_code == 400
         assert store.run(ident)['annotation_history'] == before['annotation_history']
         assert store.run(ident)['tags'] == before['tags']
+        assert store.run(ident)['name'] == before['name']
         # Refresh obtains the new instance token; finalization/recovery overlap edits.
         with concurrent.futures.ThreadPoolExecutor() as pool:
-            pending = pool.submit(observer.patch, path, headers=token(observer), json={'tags': ['control', 'favorite']})
+            pending = pool.submit(observer.patch, path, headers=token(observer), json={'name': 'Finalization edit', 'tags': ['control', 'favorite']})
             (root / 'finish').touch()
             assert pending.result(timeout=10).status_code == 200
         deadline = time.monotonic() + 15
@@ -78,6 +84,7 @@ Path("outputs/result.txt").write_text("preserved output")
         assert final['status'] == 'completed', final
         assert final['tags'] == ['control', 'favorite']
         assert final['notes'] == 'Keep these notes'
+        assert final['name'] == 'Finalization edit'
         assert final['progress'] is not None
         assert owner.get(path + '/logs').json()['text']
         assert (root / 'outputs/result.txt').read_text() == 'preserved output'
@@ -91,7 +98,7 @@ def test_interrupted_recovery_preserves_confirmed_annotations(project, monkeypat
     from simshelf.recording import Run
     store, sim, root, source = project
     with Run(sim['id'], workspace=store.path, capture_console=False) as recorder:
-        store.emit(recorder.id, 'annotation', {'tags': ['favorite', 'control'], 'notes': 'keep'})
+        store.emit(recorder.id, 'annotation', {'name': 'Recovery name', 'tags': ['favorite', 'control'], 'notes': 'keep'})
         before = store.run(recorder.id)
         monkeypatch.setattr('simshelf.store.process_alive', lambda *_: False)
         assert not store.reconcile()['errors']
@@ -99,6 +106,7 @@ def test_interrupted_recovery_preserves_confirmed_annotations(project, monkeypat
         assert recovered['status'] == 'interrupted'
         assert recovered['tags'] == before['tags']
         assert recovered['notes'] == before['notes']
+        assert recovered['name'] == before['name'] == 'Recovery name'
         assert recovered['annotation_history'] == before['annotation_history']
         assert recovered['snapshot_id'] == before['snapshot_id']
     assert store.run(recorder.id)['tags'] == ['favorite', 'control']

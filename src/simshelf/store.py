@@ -221,10 +221,15 @@ class Store:
                     if not deleted_screenshot(conn, data["id"]):
                         conn.execute("INSERT OR IGNORE INTO artifacts VALUES (?,?,?)", (data["id"], run_id, json_text(data)))
                 elif kind == "annotation":
+                    # Preserve the prior display name in append-only history,
+                    # including backups that do not retain the start journal.
+                    annotation = dict(data)
+                    if "name" in data:
+                        annotation["previous_name"] = run["name"]
                     for key in ("notes", "tags", "name", "cover_id", "version_note"):
                         if key in data:
                             run[key] = data[key]
-                    conn.execute("INSERT OR IGNORE INTO annotations VALUES (?,?,?)", (event["id"], run_id, json_text({**data, "at": event["at"]})))
+                    conn.execute("INSERT OR IGNORE INTO annotations VALUES (?,?,?)", (event["id"], run_id, json_text({**annotation, "at": event["at"]})))
                 elif kind == "artifact_annotation":
                     if deleted_screenshot(conn, data["id"]):
                         conn.execute("INSERT INTO applied_events VALUES (?)", (event["id"],))

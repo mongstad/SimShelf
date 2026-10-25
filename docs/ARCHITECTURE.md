@@ -285,6 +285,26 @@ are excluded. Restore validates membership, paths, checksums, database integrity
 and schema into a staging directory before installing a new workspace. Active
 records in the backup become interrupted on restore.
 
+## Run display names
+
+Run-detail renaming uses the existing token-protected annotation PATCH at every
+lifecycle state, independently of recorder ownership. Names keep the existing
+1–160-character bound, reject whitespace-only input and trim surrounding spaces.
+The workspace lock and SQLite transaction serialize edits with recorder events.
+Applying a new name annotation also records `previous_name` in the append-only
+annotation row, preserving the original label through backups without requiring
+the start journal. Previously applied history and original journal bytes remain
+unchanged; there is no schema migration. Separate clients retain the existing
+last-applied-write convention.
+
+The focused dialog retains its draft across polls and only closes after a
+confirmed save. Existing request ordering rejects pre-save reads and late
+responses after navigation. Parent listings refresh after confirmation. Notes
+no longer submits a stale name draft. Write failures retain the draft and explain
+how to check permissions/storage and refresh before retrying; durable pending
+events retain the existing recovery behavior. No execution identity, source,
+filesystem, capture, process-control or Git-publication path is changed.
+
 ## Stage 1 limits
 
 - Single-user localhost application, Linux runtime validation; other platforms
