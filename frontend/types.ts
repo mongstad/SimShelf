@@ -73,7 +73,7 @@ export type Run = {
   output_policy?: "per_run";
   output_base?: string;
   archive_commits?: number;
-  progress?: {current: number | null; total: number | null; stage: string | null; source: string; reported_at: string} | null;
+  progress?: {current: number | null; total: number | null; stage: string | null; source: string; reported_at: string; text_mode?: "step" | "percent"} | null;
   progress_error?: string | null;
   launch?: {
     kind: string;

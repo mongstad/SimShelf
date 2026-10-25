@@ -480,3 +480,10 @@ See [issue #141 run Overview](validation/issue-141-run-overview.md) for concise
 state-specific notices, capture/preservation details in Files, retained provenance
 and downloads, focused regressions, installed checks and limitations. Earlier
 reports and screenshots remain unchanged.
+
+## Automatic console progress
+
+See [issue #66 auto progress](validation/issue-66-auto-progress.md) for conservative
+format/stream selection, saved-mode and schema compatibility, structured priority,
+exact logs, lifecycle/backup regressions, installed checks and owner verification.
+Earlier reports and screenshots remain unchanged.

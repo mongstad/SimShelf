@@ -88,7 +88,7 @@ def test_supported_percentage_conventions(line, value):
     b'step 1e3/50000', b'step 1/10 (10%, 20%)', b'progress: 1,0%',
 ])
 def test_ambiguous_scientific_and_malformed_lines_ignored(line):
-    for mode in ('off', 'step', 'percent'):
+    for mode in ('off', 'auto', 'step', 'percent'):
         assert list(TextProgressParser(mode).feed(line+b'\n')) == []
 
 
@@ -114,6 +114,52 @@ def test_oversized_recognizable_lines_and_unterminated_tail():
     assert list(parser.feed(b'step 1/10' + b' ' * MAX_LINE + b'\n')) == []
     assert list(parser.feed(b'Step 500 of 1,000 (50%)')) == []
     assert parser.finish() == progress_report(500, 1000)
+
+
+@pytest.mark.parametrize('line,mode,current,total', [
+    (b'Step 500 of 1000', 'step', 500, 1000),
+    (b'  step 1,000/50,000 (2.0%)', 'step', 1000, 50000),
+    (b'250 / 1000 steps', 'step', 250, 1000),
+    (b'Progress: 0.002%', 'percent', .002, 100),
+    (b'50 % COMPLETE', 'percent', 50, 100),
+])
+def test_auto_supported_forms_all_chunk_boundaries(line, mode, current, total):
+    expected = {**progress_report(current, total), 'text_mode': mode}
+    for split in range(len(line) + 1):
+        parser = TextProgressParser('auto')
+        assert list(parser.feed(line[:split])) == []
+        assert list(parser.feed(line[split:] + b'\r\n')) == [expected]
+        assert parser.finish() is None
+    parser = TextProgressParser('auto')
+    assert list(parser.feed(line)) == []
+    assert parser.finish() == expected
+
+
+def test_auto_bare_percent_overflow_and_invalid_lines_do_not_claim_selection():
+    from simshelf.progress import AutoProgressSelection
+    parser = TextProgressParser('auto')
+    invalid = (b'25%\n25.5 %\nEnergy loss: 25%\nvalue step=9 energy=12\n'
+               b'Progress: Inf%\nstep NaN/10\nstep 0/0\nstep 2/1\n'
+               b'\x1b[32mProgress: 25%\n' + b'x' * (MAX_LINE + 1) + b'Progress: 25%\n')
+    assert list(parser.feed(invalid)) == []
+    selector = AutoProgressSelection()
+    report = list(parser.feed(b'Progress: 1%\n'))[0]
+    assert selector.select(report, 'text:stderr') == report
+    assert selector.owner == ('text:stderr', 'percent')
+
+
+@pytest.mark.parametrize('source', ['text:stdout', 'text:stderr'])
+@pytest.mark.parametrize('mode', ['step', 'percent'])
+def test_auto_selection_ignores_competing_stream_and_mode_but_allows_resets(source, mode):
+    from simshelf.progress import AutoProgressSelection
+    selector = AutoProgressSelection()
+    report = {**progress_report(9, 100), 'text_mode': mode}
+    other_source = 'text:stderr' if source == 'text:stdout' else 'text:stdout'
+    assert selector.select(report, source) == report
+    assert selector.select(report, other_source) is None
+    assert selector.select({**report, 'text_mode': 'step' if mode == 'percent' else 'percent'}, source) is None
+    reset = {**report, 'current': 0, 'total': 100 if mode == 'percent' else 200}
+    assert selector.select(reset, source) == reset
 
 import concurrent.futures
 import json
@@ -267,27 +313,29 @@ def test_backup_restore_deletion_and_schema_preserved(project, tmp_path):
     assert source.exists()
 
 
-def test_text_adapter_logs_and_structured_join(project):
+@pytest.mark.parametrize('mode', ['step', 'auto'])
+def test_text_adapter_logs_and_structured_join(project, mode):
     store, sim, root, source = project
     source.write_text("import sys\nsys.stdout.buffer.write(b'step 1/10\\rstep 4/10\\r\\n')\nsys.stderr.buffer.write(b'step 6/10\\r')\n")
     with pytest.raises(ValueError, match='Enable'):
-        record_command(store, sim['id'], [sys.executable, str(source)], progress_mode='step', quiet=True)
+        record_command(store, sim['id'], [sys.executable, str(source)], progress_mode=mode, quiet=True)
     assert store.runs() == []
     enable_progress(store, confirmed=True)
-    ident, code = record_command(store, sim['id'], [sys.executable, str(source)], progress_mode='step', quiet=True)
+    ident, code = record_command(store, sim['id'], [sys.executable, str(source)], progress_mode=mode, quiet=True)
     assert code == 0
     assert store.run(ident)['progress']['current'] in (4, 6)  # Two streams have no global ordering.
     assert (store.path/'logs'/ident/'stdout.log').read_bytes() == b'step 1/10\rstep 4/10\r\n'
     assert (store.path/'logs'/ident/'stderr.log').read_bytes() == b'step 6/10\r'
     source.write_text(f"import simshelf\nwith simshelf.run({sim['id']!r}) as run:\n run.progress(2, 5, stage='Structured')\n print('step 5,000/5,000 (100%)', flush=True)\n")
-    ident, code = record_command(store, sim['id'], [sys.executable, str(source)], progress_mode='step', quiet=True)
+    ident, code = record_command(store, sim['id'], [sys.executable, str(source)], progress_mode=mode, quiet=True)
     assert code == 0
     report = store.run(ident)['progress']
     assert (report['source'], report['current'], report['total']) == ('structured', 2, 5)
 
 
 @pytest.mark.parametrize('outcome', ['success', 'failure', 'cancel'])
-def test_portal_100_percent_is_observational_until_real_exit(project, outcome):
+@pytest.mark.parametrize('mode', ['step', 'auto'])
+def test_portal_100_percent_is_observational_until_real_exit(project, outcome, mode):
     store, sim, root, source = project
     enable_progress(store, confirmed=True)
     # Explicit file gate proves the process keeps executing after its 100% report.
@@ -302,7 +350,7 @@ def test_portal_100_percent_is_observational_until_real_exit(project, outcome):
         f"sys.exit({7 if outcome == 'failure' else 0})\n")
     with TestClient(create_app(store.path)) as client:
         auth = headers(client)
-        ident = launch(client, sim, auth, progress_mode='step')
+        ident = launch(client, sim, auth, progress_mode=mode)
         deadline = time.monotonic()+5
         while time.monotonic() < deadline:
             live = client.get(f'/api/runs/{ident}').json()
@@ -506,7 +554,8 @@ def test_cli_explicit_enable_and_terminal_mode(project):
     assert store.run(ident)['progress_mode'] == 'percent'
 
 
-def test_progress_io_failure_does_not_change_exit_or_logs(project, monkeypatch):
+@pytest.mark.parametrize('mode', ['step', 'auto'])
+def test_progress_io_failure_does_not_change_exit_or_logs(project, monkeypatch, mode):
     store, sim, root, source = project
     enable_progress(store, confirmed=True)
     import simshelf.progress as progress
@@ -515,7 +564,7 @@ def test_progress_io_failure_does_not_change_exit_or_logs(project, monkeypatch):
     monkeypatch.setattr(progress, 'atomic_write', fail)
     source.write_text("import sys\nsys.stdout.buffer.write(b'step 1/10\\rstep 2/10\\n')\nsys.exit(7)\n")
     with pytest.warns(RuntimeWarning, match='injected disk failure'):
-        ident, code = record_command(store, sim['id'], [sys.executable, str(source)], progress_mode='step', quiet=True)
+        ident, code = record_command(store, sim['id'], [sys.executable, str(source)], progress_mode=mode, quiet=True)
     assert code == 7
     assert store.run(ident)['exit_code'] == 7
     assert 'injected disk failure' in store.run(ident)['progress_error']
@@ -568,3 +617,95 @@ def test_success_keeps_last_actual_periodic_report(project, last_step):
     assert (store.path/'logs'/ident/'stderr.log').read_bytes() == b''
     store.reconcile()
     assert store.run(ident)['progress'] == record['progress']
+
+
+def test_auto_conflicting_streams_keep_one_owner_and_original_logs(project):
+    store, sim, root, source = project
+    enable_progress(store, confirmed=True)
+    stdout = b'step 1/10\rProgress: 100%\nstep 0/20\nstep 9/20'
+    stderr = b'Progress: 20%\nstep 90/100\nProgress: 30%'
+    source.write_text(f'import sys\nsys.stdout.buffer.write({stdout!r})\nsys.stderr.buffer.write({stderr!r})\nsys.exit(7)\n')
+    ident, code = record_command(store, sim['id'], [sys.executable, str(source)], progress_mode='auto', quiet=True)
+    record = store.run(ident)
+    report = record['progress']
+    assert code == 7 and record['status'] == 'failed' and record['progress_mode'] == 'auto'
+    # Scheduling can select either stream, but never mix its format or values.
+    assert (report['source'], report['text_mode'], report['current'], report['total']) in {
+        ('text:stdout', 'step', 9, 20), ('text:stderr', 'percent', 30, 100)}
+    for name, data in [('stdout', stdout), ('stderr', stderr)]:
+        assert (store.path/'logs'/ident/f'{name}.log').read_bytes() == data
+    assert not record['progress_error'] and not store.reconcile()['errors']
+    assert store.run(ident)['progress'] == report
+
+
+@pytest.mark.parametrize('mode', ['auto', 'off', 'step', 'percent', None])
+def test_portal_saved_modes_and_auto_backup_preserve_history(project, tmp_path, mode):
+    store, sim, root, source = project
+    with Run(sim['id'], workspace=store.path, capture_console=False) as old:
+        pass
+    with store.connection() as conn:
+        frozen = conn.execute('SELECT data FROM runs WHERE id=?', (old.id,)).fetchone()[0]
+    source.write_text("print('Progress: 25%')\n")
+    with TestClient(create_app(store.path)) as client:
+        auth = headers(client)
+        data = settings(**({'progress_mode': mode} if mode is not None else {}))
+        url = f"/api/simulations/{sim['id']}/execution"
+        if mode == 'auto':
+            denied = client.post(f"/api/simulations/{sim['id']}/launch", headers=auth, json=data)
+            assert denied.status_code == 400 and schema(store) == '1'
+        enable_progress(store, confirmed=True)
+        saved = client.put(url, headers=auth, json=data)
+        assert saved.status_code == 200, saved.text
+        expected_mode = mode or 'off'
+        assert client.get('/api/simulations').json()[0]['execution']['progress_mode'] == expected_mode
+        response = client.post(f"/api/simulations/{sim['id']}/launch", headers=auth, json=data)
+        assert response.status_code == 201, response.text
+        ident = response.json()['run_id']
+        record = finish(store, ident)
+    assert record['progress_mode'] == expected_mode
+    if mode in ('auto', 'percent'):
+        assert record['progress']['current'] == 25
+        if mode == 'auto':
+            assert record['progress']['text_mode'] == 'percent'
+    else:
+        assert record['progress'] is None
+    archive = create_backup(store, tmp_path/'auto.zip')
+    restored = restore_backup(archive, tmp_path/'restored')
+    assert restored.run(ident)['progress'] == record['progress']
+    assert restored.run(ident)['progress_mode'] == expected_mode
+    with store.connection() as conn:
+        assert conn.execute('SELECT data FROM runs WHERE id=?', (old.id,)).fetchone()[0] == frozen
+
+
+def test_cli_auto_is_explicit_and_no_implicit_schema_upgrade(project):
+    store, sim, root, source = project
+    source.write_text("print('Progress: 0.1%')\n")
+    command = [sys.executable, '-B', '-m', 'simshelf', '--workspace', str(store.path),
+               'record', '-s', sim['id'], '--progress', 'auto', '--', sys.executable, str(source)]
+    denied = subprocess.run(command, capture_output=True)
+    assert denied.returncode == 1 and schema(store) == '1' and store.runs() == []
+    enable_progress(store, confirmed=True)
+    subprocess.run(command, check=True, capture_output=True)
+    record = store.run(store.runs()[0]['id'])
+    assert record['progress_mode'] == 'auto'
+    assert record['progress']['text_mode'] == 'percent'
+    assert record['progress']['current'] == .1
+
+
+def test_auto_text_cannot_replace_pending_or_persisted_stage_only_api_report(project):
+    store, sim, root, source = project
+    enable_progress(store, confirmed=True)
+    with Run(sim['id'], workspace=store.path, capture_console=False) as run:
+        writer = run.progress_writer
+        text = {**progress_report(5, 10), 'text_mode': 'step'}
+        writer.report(text, 'text:stdout')
+        run.progress(stage='Structured phase')
+        writer.report({**text, 'current': 10}, 'text:stdout')
+        writer.flush()
+        report = store.run(run.id)['progress']
+        assert report['source'] == 'structured' and report['current'] is None
+        assert report['total'] is None and report['stage'] == 'Structured phase'
+        assert 'text_mode' not in report
+        writer.report(text, 'text:stderr')
+        writer.flush()
+        assert store.run(run.id)['progress'] == report

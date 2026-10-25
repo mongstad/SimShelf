@@ -180,8 +180,11 @@ shows Progress unavailable. Successfully completed runs display 100% and, when
 available, the stored total as both step counts. This completion display never
 rewrites the original report. Reported progress never determines execution status
 or proves success. Enable progress explicitly for a
-library, then use `run.progress(current=..., total=..., stage=...)` or opt in to
-interpreting supported step/percentage text in the **New run…** dialog. This optional
+library, then use `run.progress(current=..., total=..., stage=...)` or interpret
+supported step/percentage text in the **New run…** dialog. Fresh execution settings
+default to **Auto-detect** after enablement; saved choices remain unchanged.
+Auto keeps the first valid labeled format and stream for the run. Bare percentages
+require explicit **Percentage** mode. This optional
 feature upgrades that library to schema 4; older builds cannot reopen it. Verify
 a backup and stop older writers first. See [progress reporting](PROGRESS.md)
 for consent, formats, recovery and limits.

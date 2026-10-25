@@ -283,9 +283,9 @@ class Run:
 def record_command(store: Store, simulation: str, command: list[str], *, name=None, tags=None, cwd=None, output_dir=None, cancel=None, on_started=None, quiet=False, launch=None, progress_mode="off", output_policy="fixed") -> tuple[str, int]:
     if not command:
         raise ValueError("Pass a command after --, for example: -- python field.py --seed 42")
-    from .progress import TEXT_MODES, TextProgressParser, enabled
+    from .progress import TEXT_MODES, TextProgressParser, AutoProgressSelection, enabled
     if not isinstance(progress_mode, str) or progress_mode not in TEXT_MODES:
-        raise ValueError("Choose off, step or percent progress parsing")
+        raise ValueError("Choose off, auto, step or percent progress parsing")
     with store.connection() as conn:
         if progress_mode != "off" and not enabled(conn):
             raise ValueError("Enable progress reporting for this library before selecting a text adapter")
@@ -322,6 +322,12 @@ def record_command(store: Store, simulation: str, command: list[str], *, name=No
                     process.send_signal(signum)
             except ProcessLookupError:
                 pass
+    auto_selection = AutoProgressSelection() if progress_mode == 'auto' else None
+    def report_text(report, source):
+        if auto_selection is not None:
+            report = auto_selection.select(report, source)
+        if report is not None:
+            recorder.progress_writer.report(report, source)
     def tee(pipe, target, path):
         parser = TextProgressParser(progress_mode)
         source = "text:" + path.stem
@@ -340,7 +346,7 @@ def record_command(store: Store, simulation: str, command: list[str], *, name=No
                     except (OSError, ValueError):
                         pass
                     for report in parser.feed(chunk):
-                        recorder.progress_writer.report(report, source)
+                        report_text(report, source)
                     remaining = 10 * 1024**2 - saved
                     if remaining > 0:
                         stream.write(chunk[:remaining])
@@ -351,7 +357,7 @@ def record_command(store: Store, simulation: str, command: list[str], *, name=No
         finally:
             final_report = parser.finish()
             if final_report is not None:
-                recorder.progress_writer.report(final_report, source)
+                report_text(final_report, source)
             pipe.close()
     try:
         if threading.current_thread() is threading.main_thread():
