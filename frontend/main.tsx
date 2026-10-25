@@ -1,5 +1,6 @@
 import { OverviewActions } from "./OverviewActions";
 import { RunTitle } from "./RunTitle";
+import { RenameRun } from "./RenameRun";
 import { RunHistoryTitle } from "./RunHistoryTitle";
 import { runRequests } from "./runRequests";
 import { Icon } from "./Icon";
@@ -475,8 +476,13 @@ function RunDetails({
     [notice, setNotice] = useState("");
   const [notes, setNotes] = useState(""),
     [tags, setTags] = useState(""),
-    [name, setName] = useState(""),
     [versionNote, setVersionNote] = useState("");
+  const [renaming, setRenaming] = useState(false);
+  const renameTrigger = useRef<HTMLButtonElement>(null);
+  function closeRename() {
+    setRenaming(false);
+    setTimeout(() => renameTrigger.current?.focus(), 0);
+  }
   const [sourcePath, setSourcePath] = useState(""),
     [sourceText, setSourceText] = useState(""),
     [diff, setDiff] = useState(false),
@@ -523,7 +529,6 @@ function RunDetails({
       if (r && live) {
         setNotes(r.notes || "");
         setTags((r.tags || []).join(", "));
-        setName(r.name);
         setVersionNote(r.version_note || "");
         setSourcePath(r.snapshot?.files[0]?.path || "");
       }
@@ -551,9 +556,12 @@ function RunDetails({
       live = false;
     };
   }, [tab, sourcePath, diff, id, run?.baseline_run_id]);
-  async function save(data: Partial<Run>, showConfirmation = true) {
+  async function save(data: Partial<Run>, showConfirmation = true, dialogError = false) {
     const ticket = requests.save();
-    if (ticket === null) return;
+    if (ticket === null) {
+      if (dialogError) throw new Error("Another edit is being saved. Wait for it to finish, then try again.");
+      return;
+    }
     setBusy(true);
     setError("");
     setNotice("");
@@ -567,7 +575,9 @@ function RunDetails({
       if (data.tags) setTags(saved.tags.join(", "));
       changed();
       if (showConfirmation) setNotice("Saved");
+      return saved;
     } catch (e) {
+      if (dialogError) throw e;
       if (requests.current(ticket)) setError((e as Error).message);
     } finally {
       if (requests.current(ticket)) setBusy(false);
@@ -649,6 +659,7 @@ function RunDetails({
           </div>
         </div>
         <div className="run-heading-actions" role="group" aria-label="Run actions">
+          <button ref={renameTrigger} disabled={busy} onClick={() => setRenaming(true)}>Rename run…</button>
           {run.can_stop && run.status === "running" && (
             <button
               disabled={busy || run.stop_requested}
@@ -1099,10 +1110,6 @@ function RunDetails({
           <button onClick={() => setTab("files")}>Review preservation in Files</button>
           <p className="muted">Saved notes remain separate from execution. Review their revisions in Files to preserve them in Git.</p>
           <label>
-            Run name
-            <input value={name} onChange={(e) => setName(e.target.value)} />
-          </label>
-          <label>
             Notes
             <textarea
               className="notes-editor"
@@ -1126,10 +1133,9 @@ function RunDetails({
             </span>
             <button
               className="primary"
-              disabled={busy || !name.trim()}
+              disabled={busy}
               onClick={() =>
                 save({
-                  name: name.trim(),
                   notes,
                   tags: tags
                     .split(",")
@@ -1156,6 +1162,10 @@ function RunDetails({
           )}
         </section>
       )}
+      {renaming && <RenameRun name={run.name} close={closeRename} save={async name => {
+        const confirmed = await save({ name }, false, true);
+        if (!confirmed) throw new Error("The run changed while saving. Refresh to check its name before retrying.");
+      }} />}
       {deleteImage && <DeleteScreenshot image={deleteImage} run={run}
         close={() => { setDeleteImage(null); setTimeout(() => deleteTrigger.current?.focus(), 0); }}
         deleted={result => {

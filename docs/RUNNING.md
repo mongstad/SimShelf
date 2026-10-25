@@ -464,6 +464,30 @@ opens the simulation list. The navigation text identifies this fallback. Run
 changes reset the detail tab, source selection and unsaved annotation drafts;
 save edits before moving to another run. Saved records and downloads are unchanged.
 
+## Rename a run
+
+In a run record, choose **Rename run…** beside the other run actions. Edit the
+prefilled name and choose **Save** (Enter) or **Cancel** (Escape). Names must
+contain 1–160 characters and cannot be only whitespace; surrounding whitespace
+is trimmed. Names do not have to be unique. Renaming is available during
+execution, stopping and capture finalization, and on completed, failed or
+interrupted records, including runs controlled by another recorder.
+
+The title and run listings update after a confirmed save and retain the name
+through polling, navigation and restart. Failed/rejected requests keep the draft
+and show an error. If a response or storage write could not be confirmed, refresh
+to check the saved name before retrying: a durable pending annotation may be
+recovered later. Edits from separate clients follow the existing annotation
+convention: the last applied save wins; the dialog is not a reservation.
+
+Only the display name changes. IDs, original start-journal bytes, commands/argv,
+source snapshots, provenance, directories, output files and existing Git commits
+stay unchanged. New name revisions include the previous name in **Notes →
+Annotation history**, retained in library backups. Older saved history is not
+rewritten. Notes saves no longer include a separate name draft. To preserve a
+new name revision in Git, explicitly review later evidence in **Files**; renaming
+does not update existing archive commits.
+
 ## Reading live logs
 
 In a run's **Logs** tab, **Word wrap** and **Auto-scroll** appear below the

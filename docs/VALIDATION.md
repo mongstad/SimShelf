@@ -487,3 +487,10 @@ See [issue #66 auto progress](validation/issue-66-auto-progress.md) for conserva
 format/stream selection, saved-mode and schema compatibility, structured priority,
 exact logs, lifecycle/backup regressions, installed checks and owner verification.
 Earlier reports and screenshots remain unchanged.
+
+## Run display-name editing
+
+See [issue #144 run rename](validation/issue-144-run-rename.md) for active/finalized
+editing, append-only previous-name history, polling and failure handling, unchanged
+identity/archive bytes, backup/restart checks and keyboard/theme/narrow evidence.
+Historical reports and screenshots remain unchanged.
