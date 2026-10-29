@@ -77,6 +77,14 @@ def source_snapshot(workspace: Path, simulation: dict, *, selection: dict | None
         declared.append(execution['output_dir'])
     outputs = set()
     for relative in declared:
+        if Path(relative).is_absolute() and simulation['config'].get('swss_output_location'):
+            # A reviewed external parent cannot contribute source descendants;
+            # keep its access/identity evidence in the run's local location record.
+            if not Path(relative).is_relative_to(root):
+                if root.is_relative_to(relative):
+                    raise ValueError('Output parent overlaps the selected source root')
+                continue
+            relative = Path(relative).relative_to(root).as_posix()
         validate_config({'output_dir': relative})
         output = contained(root, relative)
         if output == root:

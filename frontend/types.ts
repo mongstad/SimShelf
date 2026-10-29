@@ -5,6 +5,8 @@ export type OutputMapping = {
   format: "token" | "equals";
 };
 export type OutputReview = {
+  output_revision?: string | null;
+  swss_output_location?: { mode: string; origin: string; external: boolean; binding_status?: string; resolution_warning?: string } | null;
   output_policy?: "fixed" | "per_run";
   output_path: string;
   requires_acknowledgement: boolean;
@@ -24,6 +26,8 @@ export type Config = {
   rules: { pattern: string; action: "copy" | "reference" | "ignore" }[];
 };
 export type ExecutionSettings = {
+  output_mode?: "auto" | "manual";
+  output_revision?: string | null;
   parameter_review?: {mode: string; fingerprint: string | null} | null;
   output_policy?: "fixed" | "per_run";
   progress_mode?: string;

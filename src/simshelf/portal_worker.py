@@ -37,7 +37,7 @@ def main():
         record_command(store, request["simulation"], plan["command"], name=request["name"],
                        cwd=plan["cwd"], output_dir=plan["settings"]["output_dir"],
                        output_policy=plan["settings"]["output_policy"],
-                       cancel=cancel, on_started=started, quiet=True, progress_mode=plan["settings"]["progress_mode"], launch={"parameter_review": plan["settings"].get("parameter_review"), "kind": "portal", "source_binding": request['source_binding'], "output_review": plan["output_review"], "outputs_acknowledged": request.get("acknowledge_outputs", False)})
+                       cancel=cancel, on_started=started, quiet=True, progress_mode=plan["settings"]["progress_mode"], launch={"output_mode": plan['settings']['output_mode'], "parameter_review": plan["settings"].get("parameter_review"), "kind": "portal", "source_binding": request['source_binding'], "output_review": plan["output_review"], "outputs_acknowledged": request.get("acknowledge_outputs", False)})
     except Exception as exc:
         try:
             print(json.dumps({"error": str(exc)}), flush=True)

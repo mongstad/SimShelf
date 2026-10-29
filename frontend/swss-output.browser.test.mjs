@@ -9,19 +9,21 @@ const root = createRoot(document.querySelector("#root"));
 const results = document.querySelector("#results");
 const argv = ["--label", "", "-n", "0010", "--repeat=1e-3", "--repeat=2", "--", "--literal"];
 const clone = value => structuredClone(value);
-let kind = "valid", binding = "listed bytes verified", requests = [], scanFails = false, captureFails = false;
+let kind = "valid", schema = 2, binding = "listed bytes verified", requests = [], scanFails = false, captureFails = false;
 const errors = [];
 const originalError = console.error;
 console.error = (...args) => { errors.push(args.join(" ")); originalError(...args); };
 function discovery() {
   return { parameters: [], warnings: [], source: "swss.toml", fingerprint: kind,
     provenance: kind === "valid" ? {binding_status: binding, binding_reasons: [], simulation_version: '0.3.1'} : null,
-    output_policy: {state: kind, binding, launcher_allowed: kind === "absent",
+    output_policy: {state: kind, schema_version: schema, binding, launcher_allowed: kind === "absent",
       reason: kind === "valid" ? "Use Fixed output parent: the simulation creates its unique run directory and SimShelf watches the parent. Metadata does not establish a coordinated-root agreement."
         : kind === "absent" ? "No SWSS metadata. Launcher-coordinated allocation requires explicit script support."
         : "SWSS metadata is unavailable. Output ownership is unknown. Review the capture parent and choose Fixed output parent for manual execution."}};
 }
 const output = data => ({output_policy: data.output_policy, output_path: "/disposable/" + data.output_dir,
+  ...(schema === 3 && data.output_mode === 'auto' ? {output_path: '/disposable/' + (data.arguments.find(t => t.startsWith('--destination='))?.split('=')[1] || 'outputs'),
+    output_revision: 'fixture-revision', swss_output_location: {mode: 'auto', origin: 'schema-3 discovery', binding_status: binding, external: false}} : {}),
   targets: (data.output_mappings || []).map(m => ({resolved_path: m.value, covered: !m.value.startsWith("/external"),
     reason: m.value.startsWith("/external") ? "Outside capture folder" : "Inside capture folder", suggested_argument: null})),
   requires_acknowledgement: data.output_mappings?.some(m => m.value.startsWith("/external")) || false});
@@ -36,6 +38,7 @@ window.fetch = async (url, options = {}) => {
   } else if (url.endsWith("/interpreters")) value = {candidates: []};
   else if (url.endsWith("/interpreter/check")) return new Response(JSON.stringify({detail: "Fixture interpreter unavailable"}), {status: 400});
   else if (url.endsWith("/execution/outputs")) {
+    if (schema === 3 && kind === 'unavailable' && data.output_mode === 'auto') return new Response(JSON.stringify({detail: 'Automatic output discovery unavailable'}), {status: 400});
     if (captureFails) return new Response(JSON.stringify({detail: "Fixture capture path unavailable"}), {status: 400});
     value = output(data);
   }
@@ -209,6 +212,37 @@ async function tests() {
     assert(document.querySelector('.advanced-execution input').value === ".", "fresh cwd");
     assert(document.querySelector('.capture-coverage').innerText.includes("Capture setting needs review"), "fresh parent needs review");
     assert(!requests.some(r => r.method === "PUT" || /\/(validate|launch|check)$/.test(r.url)), "no implicit save or execution");
+  });
+  await check("schema 3 discovers fresh destinations and preserves exact override argv in previews", async () => {
+    schema = 3; kind = 'valid'; await mount('fixed', {execution: undefined}); await settled();
+    assert(document.body.textContent.includes('SWSS schema 3 · metadata valid'), 'schema label');
+    assert(document.querySelector('.capture-coverage').textContent.includes('schema-3 discovery'), 'discovered destination status');
+    assert(document.querySelector('.capture-override input').disabled, 'automatic mode avoids duplicate entry');
+    assert(!requests.some(r => r.method === 'PUT'), 'no automatic persistence');
+    const args = ['--destination=custom'];
+    await mount('fixed', {execution: {interpreter: '/usr/bin/python3', cwd: '.', arguments: args, output_dir: 'outputs', output_mode: 'auto', parameter_review: {mode: 'manual', fingerprint: null}}});
+    await settled();
+    assert(document.querySelector('.capture-path').innerText.includes('/disposable/custom'), 'override shown');
+    const previews = requests.filter(r => r.url.endsWith('/execution/outputs'));
+    assert(previews.length && previews.every(r => JSON.stringify(r.data.arguments) === JSON.stringify(args)), 'capture previews use actual exact argv');
+    await click('Save settings');
+    const saved = requests.find(r => r.method === 'PUT').data;
+    assert(saved.output_mode === 'auto' && saved.output_revision === 'fixture-revision', 'review identity carried to save');
+    assert(JSON.stringify(saved.arguments) === JSON.stringify(args), 'no inserted default tokens');
+    schema = 2;
+  });
+  await check('saved automatic routing can explicitly fall back after invalid metadata', async () => {
+    schema = 3; kind = 'unavailable';
+    await mount('fixed', {execution: {interpreter: '/usr/bin/python3', cwd: '.', arguments: [], output_dir: 'outputs', output_mode: 'auto', parameter_review: {mode: 'manual', fingerprint: null}}});
+    await settled();
+    await disclose('.capture-override');
+    const select = document.querySelector('.capture-override select');
+    assert(select, 'manual escape remains visible');
+    await act(async () => { select.value = 'manual'; select.dispatchEvent(new Event('change', {bubbles:true})); });
+    await settled();
+    assert(!document.querySelector('.capture-override input').disabled, 'manual parent editable');
+    assert(!requests.some(r => r.method === 'PUT'), 'fallback is an explicit draft');
+    schema = 2;
   });
   assert(errors.length === 0, `Console errors: ${errors.join("\n")}`);
   results.textContent += `\n${cases.length} passed; no console errors.`;

@@ -25,7 +25,7 @@ def test_settings_launch_and_direct_recorder_refuse_before_allocation(project, k
         digest = hashlib.sha256(source.read_bytes()).hexdigest() if kind == 'bound' else '0' * 64
         text += f'[[swss.source_files]]\npath="field.py"\nsha256="{digest}"\n'
     if kind == 'malformed': text = '[invalid'
-    if kind == 'unsupported': text = HEADER.replace('schema_version=2', 'schema_version=3')
+    if kind == 'unsupported': text = HEADER.replace('schema_version=2', 'schema_version=4')
     if kind == 'unassociated':
         (root / 'other.py').write_text('pass\n')
         text = HEADER.replace('field.py', 'other.py')

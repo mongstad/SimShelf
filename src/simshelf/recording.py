@@ -86,9 +86,13 @@ class Run:
         self.simulation = self.store.simulation(simulation)
         # Narrow capture overrides cannot erase the registered output parent.
         self.source_output_dirs = [self.simulation['config']['output_dir']]
+        self.requested_output = output_dir
         if output_dir is not None:
             from .config import validate_config
-            self.simulation["config"] = validate_config({**self.simulation["config"], "output_dir": str(output_dir)})
+            # Schema-3 resolution validates a possibly external explicit parent
+            # before capture. Ordinary runs retain root-contained validation.
+            if not Path(output_dir).is_absolute():
+                self.simulation["config"] = validate_config({**self.simulation["config"], "output_dir": str(output_dir)})
         active = os.environ.get("SIMSHELF_RUN_ID") if join else None
         self.joined = bool(active)
         self.id = active or uuid.uuid4().hex
@@ -112,8 +116,8 @@ class Run:
 
     @property
     def output_dir(self) -> Path:
-        from .common import contained
-        return contained(Path(self.simulation["root"]), self.simulation["config"]["output_dir"])
+        from .swss_output import capture_path
+        return capture_path(self.simulation)
 
     @locked_recorder
     def __enter__(self):
@@ -138,6 +142,35 @@ class Run:
         metadata = review(self.simulation, (self.launch or {}).get('parameter_review'))
         from .output_paths import validate_simulation_output_policy
         validate_simulation_output_policy(self.simulation, self.output_policy, metadata)
+        from .swss_output import review as review_parent, recheck
+        mode = (self.launch or {}).get('output_mode', 'auto' if self.requested_output is None and metadata['provenance'] and metadata['provenance']['schema_version'] == 3 else 'manual')
+        arguments = self.command[2:]
+        if metadata['provenance'] and metadata['provenance']['schema_version'] == 3:
+            if len(self.command) < 2 or (Path(self.cwd) / self.command[1]).resolve() != Path(self.simulation['root'], self.simulation['entrypoint']).resolve():
+                raise ValueError('Schema-3 recording needs an explicit interpreter/registered-entrypoint command to establish exact simulation argv.')
+        location = review_parent(self.simulation, arguments, str(self.requested_output or self.simulation['config']['output_dir']), mode, metadata)
+        if self.requested_output is not None and Path(self.requested_output).is_absolute() and location is None:
+            raise ValueError('External capture requires reviewed schema-3 output-parent configuration.')
+        if location:
+            import hashlib
+            boundary_key = 'swss_output_boundaries:' + self.simulation['id'] + ':' + hashlib.sha256(str(current_binding).encode()).hexdigest()
+            with self.store.connection() as conn:
+                known = conn.execute('SELECT value FROM metadata WHERE key=?', (boundary_key,)).fetchone()
+            previous_boundaries = json.loads(known[0]) if known else []
+            self.source_output_dirs.extend(previous_boundaries)
+            previous = (self.launch or {}).get('output_review', {}).get('swss_output_location')
+            if previous:
+                recheck(previous)
+                if any(previous.get(k) != location.get(k) for k in ('parent', 'metadata_sha256', 'argv', 'root', 'entrypoint')):
+                    raise ValueError('SWSS destination changed before recorder startup; review again.')
+            self.source_output_dirs.append(location.get('declared_parent', 'outputs'))
+            parent = Path(location['parent'])
+            if parent.is_relative_to(self.simulation['root']):
+                self.source_output_dirs.append(parent.relative_to(self.simulation['root']).as_posix())
+            self.simulation['config'] = {**self.simulation['config'], 'swss_output_location': location}
+            known_boundaries = sorted(set(self.source_output_dirs))
+            if len(known_boundaries) > 256:
+                raise ValueError('Too many reviewed output boundaries; source capture needs explicit layout review.')
         boundary_warnings = []
         if metadata['provenance']:
             # Only our existing local capture extension declares a boundary;
@@ -155,9 +188,16 @@ class Run:
                     self.source_output_dirs.append(project['config']['output_dir'])
         # Keep source exclusion and archive consent bound to the configured base.
         source_simulation = {**self.simulation, 'source_output_dirs': self.source_output_dirs}
-        self.base_capture_config = self.simulation["config"]
+        self.base_capture_config = {k: v for k, v in self.simulation['config'].items() if k != 'swss_output_location'}
+        if location:
+            parent = Path(location['parent'])
+            self.base_capture_config['output_dir'] = parent.relative_to(self.simulation['root']).as_posix() if parent.is_relative_to(self.simulation['root']) else str(parent)
         selection = {}
         snapshot = source_snapshot(self.store.path, source_simulation, selection=selection)
+        if location:
+            recheck(location)
+            if self.simulation['entrypoint'] not in {f['path'] for f in snapshot['files']}:
+                raise ValueError('Schema-3 entrypoint must remain in source capture; correct source policy.')
         declaration = next((f for f in snapshot['files'] if f['path'] == 'swss.toml'), None)
         provenance = metadata['provenance']
         if provenance:
@@ -165,6 +205,8 @@ class Run:
                 raise ValueError('SWSS declaration changed or was excluded from source capture; review before recording')
             captured = {f['path']: f['blob'] for f in snapshot['files']}
             for source in provenance['checked_sources']:
+                if provenance['schema_version'] == 3 and source['path'] not in captured:
+                    raise ValueError('A declared SWSS source/input was excluded from capture; correct source policy before recording')
                 if source['path'] in captured and captured[source['path']] != source['sha256']:
                     raise ValueError('SWSS bound source changed during source capture; review before recording')
             version = 'unversioned' if provenance['binding_reasons'] else provenance['simulation_version']
@@ -205,6 +247,9 @@ class Run:
         }
         data['source_entrypoint'] = self.simulation.get('entrypoint')
         data['source_selection'] = selection
+        if location:
+            data['swss_output_location'] = location
+            data['swss_output_boundaries'] = {'key': boundary_key, 'paths': known_boundaries}
         data["progress_mode"] = self.progress_mode
         data['source_warnings'] = [*snapshot['warnings'], *boundary_warnings]
         if getattr(self, "archive_plan", None):
@@ -265,6 +310,8 @@ class Run:
         self.store.emit(self.id, "annotation", {"notes": text})
 
     def verify_output(self):
+        from .swss_output import capture_path
+        capture_path(self.simulation)
         if self.output_identity is not None:
             from .output_paths import verify_output
             verify_output(self.simulation["root"], self.simulation["config"]["output_dir"], self.output_identity)

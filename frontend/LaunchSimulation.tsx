@@ -46,6 +46,9 @@ export function LaunchSimulation({
   );
   const [outputPolicy, setOutputPolicy] = useState(initial?.output_policy || "fixed");
   const [policyStatus, setPolicyStatus] = useState<OutputPolicyStatus | null>(null);
+  const [discoveryFingerprint, setDiscoveryFingerprint] = useState<string | null>(null);
+  const [outputMode, setOutputMode] = useState<"auto" | "manual" | null>(initial ? initial.output_mode || "manual" : null);
+  const effectiveOutputMode = outputMode || (policyStatus?.schema_version === 3 ? "auto" : "manual");
   const policyBlocked = !policyStatus || (outputPolicy === "per_run" && !policyStatus.launcher_allowed);
   const [mappings, setMappings] = useState<OutputMapping[]>(
     initial?.output_mappings || [],
@@ -58,10 +61,10 @@ export function LaunchSimulation({
   // Resolve the capture folder independently: an unfinished declaration does
   // not invalidate it. Key results to current inputs, never display stale paths.
   const captureRequest = JSON.stringify({
-    cwd, arguments: [], output_dir: output, output_policy: outputPolicy,
+    cwd, arguments: args, output_dir: output, output_policy: outputPolicy, output_mode: effectiveOutputMode,
     output_mappings: [],
   });
-  const captureKey = simulation.id + captureRequest;
+  const captureKey = simulation.id + captureRequest + (discoveryFingerprint || "");
   const capture = captureResult?.request === captureKey ? captureResult : null;
   useEffect(() => {
     let active = true;
@@ -75,7 +78,7 @@ export function LaunchSimulation({
       });
     }, 250);
     return () => { active = false; clearTimeout(timer); };
-  }, [captureRequest, simulation.id]);
+  }, [captureRequest, captureKey, simulation.id]);
   const [acknowledge, setAcknowledge] = useState(false);
   const [argumentRevision, setArgumentRevision] = useState(0);
   const outputRequest = JSON.stringify({
@@ -84,6 +87,7 @@ export function LaunchSimulation({
     output_dir: output,
     output_policy: outputPolicy,
     output_mappings: mappings,
+    output_mode: effectiveOutputMode,
   });
   useEffect(() => {
     let active = true;
@@ -117,6 +121,8 @@ export function LaunchSimulation({
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const settings = {
+    output_mode: effectiveOutputMode,
+    output_revision: capture?.review?.output_revision || null,
     parameter_review: parameterReview,
     progress_mode: !initial && progressAvailable === false ? "off" : progressMode,
     interpreter,
@@ -278,7 +284,7 @@ export function LaunchSimulation({
           }}
         />
         <ArgumentEditor
-          discovered={discovery => {setPolicyStatus(discovery?.output_policy || null); setPlan(null);}}
+          discovered={discovery => {setPolicyStatus(discovery?.output_policy || null); setDiscoveryFingerprint(discovery?.fingerprint || null); setPlan(null);}}
           validationAttempt={validationAttempt}
           initialManual={initial?.parameter_review?.mode === "manual"}
           reviewed={review => {setParameterReview(review); setPlan(null);}}
@@ -306,7 +312,9 @@ export function LaunchSimulation({
           ? "For standalone SWSS runs, the script creates its unique run folder; SimShelf monitors the shared parent using your preservation rules and limits."
           : "The script and its arguments choose where it writes. SimShelf monitors the capture folder using your preservation rules and limits."}</p>
         <p className="capture-coverage" role="status">
-          {!mappings.length
+          {capture?.review?.swss_output_location
+            ? `${capture.review.swss_output_location.origin} · ${capture.review.swss_output_location.binding_status || "behavior unverified"}. ${capture.review.swss_output_location.resolution_warning || "Declared destination; actual writes and capture are checked separately."}`
+            : !mappings.length
             ? `${initial?.output_dir === output ? "Saved capture setting" : "Capture setting needs review"} · confirm this is the script’s output parent. Outputs elsewhere are not discovered.`
             : outputError || (incompleteOutputMappings(mappings).length
               ? "Output declarations need review. Complete or remove unfinished paths below."
@@ -316,10 +324,17 @@ export function LaunchSimulation({
         </p>
         <details className="capture-override">
         <summary>Change capture folder</summary>
+        {(policyStatus?.schema_version === 3 || outputMode === 'auto') && <label>Capture destination
+          <select value={effectiveOutputMode} onChange={e => { setOutputMode(e.target.value as "auto" | "manual"); edited(); }}>
+            <option value="auto">Discover from SWSS and arguments</option>
+            <option value="manual">Review an explicit capture parent</option>
+          </select>
+        </label>}
         <label>
           Capture output folder
           <input
             required
+            disabled={effectiveOutputMode === "auto"}
             value={output}
             onChange={(e) => {
               setOutput(e.target.value);
@@ -327,7 +342,7 @@ export function LaunchSimulation({
             }}
           />
           <small>
-            Relative to source folder.
+            Relative to source folder. Schema 3 also permits an explicitly prepared existing external parent; verify the intended volume is mounted before review.
           </small>
           <small>Choose the shared parent of generated run folders, not one completed run. This changes monitoring, not script output arguments. Source snapshots exclude known capture paths.</small>
         </label>
@@ -356,7 +371,7 @@ export function LaunchSimulation({
         </label>
         </>}
         {policyStatus && policyStatus.state !== "absent" && <div className="notice output-policy-notice" role="status">
-          <strong>{policyStatus.state === "valid" ? "SWSS schema 2 · metadata valid" : "SWSS metadata unavailable for use"}</strong>
+          <strong>{policyStatus.state === "valid" ? `SWSS schema ${policyStatus.schema_version || 2} · metadata valid` : "SWSS metadata unavailable for use"}</strong>
           <p>Source binding: {policyStatus.binding === "binding unverified" ? "unverified" : policyStatus.binding}.</p>
           <small>Metadata and listed-byte checks do not verify scientific behavior or full SWSS conformance.</small>
           <p>SWSS schema 2 does not specify an output parent. Review the capture folder against the script’s documented output location.</p>

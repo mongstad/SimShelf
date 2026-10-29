@@ -21,6 +21,7 @@ export type Discovery = {
   provenance?: { binding_status: string; binding_reasons: string[]; simulation_version?: string } | null;
 };
 export type OutputPolicyStatus = {
+  schema_version?: number;
   state: "valid" | "unavailable" | "absent";
   launcher_allowed: boolean;
   binding: string;

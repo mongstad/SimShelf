@@ -19,7 +19,7 @@ from .interpreters import probe_interpreter
 
 
 def execution_settings(simulation: dict, data: dict, *, probe=False) -> dict:
-    if not isinstance(data, dict) or set(data) - {"interpreter", "cwd", "arguments", "output_dir", "output_mappings", "progress_mode", "output_policy", "parameter_review"}:
+    if not isinstance(data, dict) or set(data) - {"interpreter", "cwd", "arguments", "output_dir", "output_mappings", "progress_mode", "output_policy", "parameter_review", "output_mode", "output_revision"}:
         raise ValueError("Use interpreter, cwd, arguments, output_dir and optional output_mappings execution settings")
     from .swss import review
     metadata = review(simulation, data.get("parameter_review"))
@@ -52,8 +52,6 @@ def execution_settings(simulation: dict, data: dict, *, probe=False) -> dict:
     ) or sum(len(arg) for arg in arguments) > 65536:
         raise ValueError("Use at most 256 text argument tokens, no NUL bytes, and at most 64 KB total")
     output = data.get("output_dir", simulation["config"]["output_dir"])
-    config = validate_config({**simulation["config"], "output_dir": output})
-    contained(root, config["output_dir"])
     settings = {"interpreter": str(python), "cwd": cwd, "arguments": arguments, "output_dir": output}
     from .progress import TEXT_MODES
     progress_mode = data.get("progress_mode", "off")
@@ -62,12 +60,17 @@ def execution_settings(simulation: dict, data: dict, *, probe=False) -> dict:
     settings["progress_mode"] = progress_mode
     mappings = data.get("output_mappings", [])
     policy = data.get("output_policy", "fixed")
-    review = output_review(simulation, cwd, arguments, output, mappings, policy)
+    mode = data.get('output_mode', 'manual')
+    review = output_review(simulation, cwd, arguments, output, mappings, policy, mode)
+    if data.get('output_revision') is not None and data['output_revision'] != review['output_revision']:
+        raise ValueError('Output destination preview changed. Review and validate again.')
+    settings['output_mode'] = mode
+    settings['output_revision'] = review['output_revision']
     settings["parameter_review"] = data.get("parameter_review")
     settings["output_policy"] = policy
     settings["output_mappings"] = mappings
     result = {"parameter_metadata": metadata, "output_review": review, "settings": settings, "command": [str(python), str(script), *arguments],
-              "cwd": str(directory), "output_path": str(contained(root, output))}
+              "cwd": str(directory), "output_path": review['output_path']}
     if probe:
         try:
             info = probe_interpreter(str(python), timeout=3)
