@@ -25,6 +25,8 @@ DEFAULT_CONFIG = {
 
 
 def validate_config(config: dict) -> dict:
+    if 'swss_output_location' in config:
+        raise ValueError('Recorded SWSS output locations cannot be supplied as capture settings')
     config = {**copy.deepcopy(DEFAULT_CONFIG), **config}
     for key in ("source_include", "source_exclude"):
         if not isinstance(config[key], list) or not all(isinstance(x, str) and x for x in config[key]):
@@ -54,7 +56,15 @@ def read_project(root: Path) -> dict:
         # invalid companion untouched; discovery diagnoses it and manual launch
         # remains available using the visibly saved/default capture settings.
         return {}
-    return extension_project(document)
+    project = extension_project(document)
+    portable = document['raw']['swss']
+    if portable['schema_version'] == 3:
+        parent = portable.get('output_parent', 'outputs')
+        extension_capture = document['raw'].get('extensions', {}).get('simshelf', {}).get('capture', {})
+        if 'output_dir' in extension_capture and extension_capture['output_dir'] != parent:
+            raise ValueError('Local capture extension conflicts with the schema-3 output parent')
+        project['config'] = validate_config({**project.get('config', {}), 'output_dir': parent})
+    return project
 
 
 def extension_project(document):

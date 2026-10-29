@@ -11,12 +11,13 @@ from pathlib import Path
 from .common import clean_name, contained, match, now
 from .source import blob_path
 from .workspace_lock import locked_store
+from .swss_output import capture_path
 
 MAX_SCAN_FILES = 20000
 
 
 def output_inventory(simulation: dict) -> tuple[dict, list[str]]:
-    root = contained(Path(simulation["root"]), simulation["config"]["output_dir"])
+    root = capture_path(simulation)
     result, errors = {}, []
     if not root.exists():
         return result, errors
@@ -102,7 +103,7 @@ def save_file(store, run_id: str, path: Path, *, policy="copy", name=None, capti
 
 def capture_outputs(store, run_id: str, simulation: dict, before: dict | None = None, *, archive_copy_rules=None) -> dict:
     inventory, errors = output_inventory(simulation)
-    root = contained(Path(simulation["root"]), simulation["config"]["output_dir"])
+    root = capture_path(simulation)
     counts = {"copied": 0, "referenced": 0, "ignored": 0, "unchanged": 0, "skipped": 0}
     copied = 0
     required = simulation["config"].get("required_logs", [])

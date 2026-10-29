@@ -74,7 +74,7 @@ def verify_output(root, relative, identity):
         raise ValueError("Isolated output folder was replaced; capture cannot safely continue")
 
 
-def _output_review(simulation, cwd, arguments, output_dir, mappings, output_policy):
+def _output_review(simulation, cwd, arguments, output_dir, mappings, output_policy, output_mode):
     validate_output_policy(output_policy)
     root = Path(simulation["root"])
     if not isinstance(cwd, str) or not cwd or "\0" in cwd or Path(cwd).is_absolute():
@@ -82,12 +82,14 @@ def _output_review(simulation, cwd, arguments, output_dir, mappings, output_poli
     directory = contained(root, cwd)
     if not directory.is_dir():
         raise ValueError("Working directory does not exist")
-    config = validate_config({**simulation["config"], "output_dir": output_dir})
-    capture = contained(root, config["output_dir"])
-    if output_policy == "per_run":
-        isolated_base(root, config["output_dir"])
     if not isinstance(arguments, list) or len(arguments) > 256 or any(not isinstance(a, str) or "\0" in a or len(a) > 8192 for a in arguments) or sum(map(len, arguments)) > 65536:
         raise ValueError("Invalid argument array")
+    from .swss_output import review as review_parent
+    location = review_parent(simulation, arguments, output_dir, output_mode)
+    config = simulation['config'] if location else validate_config({**simulation["config"], "output_dir": output_dir})
+    capture = Path(location['parent']) if location else contained(root, config["output_dir"])
+    if output_policy == "per_run":
+        isolated_base(root, config["output_dir"])
     if not isinstance(mappings, list) or len(mappings) > 32:
         raise ValueError("Use at most 32 output mappings")
     targets = []
@@ -137,12 +139,16 @@ def _output_review(simulation, cwd, arguments, output_dir, mappings, output_poli
             raise ValueError(f"Output {number}: {exc}") from exc
         except (OSError, RuntimeError) as exc:
             raise ValueError(f"Output {number}: Cannot inspect declared output path: {exc}") from exc
+    import hashlib
+    from .common import json_text
+    revision = hashlib.sha256(json_text({k: v for k, v in location.items() if k != 'checked_at'}).encode()).hexdigest() if location else None
     return {"output_path": str(capture), "output_policy": output_policy, "targets": targets,
+            "swss_output_location": location, "output_revision": revision,
             "requires_acknowledgement": any(not t["covered"] for t in targets)}
 
 
-def output_review(simulation, cwd, arguments, output_dir, mappings, output_policy="fixed"):
+def output_review(simulation, cwd, arguments, output_dir, mappings, output_policy="fixed", output_mode="manual"):
     try:
-        return _output_review(simulation, cwd, arguments, output_dir, mappings, output_policy)
+        return _output_review(simulation, cwd, arguments, output_dir, mappings, output_policy, output_mode)
     except (OSError, RuntimeError) as exc:
         raise ValueError(f"Cannot inspect declared output path: {exc}") from exc

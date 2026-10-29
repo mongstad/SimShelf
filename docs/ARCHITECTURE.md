@@ -1,5 +1,24 @@
 # SimShelf architecture
 
+## Schema-3 output-parent adoption
+
+`swss_output.py` separates data-only argv resolution from read-only filesystem
+review. The output preview, execution validation, supervisor and recorder use the
+same schema-specific rules. Exact argv and old schema-2 semantics remain intact.
+New run JSON freezes `swss_output_location`, including declaration origin,
+binding/token span, parent, allocation mode, check timing and ancestor identities.
+The capture configuration carries that frozen location through local capture and
+archive-byte checks. No database schema change is involved.
+
+Before snapshots, new schema-3 runs also read/retain location-bound
+`swss_output_boundaries:` metadata for previously used internal parents. These
+are additive exclusion observations, not edits to source/history. Old snapshots
+and their comparisons remain unchanged. Existing archive consent must still
+match the effective capture configuration. See [behavior and limits](SWSS_OUTPUT_PARENT.md),
+including existing-external-parent requirements and unavailable external-parent
+automatic Git archival. The schema-2 descriptions below retain their legacy
+meaning; schema 3 adds the explicit discovery path described here.
+
 ## Local components
 
 - A Python CLI launches existing commands with `shell=False`, streams logs, and

@@ -1,4 +1,4 @@
-"""Data-only SWSS 2 metadata. No source execution or alternate-file discovery."""
+"""Data-only SWSS 2/3 metadata. No source execution or alternate-file discovery."""
 from __future__ import annotations
 
 import hashlib
@@ -139,11 +139,32 @@ def parse(data):
     if not isinstance(extensions, dict) or any(not re.fullmatch(r'[a-z][a-z0-9_-]{0,63}', k) or not isinstance(v, dict) for k, v in extensions.items()):
         raise ValueError('Invalid SWSS extension tables')
     s = raw['swss']
-    if set(s) - {'schema_version', 'entrypoint', 'simulation_version', 'parameters', 'source_files'} or type(s.get('schema_version')) is not int or s['schema_version'] != 2:
-        raise ValueError('SWSS requires schema_version = 2 and supported portable fields')
+    allowed = {'schema_version', 'entrypoint', 'simulation_version', 'parameters', 'source_files'}
+    if s.get('schema_version') == 3:
+        allowed |= {'output_parent', 'output_parent_parameter'}
+    if set(s) - allowed or type(s.get('schema_version')) is not int or s['schema_version'] not in (2, 3):
+        raise ValueError('SWSS requires supported schema_version 2 or 3 and supported portable fields')
     portable_path(s.get('entrypoint'))
     if not isinstance(s.get('simulation_version'), str) or not s['simulation_version'].strip():
         raise ValueError('SWSS requires simulation_version')
+    if s['schema_version'] == 3:
+        for row in s.get('parameters', []) if isinstance(s.get('parameters', []), list) else []:
+            if isinstance(row, dict):
+                for key, value in row.items():
+                    if isinstance(value, (dict, list)) and (key not in ('options', 'choices') or not isinstance(value, list) or any(type(v) not in (str, int, float, bool) for v in value)):
+                        raise ValueError('Unsupported nested portable parameter value')
+        parent = s.get('output_parent', 'outputs')
+        portable_path(parent)
+        if any(c in parent for c in '~$*?[]'):
+            raise ValueError('SWSS output_parent cannot contain expansion syntax')
+        rows = parameters(s)
+        if 'output_parent_parameter' in s:
+            key = s['output_parent_parameter']
+            row = next((r for r in rows if r['id'] == key), None)
+            if not isinstance(key, str) or not re.fullmatch(IDENT, key) or not row or not row['supported'] or row['type'] != 'str' or row['action'] != 'store' or row['required'] or row['choices'] is not None:
+                raise ValueError('SWSS output_parent_parameter requires an optional scalar string option without choices')
+            if row['default_known'] and row['default'] != parent:
+                raise ValueError('SWSS output-parent default hint disagrees with the declared parent')
     return raw
 
 
@@ -234,7 +255,7 @@ def read(root, entrypoint=None, version_file=None):
     comparable = None
     status = 'stale / manual-only' if reasons else 'listed bytes verified' if sources is not None else 'binding unverified'
     evidence = {'path': 'swss.toml', 'bytes_utf8': data.decode('utf-8'), 'sha256': hashlib.sha256(data).hexdigest(),
-                'schema_version': 2, 'simulation_version': s['simulation_version'], 'entrypoint': entrypoint or s['entrypoint'],
+                'schema_version': s['schema_version'], 'simulation_version': s['simulation_version'], 'entrypoint': entrypoint or s['entrypoint'],
                 'discovery_source': 'swss.toml', 'binding_status': status, 'binding_reasons': reasons,
                 'checked_sources': hashes, 'comparable_version': comparable}
     fingerprint = hashlib.sha256(repr(evidence).encode()).hexdigest()
@@ -253,6 +274,7 @@ def output_policy_status(discovery, present):
     provenance = discovery['provenance']
     if provenance and not provenance['binding_reasons']:
         return {'state': 'valid', 'launcher_allowed': False,
+                'schema_version': provenance['schema_version'],
                 'binding': provenance['binding_status'],
                 'reason': 'Use Fixed output parent: the simulation creates its unique run directory and SimShelf watches the parent. Metadata does not establish a coordinated-root agreement.'}
     if present or provenance:

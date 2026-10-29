@@ -53,7 +53,7 @@ def test_no_companion_preserves_legacy_version(tmp_path, source, expected):
     assert record(store, sim)['version'] == expected
 
 
-@pytest.mark.parametrize('companion', ['not toml', HEADER.replace('schema_version=2','schema_version=3'),
+@pytest.mark.parametrize('companion', ['not toml', HEADER.replace('schema_version=2','schema_version=4'),
                                      HEADER + '[[swss.source_files]]\npath="sim.py"\nsha256="'+'0'*64+'"\n'])
 def test_disputed_companion_never_uses_legacy_tag(tmp_path, companion):
     root, store, sim = fixture(tmp_path, 'SIMSHELF_VERSION="legacy"\n', companion)

@@ -1,7 +1,8 @@
-# Simulation parameters and SWSS 2
+# Simulation parameters and SWSS 2/3
 
 Open **New run… → Simulation parameters**. SimShelf reads the single root
-`swss.toml` using the accepted [SWSS v2.0 schema 2](https://github.com/mongstad/Simulation-Standards/blob/8157653c58eb055102e587734e3898a43653eba0/standards/SWSS/v2.0.md).
+`swss.toml` using the accepted [SWSS v3.0 schema 3](https://github.com/mongstad/Simulation-Standards/blob/198f234693535c1f7bc7e78cd8e599a510c2d494/standards/SWSS/v3.0.md)
+or compatible [SWSS v2.0 schema 2](https://github.com/mongstad/Simulation-Standards/blob/8157653c58eb055102e587734e3898a43653eba0/standards/SWSS/v2.0.md).
 The selected entry must match. No imports, `--help`, subprocesses, network,
 dependency installation or scientific source writes occur during discovery.
 A large Python AST does not affect TOML discovery.
@@ -38,6 +39,10 @@ author-reviewed replacement/removal is required. There is no converter or fallba
 reader. Existing records and their old configuration bytes remain readable.
 
 ## Companion example
+
+This retained schema-2 example has no portable output-parent semantics. For
+schema 3, use [output-parent discovery](SWSS_OUTPUT_PARENT.md); changing only a
+schema number cannot make a simulation obey a different output contract.
 
 ```toml
 [swss]

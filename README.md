@@ -30,9 +30,13 @@ source development history is under **Source Git**.
 
 Register existing simulations and launch them from the local browser portal, or
 keep recording from a terminal or editor. The portal can discover supported,
-parameters declared in a root `swss.toml` (SWSS schema 2) and let you selectively override them; dynamic declarations
+parameters declared in a root `swss.toml` (SWSS schemas 2 and 3) and let you selectively override them; dynamic declarations
 and some argument styles still need manual entry. Follow run status and reported
 progress when available—progress detection is optional and not universal.
+
+Schema 3 can discover the standalone output parent from its declaration and an
+unambiguous bound CLI override. Schema 2 retains its existing explicit capture
+settings. See [output-parent discovery and limits](docs/SWSS_OUTPUT_PARENT.md).
 
 Review previous runs, source snapshots and copied or referenced results. Attach
 screenshots and notes, compare recorded parameters, and keep scientific version

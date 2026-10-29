@@ -99,9 +99,11 @@ class OutputInput(BaseModel):
     output_dir: str
     output_mappings: list[dict] = Field(default_factory=list)
     output_policy: str = "fixed"
+    output_mode: str = "manual"
 
 
 class ExecutionInput(OutputInput):
+    output_revision: str | None = None
     parameter_review: dict | None = None
     interpreter: str
     progress_mode: str = "off"
@@ -529,7 +531,7 @@ def create_app(workspace=None, *, request_shutdown=None) -> FastAPI:
         from .output_paths import validate_simulation_output_policy
         simulation = store.simulation(ident)
         validate_simulation_output_policy(simulation, body.output_policy)
-        return output_review(simulation, body.cwd, body.arguments, body.output_dir, body.output_mappings, body.output_policy)
+        return output_review(simulation, body.cwd, body.arguments, body.output_dir, body.output_mappings, body.output_policy, body.output_mode)
 
     @app.post("/api/simulations/{ident}/execution/validate")
     def validate_execution(ident: str, body: ExecutionInput):

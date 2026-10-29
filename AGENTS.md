@@ -25,7 +25,8 @@ SimShelf is an independent, local-first Python simulation library and run journa
 ## SWSS contracts
 - For portable simulation-facing contracts, consult the accepted SWSS specification
   in [Simulation-Standards](https://github.com/mongstad/Simulation-Standards).
-  SimShelf currently consumes [SWSS v2.0 schema 2](https://github.com/mongstad/Simulation-Standards/blob/8157653c58eb055102e587734e3898a43653eba0/standards/SWSS/v2.0.md)
+  SimShelf consumes [SWSS v3.0 schema 3](https://github.com/mongstad/Simulation-Standards/blob/198f234693535c1f7bc7e78cd8e599a510c2d494/standards/SWSS/v3.0.md)
+  and compatible [SWSS v2.0 schema 2](https://github.com/mongstad/Simulation-Standards/blob/8157653c58eb055102e587734e3898a43653eba0/standards/SWSS/v2.0.md)
   through one `swss.toml`; see `docs/PARAMETER_DISCOVERY.md` for tested boundaries
   and the local extension. Do not imply scientific baseline certification.
 - Preserve exact argv and historical config/source bytes. Never convert scientific
@@ -35,7 +36,7 @@ SimShelf is an independent, local-first Python simulation library and run journa
   work, not implicit semantics in a SimShelf extension.
 
 ### Missing or conflicting portable contracts
-- Before changing a simulation-facing workflow contract, check the **accepted normative** [SWSS specification](https://github.com/mongstad/Simulation-Standards/blob/main/standards/SWSS/v2.0.md) and its applicable capability boundaries. A proposal, open issue or unmerged PR is **not** an accepted contract; check the repository's current authoritative revision before treating it as binding.
+- Before changing a simulation-facing workflow contract, check the **accepted normative** [SWSS specification](https://github.com/mongstad/Simulation-Standards/blob/main/standards/SWSS/v3.0.md) and its applicable capability boundaries. A proposal, open issue or unmerged PR is **not** an accepted contract; check the repository's current authoritative revision before treating it as binding.
 - If an authorized task requires a **new, changed or incompatible portable contract** (such as shared `swss.toml` semantics, portable arguments, lifecycle, capture or provenance rules) that SWSS does not define or support, **do not invent a competing SimShelf-specific standard** or silently extend `[swss]` or an application extension to replace normative rules. Identify the gap, the affected SimShelf work, the intended cross-tool behavior and relevant compatibility, safety, provenance and conformance consequences.
 - **Propose** a dedicated issue in [Simulation-Standards](https://github.com/mongstad/Simulation-Standards) for owner consideration, cross-linking the dependent SimShelf issue/PR. Do **not** automatically create the issue, amend SWSS, or edit another repository without explicit owner authorization. Surface the proposal to the owner and request direction.
 - **Pause only the SWSS-dependent implementation** until the owner authorizes a standards change and the needed contract is accepted. Independent, already-authorized work may continue without expanding scope. After acceptance, implement the contract in SimShelf only through the existing owner-authorized issue/PR workflow. **SWSS specifies; SimShelf conforms.**

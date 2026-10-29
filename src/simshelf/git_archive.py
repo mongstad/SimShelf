@@ -585,7 +585,8 @@ def fingerprint_outputs(simulation, plan):
             if size > FILE_LIMIT or total > RUN_LIMIT:
                 result[name] = {'error': 'Output exceeds archive read budget'}
                 continue
-            data = safe_read(Path(simulation['root']) / simulation['config']['output_dir'] / name)
+            from .swss_output import capture_path
+            data = safe_read(capture_path(simulation) / name)
             result[name] = {'hash': hash_bytes(data), 'size': len(data)}
         except (OSError, ValueError) as exc:
             result[name] = {'error': str(exc)}

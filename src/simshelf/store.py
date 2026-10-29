@@ -197,6 +197,16 @@ class Store:
                 data["source_change"] = "baseline" if not baseline else "same" if baseline["snapshot_id"] == data["snapshot_id"] else "text-only" if baseline["structure_id"] == data["structure_id"] else "changed"
                 data["baseline_run_id"] = baseline["id"] if baseline else run_id
                 conn.execute("INSERT OR IGNORE INTO runs VALUES (?,?,?,?,?,?)", (run_id, data["simulation_id"], data["status"], data["started_at"], data["version"], json_text(data)))
+                boundaries = data.get('swss_output_boundaries')
+                if boundaries:
+                    # The journaled start and its known generated boundaries
+                    # commit together, including during recovery after failure.
+                    key = boundaries['key']
+                    if not key.startswith('swss_output_boundaries:' + data['simulation_id'] + ':'):
+                        raise ValueError('Invalid SWSS output-boundary association')
+                    previous = conn.execute('SELECT value FROM metadata WHERE key=?', (key,)).fetchone()
+                    paths = sorted(set(boundaries['paths']) | set(json.loads(previous[0]) if previous else []))
+                    conn.execute('INSERT OR REPLACE INTO metadata(key,value) VALUES (?,?)', (key, json_text(paths)))
             else:
                 row = conn.execute("SELECT data FROM runs WHERE id=?", (run_id,)).fetchone()
                 if not row:

@@ -54,7 +54,7 @@ def test_minimal_extensions_and_no_discovery_execution(companion, monkeypatch):
 
 @pytest.mark.parametrize('change', [
     lambda s: s.replace('schema_version = 2', 'schema_version = 1'),
-    lambda s: s.replace('schema_version = 2', 'schema_version = 3'),
+    lambda s: s.replace('schema_version = 2', 'schema_version = 4'),
     lambda s: s + '\n[apps.foo]\nx = 1\n',
     lambda s: s.replace('entrypoint = "sim.py"', 'entrypoint = "../sim.py"'),
     lambda s: s.replace('entrypoint = "sim.py"', 'entrypoint = "/sim.py"'),

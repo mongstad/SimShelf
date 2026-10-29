@@ -1,5 +1,9 @@
 # Stage 1 validation
 
+Current schema-3 adoption evidence is recorded separately in
+[issue #154 output-parent discovery](validation/issue-154-swss-output-parent.md).
+The earlier reports below retain their original scope and wording.
+
 Validated on 2026-10-14 on Linux with Python 3.14.8 and Node.js 24.19.0.
 This is local development validation, not a cross-platform or scale certification.
 
