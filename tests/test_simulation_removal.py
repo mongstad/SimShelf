@@ -158,8 +158,8 @@ def test_active_and_pending_start_race(project, monkeypatch):
     import simshelf.recording as recording
     original = recording.source_snapshot
     entered, release = threading.Event(), threading.Event()
-    def blocked(*args):
-        value = original(*args); entered.set(); assert release.wait(10); return value
+    def blocked(*args, **kwargs):
+        value = original(*args, **kwargs); entered.set(); assert release.wait(10); return value
     monkeypatch.setattr(recording, 'source_snapshot', blocked)
     active = Run(sim['id'], workspace=store.path, capture_console=False)
     with ThreadPoolExecutor(2) as pool:

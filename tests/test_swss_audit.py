@@ -12,9 +12,16 @@ from test_portal import finish, headers, settings
 from test_swss import HEADER, ROW
 
 
-@pytest.mark.parametrize('metadata', [None, 'not valid toml', HEADER.replace('= 2', '= 3') + ROW,
-                                     HEADER + ROW, HEADER + ROW + '\n[[swss.source_files]]\npath="sim.py"\nsha256="' + '0'*64 + '"\n'])
-def test_audit_manual_launch_matrix(tmp_path, metadata):
+@pytest.mark.parametrize('metadata, expected_schema', [
+    pytest.param(None, None, id='missing'),
+    pytest.param('not valid toml', None, id='malformed'),
+    pytest.param(HEADER + ROW, 2, id='schema-2'),
+    pytest.param(HEADER.replace('= 2', '= 3') + ROW, 3, id='schema-3'),
+    pytest.param(HEADER.replace('= 2', '= 4') + ROW, None, id='unsupported-schema'),
+    pytest.param(HEADER + ROW + '\n[[swss.source_files]]\npath="sim.py"\nsha256="' + '0'*64 + '"\n',
+                 None, id='source-hash-mismatch'),
+])
+def test_audit_manual_launch_matrix(tmp_path, metadata, expected_schema):
     root = tmp_path/'source'; root.mkdir()
     source = root/'sim.py'
     source.write_text('import json, sys\nprint(json.dumps(sys.argv[1:]))\n')
@@ -26,8 +33,11 @@ def test_audit_manual_launch_matrix(tmp_path, metadata):
     with TestClient(create_app(store.path)) as client:
         auth = headers(client)
         discovered = client.get(f"/api/simulations/{sim['id']}/parameters").json()
-        if metadata == HEADER + ROW:
+        if expected_schema is not None:
+            assert len(discovered['parameters']) == 1
             assert discovered['parameters'][0]['supported']
+            assert discovered['parameters'][0]['flags'] == ['--N', '-n']
+            assert discovered['provenance']['schema_version'] == expected_schema
             assert discovered['provenance']['binding_status'] == 'binding unverified'
         else:
             assert not discovered['parameters'] and discovered['warnings']
