@@ -228,8 +228,8 @@ def test_snapshot_start_is_protected_from_deletion(project, monkeypatch):
     import simshelf.recording as recording
     snapshot = recording.source_snapshot
     reached, release = threading.Event(), threading.Event()
-    def blocked_snapshot(*args):
-        result = snapshot(*args)
+    def blocked_snapshot(*args, **kwargs):
+        result = snapshot(*args, **kwargs)
         reached.set()
         assert release.wait(10)
         return result
