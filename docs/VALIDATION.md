@@ -526,3 +526,9 @@ See [issue #152 entrypoint warning](validation/issue-152-entrypoint-warning.md)
 for the narrowed primary-byte/declaration predicate, historical projections,
 unchanged whole-snapshot evidence, source/installed/browser checks and owner steps.
 Earlier reports and screenshots remain unchanged.
+
+## Declared long-option prefix ownership
+
+See [issue #158 parameter prefixes](validation/issue-158-parameter-prefix.md) for
+exact-name precedence, preserved manual tokens, focused regressions, schema-3
+browser and installed-package checks, limitations and owner verification.
