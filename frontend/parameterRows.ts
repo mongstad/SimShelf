@@ -28,8 +28,12 @@ export function manualValue(value: string): Partial<Row> {
   return { value: value === "" ? null : value, valueOpen: true };
 }
 const optionName = (token: string) => token.split("=", 1)[0];
-function possible(token: string, p: Parameter) {
+function possible(token: string, p: Parameter, parameters: Parameter[]) {
   const name = optionName(token);
+  // Complete declared names own their tokens, even when another option starts
+  // with that name. Only undeclared spellings need conservative prefix review.
+  if (parameters.some((candidate) => candidate.flags.includes(name)))
+    return p.flags.includes(name);
   return p.flags.some(
     (f) =>
       name === f ||
@@ -109,7 +113,7 @@ export function parameterRows(
     args.indexOf("--") < 0 ? args.length : args.indexOf("--"),
   );
   for (const p of parameters.filter((p) => p.supported)) {
-    if (beforeDelimiter.some((a) => possible(a, p))) continue;
+    if (beforeDelimiter.some((a) => possible(a, p, parameters))) continue;
     const draft = drafts.find(
       (r) =>
         !r.enabled &&
@@ -163,6 +167,9 @@ export function parameterError(rows: Row[], parameters: Parameter[]): string {
   const args = rowArguments(rows),
     limit = argumentError(args);
   if (limit) return limit;
+  // Per-row error projections pass only the declaration being checked. Retain
+  // the other rows' declarations so exact option ownership is still available.
+  const declarations = [...parameters, ...rows.flatMap(r => r.parameter ? [r.parameter] : [])];
   const normalized = parameterRows(args, parameters);
   for (const p of parameters.filter((p) => p.supported)) {
     const matches = normalized.filter(
@@ -173,7 +180,7 @@ export function parameterError(rows: Row[], parameters: Parameter[]): string {
       args.indexOf("--") < 0 ? args.length : args.indexOf("--"),
     );
     const uncertain = before.some(
-      (a) => possible(a, p) && !p.flags.includes(optionName(a)),
+      (a) => possible(a, p, declarations) && !p.flags.includes(optionName(a)),
     );
     if (
       p.action === "store" &&
